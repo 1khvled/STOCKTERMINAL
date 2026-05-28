@@ -448,18 +448,36 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
             const sc = STOCK_DATA.financial_scores || {};
             const dp = sc.dupont || {};
 
+            const updateText = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = val;
+            };
+
             if (Object.keys(dp).length === 0) {
-                document.getElementById('dp-margin').innerText = "N/A";
-                document.getElementById('dp-turnover').innerText = "N/A";
-                document.getElementById('dp-leverage').innerText = "N/A";
-                document.getElementById('dp-roe').innerText = "N/A";
+                updateText('dp-margin', "N/A");
+                updateText('dp-margin-rail', "N/A");
+                updateText('dp-turnover', "N/A");
+                updateText('dp-turnover-rail', "N/A");
+                updateText('dp-leverage', "N/A");
+                updateText('dp-leverage-rail', "N/A");
+                updateText('dp-roe', "N/A");
+                updateText('dp-roe-rail', "N/A");
                 return;
             }
 
-            document.getElementById('dp-margin').innerText = `${parseFloat(dp.net_margin || 0).toFixed(2)}%`;
-            document.getElementById('dp-turnover').innerText = `${parseFloat(dp.asset_turnover || 0).toFixed(2)}x`;
-            document.getElementById('dp-leverage').innerText = `${parseFloat(dp.equity_multiplier || 1.0).toFixed(2)}x`;
-            document.getElementById('dp-roe').innerText = `${parseFloat(dp.roe_computed || 0).toFixed(2)}%`;
+            const netMarginVal = `${parseFloat(dp.net_margin || 0).toFixed(2)}%`;
+            const assetTurnoverVal = `${parseFloat(dp.asset_turnover || 0).toFixed(2)}x`;
+            const equityMultiplierVal = `${parseFloat(dp.equity_multiplier || 1.0).toFixed(2)}x`;
+            const roeVal = `${parseFloat(dp.roe_computed || 0).toFixed(2)}%`;
+
+            updateText('dp-margin', netMarginVal);
+            updateText('dp-margin-rail', netMarginVal);
+            updateText('dp-turnover', assetTurnoverVal);
+            updateText('dp-turnover-rail', assetTurnoverVal);
+            updateText('dp-leverage', equityMultiplierVal);
+            updateText('dp-leverage-rail', equityMultiplierVal);
+            updateText('dp-roe', roeVal);
+            updateText('dp-roe-rail', roeVal);
         }
 
         // Altman Z deconstruction factors
@@ -500,12 +518,30 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
             wx5El.style.color = x5 >= 0 ? 'var(--emerald)' : 'var(--ruby)';
 
             const totalScoreEl = document.getElementById('altman-total-score');
+            const railScoreEl = document.getElementById('altman-rail-score');
+            let badgeHtml = '';
+            let zoneLabel = '';
+            let zoneClass = '';
             if (altman > 2.99) {
-                totalScoreEl.innerHTML = `${altman.toFixed(2)} <span style="font-size: 0.7rem; font-weight: 700; padding: 2px 10px; border-radius: 99px; background: var(--emerald-glow); border: 1px solid var(--emerald-border); color: var(--emerald); margin-left: 12px; display: inline-flex; align-items: center; gap: 4px;">🟢 Safe</span>`;
+                badgeHtml = `${altman.toFixed(2)} <span style="font-size: 0.72rem; font-weight: 700; color: var(--signal-positive); margin-left: 12px; border: 1px solid var(--signal-positive); padding: 2px 6px;">SAFE</span>`;
+                zoneLabel = 'SAFE';
+                zoneClass = 'zone-safe';
             } else if (altman >= 1.81) {
-                totalScoreEl.innerHTML = `${altman.toFixed(2)} <span style="font-size: 0.7rem; font-weight: 700; padding: 2px 10px; border-radius: 99px; background: var(--gold-glow); border: 1px solid var(--gold-border); color: var(--gold); margin-left: 12px; display: inline-flex; align-items: center; gap: 4px;">🟡 Grey Zone</span>`;
+                badgeHtml = `${altman.toFixed(2)} <span style="font-size: 0.72rem; font-weight: 700; color: var(--signal-caution); margin-left: 12px; border: 1px solid var(--signal-caution); padding: 2px 6px;">GREY</span>`;
+                zoneLabel = 'GREY';
+                zoneClass = 'zone-grey';
             } else {
-                totalScoreEl.innerHTML = `${altman.toFixed(2)} <span style="font-size: 0.7rem; font-weight: 700; padding: 2px 10px; border-radius: 99px; background: var(--ruby-glow); border: 1px solid var(--ruby-border); color: var(--ruby); margin-left: 12px; display: inline-flex; align-items: center; gap: 4px;">🔴 Distress Zone</span>`;
+                badgeHtml = `${altman.toFixed(2)} <span style="font-size: 0.72rem; font-weight: 700; color: var(--signal-negative); margin-left: 12px; border: 1px solid var(--signal-negative); padding: 2px 6px;">DISTRESS</span>`;
+                zoneLabel = 'DISTRESS';
+                zoneClass = 'zone-distress';
+            }
+
+            if (totalScoreEl) totalScoreEl.innerHTML = badgeHtml;
+            if (railScoreEl) {
+                railScoreEl.innerHTML = `
+                    <span class="metric-val">${altman.toFixed(2)}</span>
+                    <span class="solvency-zone-label ${zoneClass}">${zoneLabel}</span>
+                `;
             }
         }
 
@@ -781,7 +817,11 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
             
             const values = sortedCols.map(c => row[c]);
             
-            document.getElementById('financial-row-chart-container').style.display = 'block';
+            const placeholder = document.getElementById('chart-placeholder');
+            const container = document.getElementById('financial-row-chart-container');
+            if (placeholder) placeholder.style.display = 'none';
+            if (container) container.style.display = 'block';
+
             document.getElementById('financial-chart-title').innerText = `${metricName} — Quarterly Progression`;
             
             const ctx = document.getElementById('financial-row-chart').getContext('2d');
@@ -841,7 +881,10 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
         }
 
         function closeFinancialChart() {
-            document.getElementById('financial-row-chart-container').style.display = 'none';
+            const placeholder = document.getElementById('chart-placeholder');
+            const container = document.getElementById('financial-row-chart-container');
+            if (placeholder) placeholder.style.display = 'flex';
+            if (container) container.style.display = 'none';
             if (financialChartInstance) {
                 financialChartInstance.destroy();
                 financialChartInstance = null;

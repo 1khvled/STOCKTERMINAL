@@ -8,1072 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard_new.css') }}">
-    <style>
-        /* ============================================================
-           THE BLOOMBERG TERMINAL DESIGN SYSTEM & VARIABLES
-           ============================================================ */
-        :root {
-            --bg-base: #0a0a0a;           /* True near-black. The terminal floor */
-            --bg-surface: #111111;        /* Panel/card backgrounds */
-            --bg-elevated: #1a1a1a;       /* Hover rows, input backgrounds */
-            --bg-header: #0d0d0d;         /* Nav, tab bars, section headers */
-
-            --border: #2a2a2a;            /* All borders — never white-alpha */
-            --border-strong: #3a3a3a;     /* Focused borders, active states */
-
-            --text-primary: #e8e8e8;      /* Main readable text */
-            --text-secondary: #999999;    /* Labels, captions, helper text */
-            --text-muted: #555555;        /* Disabled, skeleton, very minor */
-
-            /* Bloomberg Signal Colors — used ONLY for data meaning */
-            --signal-buy: #ff8c00;        /* Bloomberg orange — BUY / positive action */
-            --signal-positive: #00aa44;   /* Price up, positive delta */
-            --signal-negative: #cc2200;   /* Price down, negative delta */
-            --signal-neutral: #888888;    /* HOLD / flat / no signal */
-            --signal-caution: #ccaa00;    /* Warnings, grey zone indicators */
-            --signal-highlight: #ff8c00;  /* Active tab, selected state */
-
-            --font-mono: 'JetBrains Mono', 'Courier New', monospace;
-            --font-ui: 'Outfit', system-ui, sans-serif;
-
-            /* Spacing & Shape */
-            --radius: 2px;               /* Nearly zero rounding — terminals are sharp */
-            --radius-sm: 1px;
-            --border-width: 1px;
-        }
-
-        /* ============================================================
-           GLOBAL BODY & RESET
-           ============================================================ */
-        *, *::before, *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        html {
-            font-size: 13px;
-        }
-
-        body {
-            font-family: var(--font-ui);
-            background-color: var(--bg-base);
-            color: var(--text-primary);
-            line-height: 1.4;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow-x: hidden;
-        }
-
-        /* Square Scrollbars */
-        ::-webkit-scrollbar {
-            width: 4px;
-            height: 4px;
-        }
-        ::-webkit-scrollbar-track {
-            background: var(--bg-base);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: var(--border-strong);
-            border-radius: 0;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--text-muted);
-        }
-
-        /* ============================================================
-           1. NAV BAR
-           ============================================================ */
-        nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            height: 36px;
-            background: var(--bg-header);
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            padding: 0 16px;
-        }
-
-        .logo-container {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .logo-symbol {
-            font-family: var(--font-mono);
-            font-weight: 800;
-            font-size: 13px;
-            color: var(--signal-buy);
-            background: transparent;
-            padding: 0;
-            box-shadow: none;
-        }
-
-        /* Blinking cursor character | */
-        .logo-container::after {
-            content: '|';
-            color: var(--signal-buy);
-            font-family: var(--font-mono);
-            font-size: 13px;
-            font-weight: 800;
-            animation: blink 1s step-end infinite;
-        }
-
-        @keyframes blink {
-            from, to { opacity: 1; }
-            50% { opacity: 0; }
-        }
-
-        .logo-text {
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-        }
-
-        .logo-tag {
-            display: none; /* Removed tags with decorative animations */
-        }
-
-        .nav-actions {
-            display: flex;
-            align-items: center;
-            height: 100%;
-        }
-
-        .nav-actions .btn {
-            background: transparent;
-            color: var(--text-secondary);
-            border: none;
-            border-right: 1px solid var(--border);
-            padding: 0 14px;
-            height: 100%;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0;
-            border-radius: 0;
-            transition: color 0.1s ease;
-        }
-
-        .nav-actions .btn:first-child {
-            border-left: 1px solid var(--border);
-        }
-
-        .nav-actions .btn:hover {
-            color: var(--text-primary);
-            background: transparent;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .nav-actions .btn:active {
-            transform: none;
-        }
-
-        /* ============================================================
-           LAYOUT SYSTEM (Workspace)
-           ============================================================ */
-        .workspace {
-            width: 100%;
-            margin: 0;
-            padding: 0;
-            flex-grow: 1;
-            display: grid;
-            grid-template-columns: 280px 1fr;
-            gap: 0;
-            align-items: stretch;
-        }
-
-        @media (max-width: 1100px) {
-            .workspace {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* ============================================================
-           2. SIDEBAR
-           ============================================================ */
-        .sidebar {
-            background: var(--bg-surface);
-            border-right: 1px solid var(--border);
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            height: calc(100vh - 36px);
-            position: sticky;
-            top: 36px;
-            overflow-y: auto;
-        }
-
-        .sidebar .card {
-            background: transparent;
-            border: none;
-            padding: 0;
-            box-shadow: none;
-        }
-
-        .sidebar .card:hover {
-            border-color: rgba(0,0,0,0);
-            box-shadow: none;
-            transform: none;
-        }
-
-        /* Section Header Bar */
-        .sidebar .section-label {
-            background: var(--bg-header);
-            border-bottom: 1px solid var(--border);
-            padding: 6px 12px;
-            font-size: 0.65rem; /* ~10px */
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            color: var(--text-muted);
-            margin-bottom: 0;
-            display: block;
-        }
-
-        .sidebar .section-label::before,
-        .sidebar .section-label::after {
-            display: none; /* No decorative indicator markers or accent lines */
-        }
-
-        /* Slider Groups */
-        .slider-group {
-            padding: 10px 12px;
-            border-bottom: 1px solid var(--border);
-            margin-bottom: 0;
-        }
-
-        .slider-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 4px;
-        }
-
-        .slider-label {
-            font-size: 0.72rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-        }
-
-        .slider-value {
-            font-family: var(--font-mono);
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: var(--signal-buy);
-            background: transparent;
-            border: none;
-            padding: 0;
-            border-radius: 0;
-        }
-
-        .slider-help {
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            margin-bottom: 6px;
-            line-height: 1.3;
-            font-style: normal;
-        }
-
-        /* Range inputs (sliders) */
-        .slider-control {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 100%;
-            height: 2px;
-            background: var(--border-strong);
-            outline: none;
-            cursor: pointer;
-            border: none;
-            transition: none;
-            padding: 0;
-        }
-
-        .slider-control:hover {
-            border-color: transparent;
-        }
-
-        .slider-control::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 10px;
-            height: 10px;
-            background: var(--signal-buy);
-            border-radius: 0; /* Square thumb */
-            border: none;
-            cursor: pointer;
-            box-shadow: none;
-            transition: none;
-        }
-
-        .slider-control::-webkit-slider-thumb:hover {
-            transform: none;
-            border-color: transparent;
-        }
-
-        /* CAPM Result Box */
-        .capm-card {
-            background: var(--bg-header) !important;
-            border: none !important;
-            border-left: 2px solid var(--signal-buy) !important;
-            border-radius: 0 !important;
-            padding: 8px 12px !important;
-            margin: 10px 12px 14px !important;
-            box-shadow: none !important;
-        }
-
-        .capm-formula {
-            font-family: var(--font-mono);
-            font-size: 0.68rem;
-            color: var(--text-muted);
-            margin-bottom: 2px;
-        }
-
-        .capm-result {
-            font-family: var(--font-mono);
-            font-size: 1rem;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-
-        /* DCF Output Display Widget */
-        .dcf-widget {
-            background: var(--bg-header) !important;
-            border: 1px solid var(--border-strong) !important;
-            border-top: 2px solid var(--signal-buy) !important;
-            border-radius: 0 !important;
-            padding: 10px 12px !important;
-            margin: 14px 12px !important;
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: flex-start !important;
-            text-align: left !important;
-            gap: 4px !important;
-            box-shadow: none !important;
-        }
-
-        .dcf-widget::before {
-            display: none;
-        }
-
-        .widget-label {
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            font-family: var(--font-ui);
-        }
-
-        .widget-val {
-            font-size: 1.4rem;
-            font-weight: 700;
-            font-family: var(--font-mono);
-            color: var(--text-primary);
-            letter-spacing: normal;
-        }
-
-        .widget-return {
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0;
-            border-radius: 0;
-            background: transparent !important;
-            border: none !important;
-        }
-
-        /* Save Button */
-        .sidebar #save-btn {
-            width: calc(100% - 24px);
-            margin: 0 auto 16px;
-            height: 30px;
-            background: var(--signal-buy);
-            color: #000; /* Black text on orange */
-            border-radius: var(--radius);
-            font-family: var(--font-mono);
-            font-size: 0.7rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            border: none;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            transition: background 0.1s ease;
-            box-shadow: none;
-        }
-
-        .sidebar #save-btn:hover {
-            background: #cc7000;
-            transform: none;
-        }
-
-        .sidebar #save-btn svg {
-            stroke: #000;
-        }
-
-        /* ============================================================
-           RIGHT WORKSPACE AREA
-           ============================================================ */
-        .research-area {
-            display: flex;
-            flex-direction: column;
-            gap: 0; /* Tight stack */
-            min-width: 0;
-            background: var(--bg-base);
-        }
-
-        .stock-header-card {
-            background: var(--bg-surface);
-            border-bottom: 1px solid var(--border);
-            border-radius: 0;
-            display: flex;
-            flex-direction: row;
-            justify-content: flex-start;
-            align-items: baseline;
-            flex-wrap: wrap;
-            gap: 24px;
-            padding: 10px 16px;
-            box-shadow: none;
-        }
-
-        .stock-header-card::before {
-            display: none;
-        }
-
-        .stock-info {
-            display: flex;
-            flex-direction: row;
-            align-items: baseline;
-            gap: 12px;
-        }
-
-        .sector-badge {
-            font-family: var(--font-ui);
-            font-size: 0.62rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            padding: 2px 6px;
-            border-radius: 0;
-            background: transparent;
-            color: var(--text-muted);
-            border: 1px solid var(--border-strong);
-        }
-
-        .company-name {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            letter-spacing: normal;
-        }
-
-        .company-meta {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            font-family: var(--font-mono);
-        }
-
-        .header-quotes {
-            display: flex;
-            gap: 24px;
-            align-items: baseline;
-        }
-
-        .quote-block-dynamic {
-            display: flex;
-            flex-direction: row;
-            align-items: baseline;
-            gap: 8px;
-        }
-
-        .quote-lbl {
-            font-size: 0.6rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            font-family: var(--font-mono);
-        }
-
-        .quote-price {
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            font-family: var(--font-mono);
-        }
-
-        .quote-change {
-            font-size: 0.78rem;
-            font-weight: 700;
-            font-family: var(--font-mono);
-        }
-
-        /* Verdict Badge Styling */
-        .badge-verdict {
-            font-family: var(--font-mono);
-            font-size: 0.65rem;
-            font-weight: 700;
-            padding: 3px 10px;
-            border-radius: 0;
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            display: inline-block;
-            box-shadow: none !important;
-        }
-
-        .badge-buy {
-            background: var(--signal-buy) !important;
-            color: #000 !important;
-            border: none !important;
-        }
-
-        .badge-hold {
-            border: 1px solid var(--signal-neutral) !important;
-            color: var(--signal-neutral) !important;
-            background: transparent !important;
-        }
-
-        .badge-sell {
-            background: var(--signal-negative) !important;
-            color: #fff !important;
-            border: none !important;
-        }
-
-        /* Confidence Bar styling */
-        #stock-confidence-container {
-            border: none !important;
-            box-shadow: none !important;
-            background: transparent !important;
-            padding: 0 !important;
-        }
-
-        .verdict-conf-dynamic span:first-child {
-            font-size: 0.55rem;
-            color: var(--text-muted);
-        }
-
-        .verdict-conf-dynamic span:last-child {
-            font-size: 0.78rem;
-            color: var(--text-secondary);
-        }
-
-        .confidence-bar-bg {
-            background: var(--border) !important;
-            border-radius: 0 !important;
-            height: 3px !important;
-        }
-
-        #stock-confidence-bar {
-            background: var(--signal-buy) !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-        }
-
-        /* ============================================================
-           4. STATS STRIP
-           ============================================================ */
-        .stats-strip {
-            background: var(--bg-header);
-            border-bottom: 1px solid var(--border);
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 0;
-        }
-
-        .stat-node {
-            background: transparent;
-            border: none;
-            border-right: 1px solid var(--border);
-            border-radius: 0;
-            padding: 10px 14px;
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            box-shadow: none !important;
-        }
-
-        .stat-node::before {
-            display: none; /* No decorative indicator markers or gradients */
-        }
-
-        .stat-node:hover {
-            transform: none;
-            border-color: var(--border);
-            box-shadow: none;
-        }
-
-        .stat-node-label {
-            font-family: var(--font-ui);
-            font-size: 0.62rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-        }
-
-        .stat-node-val {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            font-family: var(--font-mono);
-        }
-
-        /* ============================================================
-           5. PRICE CHART CARD
-           ============================================================ */
-        .chart-card {
-            background: var(--bg-surface);
-            border-bottom: 1px solid var(--border);
-            border-radius: 0;
-            padding: 12px 16px;
-            box-shadow: none;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .chart-card:hover {
-            border-color: var(--border);
-            box-shadow: none;
-            transform: none;
-        }
-
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .chart-container {
-            width: 100%;
-            height: 180px;
-        }
-
-        .chart-svg {
-            stroke-width: 1.5px;
-        }
-
-        .chart-tooltip {
-            background: var(--bg-elevated);
-            border: 1px solid var(--border-strong);
-            color: var(--text-primary);
-            border-radius: var(--radius-sm);
-            box-shadow: none;
-        }
-
-        /* ============================================================
-           6. TAB NAVIGATION BAR
-           ============================================================ */
-        .tab-nav {
-            background: var(--bg-header);
-            border-bottom: 2px solid var(--border);
-            height: 32px;
-            padding: 0;
-            border-radius: 0;
-            position: sticky;
-            top: 36px;
-            z-index: 100;
-            overflow: visible;
-            display: flex;
-            gap: 0;
-            backdrop-filter: none;
-            -webkit-backdrop-filter: none;
-        }
-
-        .tab-btn {
-            height: 100%;
-            padding: 0 14px;
-            font-size: 0.68rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--text-muted);
-            border: none;
-            border-right: 1px solid var(--border);
-            background: transparent;
-            border-radius: 0;
-            transition: color 0.1s ease;
-        }
-
-        .tab-btn:hover {
-            color: var(--text-secondary);
-            background: transparent;
-        }
-
-        .tab-btn.active {
-            background: var(--bg-surface);
-            border-bottom: 2px solid var(--signal-buy);
-            color: var(--text-primary);
-            box-shadow: none;
-            margin-bottom: -2px; /* Overlap active border */
-        }
-
-        /* ============================================================
-           7. CONTENT PANELS / NARRATIVE CARDS
-           ============================================================ */
-        .tab-panel {
-            display: none;
-            animation: none; /* Terminals are fast, no animations */
-        }
-
-        .tab-panel.active {
-            display: flex;
-            flex-direction: column;
-            gap: 1px; /* Sitting flush */
-        }
-
-        .narrative-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 0;
-            margin-bottom: 1px;
-            padding: 14px 16px;
-            border-left: 1px solid var(--border); /* Replaced color indicators */
-        }
-
-        .narrative-card:hover {
-            border-color: var(--border);
-            box-shadow: none;
-        }
-
-        .narrative-card:nth-child(n) {
-            border-left: 1px solid var(--border); /* No color stripes */
-        }
-
-        .narrative-title {
-            font-size: 0.65rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            margin-bottom: 10px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .narrative-title svg {
-            width: 12px;
-            height: 12px;
-            stroke: var(--signal-buy);
-            margin-right: 6px;
-        }
-
-        .narrative-body {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            line-height: 1.55;
-        }
-
-        /* Skeleton Loading bars */
-        .skeleton {
-            border-radius: 0;
-            background: var(--bg-elevated);
-            animation: none; /* No loading sparkles */
-            opacity: 0.5;
-        }
-
-        .skeleton-text {
-            height: 10px;
-            margin-bottom: 6px;
-        }
-
-        /* Notion qualitative subpage buttons */
-        .sub-nav {
-            display: flex;
-            gap: 0;
-            background: var(--bg-header);
-            border-bottom: 1px solid var(--border);
-            padding: 2px 2px 0;
-        }
-
-        .sub-tab-btn {
-            background: transparent;
-            border: none;
-            border-right: 1px solid var(--border);
-            padding: 6px 14px;
-            border-radius: 0;
-            color: var(--text-secondary);
-            font-size: 0.72rem;
-            font-weight: 600;
-        }
-
-        .sub-tab-btn:hover {
-            color: #fff;
-            background: var(--bg-elevated);
-        }
-
-        .sub-tab-btn.active {
-            background: var(--bg-surface);
-            color: var(--text-primary);
-            border-top: 2px solid var(--signal-buy);
-            margin-top: -2px;
-        }
-
-        /* ============================================================
-           8. DATA TABLES
-           ============================================================ */
-        .table-container {
-            width: 100%;
-            overflow-x: auto;
-            border: 1px solid var(--border);
-            border-radius: 0;
-            background: var(--bg-surface);
-        }
-
-        .statement-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.78rem;
-            text-align: left;
-        }
-
-        .statement-table th {
-            background: var(--bg-header);
-            color: var(--text-muted);
-            font-weight: 700;
-            padding: 6px 10px;
-            border-bottom: 1px solid var(--border-strong);
-            font-family: var(--font-mono);
-            font-size: 0.62rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-        }
-
-        .statement-table td {
-            padding: 7px 10px;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-secondary);
-            font-family: var(--font-mono);
-            transition: none;
-        }
-
-        .statement-table tr:hover td {
-            background: var(--bg-elevated);
-            color: #fff;
-        }
-
-        .statement-table tr.header-row td {
-            background: var(--bg-header);
-            color: #fff;
-            font-weight: 700;
-            border-bottom: 1px solid var(--border-strong);
-        }
-
-        .statement-table td.metric-name {
-            font-family: var(--font-ui);
-            font-weight: 600;
-            color: var(--text-primary);
-            max-width: 250px;
-        }
-
-        .statement-table td.val-cell {
-            text-align: right;
-        }
-
-        /* Color codes on table numbers */
-        .statement-table td.val-cell.positive,
-        .peers-positive {
-            color: var(--signal-positive) !important;
-        }
-
-        .statement-table td.val-cell.negative,
-        .peers-negative {
-            color: var(--signal-negative) !important;
-        }
-
-        /* Total Rows */
-        .statement-table tr.total-row td {
-            background: var(--bg-header);
-            font-weight: 700;
-            color: #fff;
-        }
-
-        /* ============================================================
-           9. DUPONT WIDGET
-           ============================================================ */
-        .dupont-card {
-            background: transparent;
-            border: none;
-            padding: 0;
-            display: flex;
-            flex-direction: row;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 4px;
-            margin-bottom: 16px;
-            border-radius: 0;
-        }
-
-        .dupont-node {
-            flex: 1;
-            min-width: 120px;
-            border: 1px solid var(--border);
-            padding: 10px 12px;
-            background: var(--bg-header);
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            align-items: flex-start;
-        }
-
-        .dupont-node-label {
-            font-size: 0.62rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-        }
-
-        .dupont-node-val {
-            font-family: var(--font-mono);
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-
-        .dupont-multiplier {
-            font-family: var(--font-mono);
-            font-size: 1rem;
-            color: var(--text-muted);
-            padding: 0 4px;
-        }
-
-        /* Final node: computed ROE */
-        .dupont-node:last-child {
-            border-left: 2px solid var(--signal-positive);
-        }
-        .dupont-node:last-child .dupont-node-val {
-            color: var(--signal-positive);
-        }
-
-        /* ============================================================
-           10. STATEMENT SELECTOR BUTTONS
-           ============================================================ */
-        .financial-statement-selector {
-            display: flex;
-            gap: 0; /* Sit flush */
-        }
-
-        .btn-toggle {
-            border-radius: 0;
-            height: 26px;
-            padding: 0 12px;
-            border: 1px solid var(--border);
-            background: transparent;
-            color: var(--text-muted);
-            font-family: var(--font-mono);
-            font-size: 0.68rem;
-            text-transform: uppercase;
-            cursor: pointer;
-            transition: none;
-        }
-
-        .btn-toggle:hover {
-            border-color: var(--border-strong);
-            color: var(--text-secondary);
-            background: transparent;
-        }
-
-        .btn-toggle.active {
-            background: var(--signal-buy) !important;
-            color: #000 !important;
-            border-color: var(--signal-buy) !important;
-        }
-
-        /* ============================================================
-           12. NOTIFICATION TOAST
-           ============================================================ */
-        #notification {
-            position: fixed;
-            bottom: 16px;
-            right: 16px;
-            background: var(--bg-elevated);
-            border: 1px solid var(--border-strong);
-            border-left: 2px solid var(--signal-positive);
-            padding: 10px 14px;
-            border-radius: 0;
-            box-shadow: none;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transform: translateX(250px);
-            opacity: 0;
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
-            z-index: 2000;
-        }
-
-        #notification.show {
-            transform: translateX(0);
-            opacity: 1;
-        }
-
-        #notification svg {
-            stroke: var(--signal-positive);
-        }
-
-        #notification-msg {
-            color: var(--text-primary);
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-            font-weight: 700;
-        }
-
-        /* ============================================================
-           13. ALTMAN Z-SCORE LEGEND
-           ============================================================ */
-        .altman-legend-bar {
-            display: flex;
-            gap: 12px;
-            background: var(--bg-header);
-            padding: 8px 10px;
-            border: 1px solid var(--border);
-            margin-top: 14px;
-        }
-
-        .altman-legend-span {
-            font-size: 0.72rem;
-            padding: 2px 6px;
-            display: inline-flex;
-            flex-direction: column;
-        }
-
-        .altman-legend-span.safe {
-            border-left: 2px solid var(--signal-positive);
-        }
-
-        .altman-legend-span.grey {
-            border-left: 2px solid var(--signal-caution);
-        }
-
-        .altman-legend-span.distress {
-            border-left: 2px solid var(--signal-negative);
-        }
-
-        .altman-legend-title {
-            font-weight: 700;
-            font-size: 0.7rem;
-            margin-bottom: 2px;
-        }
-
-        .altman-legend-desc {
-            color: var(--text-secondary);
-            font-size: 0.65rem;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard_new.css') }}?v=1">
 </head>
 <body>
     <nav>
@@ -1082,9 +17,7 @@
             <span class="logo-text">StockerAI Terminal</span>
         </div>
         <div class="nav-actions">
-            <a href="/guide" class="btn">
-                Reference Guide
-            </a>
+            <a href="/guide" class="btn">Reference Guide</a>
             <a href="/stocks" class="btn">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                 Stock Hub
@@ -1097,9 +30,9 @@
     </nav>
 
     <div class="workspace">
-        <!-- Sidebar Inputs -->
+        <!-- 1. LEFT SIDEBAR (280px fixed) -->
         <div class="sidebar">
-            <div class="card">
+            <div class="sidebar-scrollable-content">
                 <div class="section-label">Valuation Model Parameters</div>
 
                 <div class="slider-group">
@@ -1107,7 +40,7 @@
                         <span class="slider-label">Risk-Free Rate (R_f)</span>
                         <span class="slider-value" id="rf-val">4.2%</span>
                     </div>
-                    <div class="slider-help">Yield on risk-free government bonds (your absolute baseline return)</div>
+                    <div class="slider-help">Yield on risk-free government bonds</div>
                     <input type="range" min="2.0" max="6.0" step="0.1" value="4.2" class="slider-control" id="rf-slider">
                 </div>
 
@@ -1116,7 +49,7 @@
                         <span class="slider-label">Beta Coefficient (β)</span>
                         <span class="slider-value" id="beta-val">1.20</span>
                     </div>
-                    <div class="slider-help">Price volatility compared to market (1.00 is equal; &gt;1.00 is more volatile)</div>
+                    <div class="slider-help">Price volatility compared to market</div>
                     <input type="range" min="0.5" max="2.5" step="0.05" value="1.20" class="slider-control" id="beta-slider">
                 </div>
 
@@ -1125,7 +58,7 @@
                         <span class="slider-label">Equity Risk Premium (ERP)</span>
                         <span class="slider-value" id="erp-val">5.5%</span>
                     </div>
-                    <div class="slider-help">The extra profit margin investors demand for holding equities over safe bonds</div>
+                    <div class="slider-help">Demand premium for equity risk</div>
                     <input type="range" min="4.0" max="10.0" step="0.1" value="5.5" class="slider-control" id="erp-slider">
                 </div>
 
@@ -1141,7 +74,7 @@
                         <span class="slider-label">Growth Rate Years 1-5</span>
                         <span class="slider-value" id="growth15-val">15.0%</span>
                     </div>
-                    <div class="slider-help">Estimated annual cash flow growth rate for the next 5 years</div>
+                    <div class="slider-help">Cash flow growth for next 5 years</div>
                     <input type="range" min="0.0" max="40.0" step="0.5" value="15.0" class="slider-control" id="growth15-slider">
                 </div>
 
@@ -1150,7 +83,7 @@
                         <span class="slider-label">Growth Rate Years 6-10</span>
                         <span class="slider-value" id="growth610-val">10.0%</span>
                     </div>
-                    <div class="slider-help">Growth rate for years 6-10 as the company's expansion naturally matures</div>
+                    <div class="slider-help">Growth rate for years 6-10</div>
                     <input type="range" min="0.0" max="25.0" step="0.5" value="10.0" class="slider-control" id="growth610-slider">
                 </div>
 
@@ -1159,7 +92,7 @@
                         <span class="slider-label">Terminal Growth Rate</span>
                         <span class="slider-value" id="terminal-val">2.5%</span>
                     </div>
-                    <div class="slider-help">Growth rate assumed forever after year 10 (usually matches GDP/inflation e.g. 2-3%)</div>
+                    <div class="slider-help">Growth rate assumed forever</div>
                     <input type="range" min="0.5" max="5.0" step="0.1" value="2.5" class="slider-control" id="terminal-slider">
                 </div>
 
@@ -1168,7 +101,9 @@
                     <div class="widget-val" id="implied-dcf-val">$0.00</div>
                     <div class="widget-return" id="implied-return-val">+0.0%</div>
                 </div>
+            </div>
 
+            <div class="sidebar-pinned-bottom">
                 <button class="btn btn-primary" id="save-btn">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                     Save Changes to Excel
@@ -1176,44 +111,23 @@
             </div>
         </div>
 
-        <!-- Right Side Primary Terminal Content -->
-        <div class="research-area">
-            <!-- Header Banner Card -->
-            <div class="card stock-header-card">
+        <!-- 2. MAIN CANVAS (center, flex-grow) -->
+        <div class="main-canvas">
+            <!-- Row 1: Stock header bar (48px tall, single line) -->
+            <div class="stock-header-bar">
                 <div class="stock-info">
                     <span class="sector-badge" id="stock-sector">Sector</span>
                     <span class="company-name" id="stock-name">Company Name</span>
-                    <span class="company-meta" id="stock-ticker-header">Ticker // Company Full Name</span>
+                    <span class="company-meta" id="stock-ticker-header">Ticker // Full Name</span>
                 </div>
-                
-                <div class="header-quotes">
-                    <div class="quote-block-dynamic">
-                        <span class="quote-lbl">Last Traded</span>
-                        <span class="quote-price" id="header-price">$0.00</span>
-                        <span class="quote-change" id="header-price-change">+0.00% today</span>
-                    </div>
-                    <div class="quote-block-dynamic">
-                        <span class="quote-lbl">Consensus Target</span>
-                        <span class="quote-price" style="color: var(--signal-highlight);" id="header-target">$0.00</span>
-                        <span class="quote-change" style="color: var(--text-secondary);" id="header-analyst-count">? Analyst consensus</span>
-                    </div>
-                </div>
-
-                <div style="display: flex; align-items: center; gap: 12px; margin-left: auto;">
-                    <span class="badge-verdict" id="stock-verdict">HOLD</span>
-                    <div id="stock-confidence-container" class="verdict-banner-dynamic" style="display: flex; gap: 10px; align-items: center;">
-                        <div class="verdict-conf-dynamic">
-                            <span>Confidence</span>
-                            <span id="stock-confidence" style="font-family: var(--font-mono); font-weight: 700; color: var(--signal-highlight);">--%</span>
-                        </div>
-                        <div class="confidence-bar-bg" style="width: 44px; height: 3px; background: var(--border); border-radius: 0; overflow: hidden; display: flex;">
-                            <div id="stock-confidence-bar" style="width: 0%; height: 100%; background: var(--signal-highlight); border-radius: 0; transition: width 1s var(--ease);"></div>
-                        </div>
-                    </div>
+                <div class="header-price-info">
+                    <span class="quote-lbl">Last Traded:</span>
+                    <span class="quote-price" id="header-price">$0.00</span>
+                    <span class="quote-change" id="header-price-change">+0.00% today</span>
                 </div>
             </div>
 
-            <!-- Stats Strip row -->
+            <!-- Row 2: Stats strip (4 equal columns) -->
             <div class="stats-strip">
                 <div class="stat-node">
                     <span class="stat-node-label">Current Market Price</span>
@@ -1233,8 +147,8 @@
                 </div>
             </div>
 
-            <!-- Price Trend Line Chart Panel -->
-            <div class="chart-card">
+            <!-- Row 3: Price chart (~30% of canvas) -->
+            <div class="chart-panel">
                 <div class="chart-header">
                     <span class="stat-node-label" style="font-weight: 700; color: #fff;">1-Year Weekly Trend Price History</span>
                     <span class="node-label" id="chart-close-tracker" style="color: var(--signal-positive); font-weight: 700;">Close: $0.00</span>
@@ -1245,6 +159,7 @@
                 </div>
             </div>
 
+            <!-- Row 4: Tab nav bar -->
             <div class="tab-nav" id="tab-nav-bar">
                 <button class="tab-btn active" data-tab="tab-verdict">AI Verdict & Thesis</button>
                 <button class="tab-btn" data-tab="tab-solvency">Solvency & DuPont Health</button>
@@ -1256,389 +171,457 @@
                 <button class="tab-btn" data-tab="tab-risks">Risks & Catalysts</button>
             </div>
 
-            <!-- 1. Verdict & Thesis -->
-            <div class="tab-panel active" id="tab-verdict">
-                <div class="narrative-card">
-                    <div class="narrative-title">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
-                        Executive Research Summary
-                    </div>
-                    <div class="narrative-body" id="executive-summary">
-                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
-                    </div>
-                </div>
-
-                <div class="narrative-card">
-                    <div class="narrative-title">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                        Core Investment Verdict Reasoning
-                    </div>
-                    <div class="narrative-body" id="verdict-reasoning">
-                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
-                    </div>
-                </div>
-
-                <div class="narrative-card">
-                    <div class="narrative-title">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
-                        Target Sizing & Portfolio Weight Sizing Strategy
-                    </div>
-                    <div class="narrative-body" id="sizing-strategy">
-                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 2. Solvency & DuPont Health Tab -->
-            <div class="tab-panel" id="tab-solvency">
-                <div class="card" style="padding: 20px;">
-                    <div class="narrative-title">3-Stage DuPont ROE Decomposition</div>
-                    <div class="dupont-card">
-                        <div class="dupont-node">
-                            <span class="dupont-node-label">Net Profit Margin</span>
-                            <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: normal; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;">Profitability (Margins)</div>
-                            <span class="dupont-node-val" id="dp-margin">0.00%</span>
-                        </div>
-                        <span class="dupont-multiplier">×</span>
-                        <div class="dupont-node">
-                            <span class="dupont-node-label">Asset Turnover</span>
-                            <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: normal; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;">Sales Efficiency</div>
-                            <span class="dupont-node-val" id="dp-turnover">0.00x</span>
-                        </div>
-                        <span class="dupont-multiplier">×</span>
-                        <div class="dupont-node">
-                            <span class="dupont-node-label">Equity Multiplier</span>
-                            <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: normal; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;">Debt Leverage</div>
-                            <span class="dupont-node-val" id="dp-leverage">0.00x</span>
-                        </div>
-                        <span class="dupont-multiplier">=</span>
-                        <div class="dupont-node">
-                            <span class="dupont-node-label">Computed ROE</span>
-                            <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: normal; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;">Overall Return</div>
-                            <span class="dupont-node-val" id="dp-roe">0.00%</span>
-                        </div>
-                    </div>
-
-                    <div style="margin-top: 14px; padding: 10px 12px; background-color: var(--bg-surface); border: 1px dashed var(--border); font-size: 0.8rem; line-height: 1.5; color: var(--text-secondary);">
-                        <strong style="color: #fff; display: block; margin-bottom: 4px;">What does DuPont ROE mean?</strong>
-                        ROE (Return on Equity) measures operational efficiency across three core drivers:
-                        <ul style="margin-left: 16px; margin-top: 4px; display: flex; flex-direction: column; gap: 4px; list-style-type: disc;">
-                            <li><strong>Profitability (Net Profit Margin)</strong>: Profit generated per $1 of sales.</li>
-                            <li><strong>Asset Efficiency (Asset Turnover)</strong>: Asset productivity in generating sales.</li>
-                            <li><strong>Leverage (Equity Multiplier)</strong>: Equity multiplier relative to debt.</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="card" style="padding: 20px;">
-                    <div class="narrative-title">Altman Z-Score 5-Factor Solvency Breakdown</div>
-                    <div class="table-container">
-                        <table class="statement-table" id="altman-table">
-                            <thead>
-                                <tr>
-                                    <th>Factor</th>
-                                    <th>Financial Parameter Description</th>
-                                    <th>Formula Index</th>
-                                    <th>Weight</th>
-                                    <th>Weighted Score</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style="font-weight: 700; color: #fff;">X1 Factor</td>
-                                    <td>Working Capital / Total Assets (Liquidity measure)</td>
-                                    <td id="altman-x1">0.00</td>
-                                    <td>1.20</td>
-                                    <td id="altman-wx1" style="font-family: 'JetBrains Mono', monospace;">0.00</td>
-                                </tr>
-                                <tr>
-                                    <td style="font-weight: 700; color: #fff;">X2 Factor</td>
-                                    <td>Retained Earnings / Total Assets (Cumulative profitability)</td>
-                                    <td id="altman-x2">0.00</td>
-                                    <td>1.40</td>
-                                    <td id="altman-wx2" style="font-family: 'JetBrains Mono', monospace;">0.00</td>
-                                </tr>
-                                <tr>
-                                    <td style="font-weight: 700; color: #fff;">X3 Factor</td>
-                                    <td>EBIT / Total Assets (Pre-interest and pre-tax productivity)</td>
-                                    <td id="altman-x3">0.00</td>
-                                    <td>3.30</td>
-                                    <td id="altman-wx3" style="font-family: 'JetBrains Mono', monospace;">0.00</td>
-                                </tr>
-                                <tr>
-                                    <td style="font-weight: 700; color: #fff;">X4 Factor</td>
-                                    <td>Market Value of Equity / Total Liabilities (Financial leverage)</td>
-                                    <td id="altman-x4">0.00</td>
-                                    <td>0.60</td>
-                                    <td id="altman-wx4" style="font-family: 'JetBrains Mono', monospace;">0.00</td>
-                                </tr>
-                                <tr>
-                                    <td style="font-weight: 700; color: #fff;">X5 Factor</td>
-                                    <td>Sales / Total Assets (Asset efficiency / sales generation)</td>
-                                    <td id="altman-x5">0.00</td>
-                                    <td>0.999</td>
-                                    <td id="altman-wx5" style="font-family: 'JetBrains Mono', monospace;">0.00</td>
-                                </tr>
-                                <tr style="background: var(--bg-header); font-weight: 700;">
-                                    <td colspan="4" style="color: #fff; padding-left: 20px;">Total Calculated Altman Z-Score</td>
-                                    <td id="altman-total-score" style="color: var(--emerald); font-family: 'JetBrains Mono', monospace; font-size: 1.1rem;">0.00</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div style="margin-top: 14px; padding: 10px 12px; background-color: var(--bg-surface); border: 1px solid var(--border); font-size: 0.8rem; line-height: 1.5; color: var(--text-secondary);">
-                        <strong style="color: #fff; display: block; margin-bottom: 4px;">What does the Altman Z-Score mean?</strong>
-                        The Altman Z-Score compiles 5 crucial financial ratios (measuring liquidity, profitability, productivity, leverage, and activity) to evaluate financial stability.
-                        
-                        <div class="altman-legend-bar">
-                            <div class="altman-legend-span safe">
-                                <span class="altman-legend-title" style="color: var(--signal-positive);">Safe Zone (Z &gt; 2.99)</span>
-                                <span class="altman-legend-desc">Excellent financial strength. Virtually no immediate distress risk.</span>
+            <!-- Row 5: Active tab content panel (scrollable) -->
+            <div class="tab-content-panel">
+                <!-- 1. Verdict & Thesis Tab -->
+                <div class="tab-panel active" id="tab-verdict">
+                    <div class="verdict-thesis-grid">
+                        <div class="verdict-thesis-left">
+                            <div class="narrative-card">
+                                <div class="narrative-title">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                                    Executive Research Summary
+                                </div>
+                                <div class="narrative-body" id="executive-summary">
+                                    <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                                </div>
                             </div>
-                            <div class="altman-legend-span grey">
-                                <span class="altman-legend-title" style="color: var(--signal-caution);">Grey Zone (1.81 - 2.99)</span>
-                                <span class="altman-legend-desc">Moderate risk. Leverage or margin pressure. Monitor closely.</span>
+
+                            <div class="narrative-card">
+                                <div class="narrative-title">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                    Core Investment Verdict Reasoning
+                                </div>
+                                <div class="narrative-body" id="verdict-reasoning">
+                                    <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                                </div>
                             </div>
-                            <div class="altman-legend-span distress">
-                                <span class="altman-legend-title" style="color: var(--signal-negative);">Distress Zone (Z &lt; 1.81)</span>
-                                <span class="altman-legend-desc">High risk. Serious financial pressure and debt obligations.</span>
+                        </div>
+
+                        <div class="verdict-thesis-right">
+                            <div class="narrative-card">
+                                <div class="narrative-title">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+                                    Target Sizing & Portfolio Weight Sizing Strategy
+                                </div>
+                                <div class="narrative-body" id="sizing-strategy">
+                                    <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- 2. Solvency & DuPont Health Tab -->
+                <div class="tab-panel" id="tab-solvency">
+                    <div class="solvency-dupont-stack">
+                        <!-- DuPont Section -->
+                        <div class="dupont-row-zone">
+                            <div class="narrative-title">3-Stage DuPont ROE Decomposition</div>
+                            <div class="dupont-card">
+                                <div class="dupont-node">
+                                    <span class="dupont-node-label">Net Profit Margin</span>
+                                    <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: normal; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;">Profitability (Margins)</div>
+                                    <span class="dupont-node-val" id="dp-margin">0.00%</span>
+                                </div>
+                                <span class="dupont-multiplier">×</span>
+                                <div class="dupont-node">
+                                    <span class="dupont-node-label">Asset Turnover</span>
+                                    <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: normal; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;">Sales Efficiency</div>
+                                    <span class="dupont-node-val" id="dp-turnover">0.00x</span>
+                                </div>
+                                <span class="dupont-multiplier">×</span>
+                                <div class="dupont-node">
+                                    <span class="dupont-node-label">Equity Multiplier</span>
+                                    <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: normal; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;">Debt Leverage</div>
+                                    <span class="dupont-node-val" id="dp-leverage">0.00x</span>
+                                </div>
+                                <span class="dupont-multiplier">=</span>
+                                <div class="dupont-node">
+                                    <span class="dupont-node-label">Computed ROE</span>
+                                    <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: normal; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;">Overall Return</div>
+                                    <span class="dupont-node-val" id="dp-roe">0.00%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Altman Section -->
+                        <div class="altman-table-zone">
+                            <div class="narrative-title">Altman Z-Score 5-Factor Solvency Breakdown</div>
+                            <div class="table-container">
+                                <table class="statement-table" id="altman-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Factor</th>
+                                            <th>Financial Parameter Description</th>
+                                            <th>Formula Index</th>
+                                            <th>Weight</th>
+                                            <th>Weighted Score</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td style="font-weight: 700; color: #fff;">X1 Factor</td>
+                                            <td>Working Capital / Total Assets (Liquidity measure)</td>
+                                            <td id="altman-x1">0.00</td>
+                                            <td>1.20</td>
+                                            <td id="altman-wx1" style="font-family: 'JetBrains Mono', monospace;">0.00</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="font-weight: 700; color: #fff;">X2 Factor</td>
+                                            <td>Retained Earnings / Total Assets (Cumulative profitability)</td>
+                                            <td id="altman-x2">0.00</td>
+                                            <td>1.40</td>
+                                            <td id="altman-wx2" style="font-family: 'JetBrains Mono', monospace;">0.00</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="font-weight: 700; color: #fff;">X3 Factor</td>
+                                            <td>EBIT / Total Assets (Pre-interest and pre-tax productivity)</td>
+                                            <td id="altman-x3">0.00</td>
+                                            <td>3.30</td>
+                                            <td id="altman-wx3" style="font-family: 'JetBrains Mono', monospace;">0.00</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="font-weight: 700; color: #fff;">X4 Factor</td>
+                                            <td>Market Value of Equity / Total Liabilities (Financial leverage)</td>
+                                            <td id="altman-x4">0.00</td>
+                                            <td>0.60</td>
+                                            <td id="altman-wx4" style="font-family: 'JetBrains Mono', monospace;">0.00</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="font-weight: 700; color: #fff;">X5 Factor</td>
+                                            <td>Sales / Total Assets (Asset efficiency / sales generation)</td>
+                                            <td id="altman-x5">0.00</td>
+                                            <td>0.999</td>
+                                            <td id="altman-wx5" style="font-family: 'JetBrains Mono', monospace;">0.00</td>
+                                        </tr>
+                                        <tr style="background: var(--bg-header); font-weight: 700;">
+                                            <td colspan="4" style="color: #fff; padding-left: 20px;">Total Calculated Altman Z-Score</td>
+                                            <td id="altman-total-score" style="color: var(--emerald); font-family: 'JetBrains Mono', monospace; font-size: 1.1rem;">0.00</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Detailed Financial Statements Tab -->
+                <div class="tab-panel" id="tab-financials">
+                    <div class="statements-tab-container">
+                        <!-- TOP Split: Selector left, Click-to-chart right -->
+                        <div class="statements-top-zone">
+                            <div class="selector-side">
+                                <div class="narrative-title" style="margin-bottom: 8px;">Statement Select</div>
+                                <div class="financial-statement-selector">
+                                    <button class="btn-toggle active" onclick="loadStatement('income', this)">Income Statement</button>
+                                    <button class="btn-toggle" onclick="loadStatement('balance', this)">Balance Sheet</button>
+                                    <button class="btn-toggle" onclick="loadStatement('cashflow', this)">Cash Flow</button>
+                                </div>
+                            </div>
+                            <div class="chart-side">
+                                <div id="chart-placeholder">
+                                    [ SELECT ROW BELOW TO PLOT TREND ]
+                                </div>
+                                <div id="financial-row-chart-container" style="display:none; height: 100%; position: relative; width: 100%;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                        <span style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: var(--text-secondary);" id="financial-chart-title">Quarterly Trend</span>
+                                        <button style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 0 4px;" onclick="closeFinancialChart()">&times;</button>
+                                    </div>
+                                    <div style="height: calc(100% - 24px); width: 100%;">
+                                        <canvas id="financial-row-chart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BOTTOM: Full-width Table -->
+                        <div class="statements-bottom-zone">
+                            <div class="table-container">
+                                <table class="statement-table" id="statement-table-root">
+                                    <tr><td style="padding: 20px; text-align: center;">Loading statements...</td></tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Relative Peer Valuation Tab -->
+                <div class="tab-panel" id="tab-relative">
+                    <div class="relative-tab-grid">
+                        <!-- Left: Peer multiples table -->
+                        <div class="relative-left">
+                            <div class="narrative-title">Peer Group Multiples Comparison Grid</div>
+                            <div class="table-container">
+                                <table class="statement-table" id="peers-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Ticker</th>
+                                            <th>Trailing P/E</th>
+                                            <th>Price / Sales</th>
+                                            <th>Price / Book</th>
+                                            <th>EV / EBITDA</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="peers-table-body">
+                                        <tr>
+                                            <td colspan="5" class="empty-state">No peer multiples data loaded.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Right: Reconciliation nodes -->
+                        <div class="relative-right">
+                            <div class="narrative-title">Implied Valuation Reconciliation</div>
+                            <div class="reconciliation-nodes-stack">
+                                <div class="stat-node">
+                                    <span class="stat-node-label">Intrinsic DCF Target</span>
+                                    <span class="stat-node-val" id="rel-dcf-target">$0.00</span>
+                                </div>
+                                <div class="stat-node">
+                                    <span class="stat-node-label">Forward Multiples Target</span>
+                                    <span class="stat-node-val" id="rel-multiple-target">$0.00</span>
+                                </div>
+                                <div class="stat-node">
+                                    <span class="stat-node-label">Consensus Analyst Target</span>
+                                    <span class="stat-node-val" id="rel-analyst-target">$0.00</span>
+                                </div>
+                                <div class="stat-node highlight-node">
+                                    <span class="stat-node-label">Reconciled Fair Value</span>
+                                    <span class="stat-node-val" style="color: var(--signal-positive);" id="rel-reconciled-target">$0.00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. Notion Qualitative Hub Tab -->
+                <div class="tab-panel" id="tab-notion">
+                    <div class="sub-nav" id="notion-sub-nav"></div>
+                    <div class="notion-content-card">
+                        <div class="narrative-body" id="notion-content-area">
+                            Notion qualitative company records are loading dynamically...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. Fundamentals Deep Dive Tab -->
+                <div class="tab-panel" id="tab-fundamentals">
+                    <div class="fundamentals-tab-layout">
+                        <div class="fundamentals-grid">
+                            <div class="fundamentals-left-col">
+                                <div class="narrative-card">
+                                    <div class="narrative-title">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                                        Revenue Quality & Structure
+                                    </div>
+                                    <div class="narrative-body" id="f-revenue">
+                                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                                    </div>
+                                </div>
+                                <div class="narrative-card">
+                                    <div class="narrative-title">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                        Margins & DuPont ROE Profitability Decompositions
+                                    </div>
+                                    <div class="narrative-body" id="f-profit">
+                                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="fundamentals-right-col">
+                                <div class="narrative-card">
+                                    <div class="narrative-title">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+                                        Earnings Power & Multiple Valuations
+                                    </div>
+                                    <div class="narrative-body" id="f-earnings">
+                                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                                    </div>
+                                </div>
+                                <div class="narrative-card">
+                                    <div class="narrative-title">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                                        Balance Sheet Health & Solvency Buffer
+                                    </div>
+                                    <div class="narrative-body" id="f-balance">
+                                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="fundamentals-bottom-row">
+                            <div class="narrative-card">
+                                <div class="narrative-title">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                    Economic Moat Strengths & Disruption Vulnerability
+                                </div>
+                                <div class="narrative-body" id="f-moat">
+                                    <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7. Sentiment & Macro Tab -->
+                <div class="tab-panel" id="tab-sentiment">
+                    <div class="sentiment-tab-grid">
+                        <div class="sentiment-left-col">
+                            <div class="narrative-card">
+                                <div class="narrative-title">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                                    Macro Environment Outlook
+                                </div>
+                                <div class="narrative-body" id="m-macro">
+                                    <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                                </div>
+                            </div>
+                            <div class="narrative-card">
+                                <div class="narrative-title">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                    Sector Outlook & Secular Growth Drivers
+                                </div>
+                                <div class="narrative-body" id="m-sector">
+                                    <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="sentiment-right-col">
+                            <div class="narrative-card">
+                                <div class="narrative-title">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+                                    Wall Street Analyst Targets & Consensus
+                                </div>
+                                <div class="narrative-body" id="s-analysts">
+                                    <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                                </div>
+                            </div>
+                            <div class="narrative-card">
+                                <div class="narrative-title">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                                    Institutional Positioning & Insider Accumulation
+                                </div>
+                                <div class="narrative-body" id="s-institution">
+                                    <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                                </div>
+                            </div>
+                            <div class="narrative-card">
+                                <div class="narrative-title">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                    Media Sentiment & Alpha Vantage Feed Themes
+                                </div>
+                                <div class="narrative-body" id="s-news">
+                                    <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                                    <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 8. Risks & Catalysts Tab -->
+                <div class="tab-panel" id="tab-risks">
+                    <div class="risks-tab-grid">
+                        <div class="risks-left-col">
+                            <div class="narrative-card">
+                                <div class="narrative-title">Upcoming Company Catalysts & Timelines</div>
+                                <div class="flex-list" id="catalysts-list">
+                                    <!-- Dynamic Catalysts go here -->
+                                </div>
+                            </div>
+                        </div>
+                        <div class="risks-right-col">
+                            <div class="narrative-card">
+                                <div class="narrative-title">Operational Risks & Threat Severity Assessment</div>
+                                <div class="flex-list" id="risks-list">
+                                    <!-- Dynamic Risks go here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. RIGHT RAIL (220px fixed) -->
+        <div class="right-rail">
+            <!-- Verdict Badge & Confidence Meter -->
+            <div class="rail-section" id="stock-confidence-container">
+                <span class="section-label">Verdict & Confidence</span>
+                <div class="verdict-row">
+                    <span class="badge-verdict" id="stock-verdict">HOLD</span>
+                    <span id="stock-confidence" class="metric-val">--%</span>
+                </div>
+                <div class="confidence-bar-bg">
+                    <div id="stock-confidence-bar"></div>
+                </div>
             </div>
 
-            <!-- Detailed Financial Statements Tab -->
-            <div class="tab-panel" id="tab-financials">
-                <div class="card" style="padding: 20px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
-                        <div class="narrative-title" style="margin-bottom: 0;">Quarter-over-Quarter Detailed Statements</div>
-                        <div class="financial-statement-selector" style="display: flex; gap: 6px;">
-                            <button class="btn-toggle active" onclick="loadStatement('income', this)">Income Statement</button>
-                            <button class="btn-toggle" onclick="loadStatement('balance', this)">Balance Sheet</button>
-                            <button class="btn-toggle" onclick="loadStatement('cashflow', this)">Cash Flow</button>
-                        </div>
-                    </div>
-
-                    <!-- Click-to-Chart Container -->
-                    <div id="financial-row-chart-container" style="display:none; margin-bottom: 20px; background-color: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0; padding: 15px; height: 260px; position: relative;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <span style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: var(--text-secondary);" id="financial-chart-title">Quarterly Trend</span>
-                            <button style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; line-height: 1;" onclick="closeFinancialChart()">&times;</button>
-                        </div>
-                        <div style="height: calc(100% - 30px); width: 100%;">
-                            <canvas id="financial-row-chart"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="table-container">
-                        <table class="statement-table" id="statement-table-root">
-                            <tr><td style="padding: 20px; text-align: center;">Loading statements...</td></tr>
-                        </table>
-                    </div>
+            <!-- Consensus Target Price -->
+            <div class="rail-section">
+                <span class="section-label">Consensus Target</span>
+                <div class="target-row">
+                    <span id="header-target" class="metric-val" style="color: var(--signal-highlight);">$0.00</span>
+                    <span id="header-analyst-count" class="metric-sub">? Analysts</span>
                 </div>
             </div>
 
-            <!-- 3. Relative Peer Valuation Tab -->
-            <div class="tab-panel" id="tab-relative">
-                <div class="card" style="padding: 20px;">
-                    <div class="narrative-title">Peer Group Multiples Comparison Grid</div>
-                    <div class="table-container">
-                        <table class="statement-table" id="peers-table">
-                            <thead>
-                                <tr>
-                                    <th>Ticker</th>
-                                    <th>Trailing P/E</th>
-                                    <th>Price / Sales</th>
-                                    <th>Price / Book</th>
-                                    <th>EV / EBITDA</th>
-                                </tr>
-                            </thead>
-                            <tbody id="peers-table-body">
-                                <tr>
-                                    <td colspan="5" class="empty-state">No peer multiples data loaded.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="card" style="padding: 20px;">
-                    <div class="narrative-title">Implied Valuation Reconciliation Dashboard</div>
-                    <div class="stats-strip" id="relative-valuation-summary-grid">
-                        <div class="stat-node">
-                            <span class="stat-node-label">Intrinsic DCF Target</span>
-                            <span class="stat-node-val" id="rel-dcf-target">$0.00</span>
-                        </div>
-                        <div class="stat-node">
-                            <span class="stat-node-label">Forward Multiples Target</span>
-                            <span class="stat-node-val" id="rel-multiple-target">$0.00</span>
-                        </div>
-                        <div class="stat-node">
-                            <span class="stat-node-label">Consensus Analyst Target</span>
-                            <span class="stat-node-val" id="rel-analyst-target">$0.00</span>
-                        </div>
-                        <div class="stat-node">
-                            <span class="stat-node-label">Reconciled Fair Value</span>
-                            <span class="stat-node-val" style="color: var(--signal-positive);" id="rel-reconciled-target">$0.00</span>
-                        </div>
-                    </div>
+            <!-- Altman Z-Score -->
+            <div class="rail-section">
+                <span class="section-label">Altman Z-Score</span>
+                <div class="solvency-row" id="altman-rail-score">
+                    <span class="metric-val">0.00</span>
+                    <span class="solvency-zone-label">--</span>
                 </div>
             </div>
 
-            <!-- 4. Notion Qualitative Hub -->
-            <div class="tab-panel" id="tab-notion">
-                <div class="sub-nav" id="notion-sub-nav">
-                    <!-- Dynamic Sub Tabs injected here -->
-                </div>
-                <div class="narrative-card" style="margin-top: 12px;">
-                    <div class="narrative-body" id="notion-content-area">
-                        Notion qualitative company records are loading dynamically...
+            <!-- DuPont ROE Summary -->
+            <div class="rail-section">
+                <span class="section-label">DuPont ROE Summary</span>
+                <div class="dupont-compact">
+                    <div class="dupont-row-item">
+                        <span>Net Margin:</span>
+                        <span id="dp-margin-rail" class="metric-val">0.00%</span>
                     </div>
-                </div>
-            </div>
-
-            <!-- 5. Fundamentals Deep Dive -->
-            <div class="tab-panel" id="tab-fundamentals">
-                <div class="narrative-card">
-                    <div class="narrative-title">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
-                        Revenue Quality & Structure
+                    <div class="dupont-row-item">
+                        <span>Asset Turnover:</span>
+                        <span id="dp-turnover-rail" class="metric-val">0.00x</span>
                     </div>
-                    <div class="narrative-body" id="f-revenue">
-                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                    <div class="dupont-row-item">
+                        <span>Equity Multiplier:</span>
+                        <span id="dp-leverage-rail" class="metric-val">0.00x</span>
                     </div>
-                </div>
-                <div class="narrative-card">
-                    <div class="narrative-title">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                        Margins & DuPont ROE Profitability Decompositions
-                    </div>
-                    <div class="narrative-body" id="f-profit">
-                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
-                    </div>
-                </div>
-                <div class="narrative-card">
-                    <div class="narrative-title">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
-                        Earnings Power & Multiple Valuations
-                    </div>
-                    <div class="narrative-body" id="f-earnings">
-                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
-                    </div>
-                </div>
-                <div class="narrative-card">
-                    <div class="narrative-title">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
-                        Balance Sheet Health & Solvency Buffer
-                    </div>
-                    <div class="narrative-body" id="f-balance">
-                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
-                    </div>
-                </div>
-                <div class="narrative-card">
-                    <div class="narrative-title">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                        Economic Moat Strengths & Disruption Vulnerability
-                    </div>
-                    <div class="narrative-body" id="f-moat">
-                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 6. Sentiment & Macro -->
-            <div class="tab-panel" id="tab-sentiment">
-                <div class="narrative-card">
-                    <div class="narrative-title">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
-                        Macro Environment Outlook
-                    </div>
-                    <div class="narrative-body" id="m-macro">
-                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
-                    </div>
-                </div>
-                <div class="narrative-card">
-                    <div class="narrative-title">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                        Sector Outlook & Secular Growth Drivers
-                    </div>
-                    <div class="narrative-body" id="m-sector">
-                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
-                    </div>
-                </div>
-                <div class="narrative-card">
-                    <div class="narrative-title">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
-                        Wall Street Analyst Targets & Consensus
-                    </div>
-                    <div class="narrative-body" id="s-analysts">
-                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
-                    </div>
-                </div>
-                <div class="narrative-card">
-                    <div class="narrative-title">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
-                        Institutional Positioning & Insider Accumulation
-                    </div>
-                    <div class="narrative-body" id="s-institution">
-                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
-                    </div>
-                </div>
-                <div class="narrative-card">
-                    <div class="narrative-title">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                        Media Sentiment & Alpha Vantage Feed Themes
-                    </div>
-                    <div class="narrative-body" id="s-news">
-                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
-                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 7. Risks & Catalysts -->
-            <div class="tab-panel" id="tab-risks">
-                <div class="narrative-card">
-                    <div class="narrative-title">
-                        Upcoming Company Catalysts & Timelines
-                    </div>
-                    <div class="flex-list" id="catalysts-list">
-                        <!-- Dynamic Catalysts go here -->
-                    </div>
-                </div>
-                <div class="narrative-card">
-                    <div class="narrative-title">
-                        Operational Risks & Threat Severity Assessment
-                    </div>
-                    <div class="flex-list" id="risks-list">
-                        <!-- Dynamic Risks go here -->
+                    <div class="dupont-row-item dupont-total-row">
+                        <span>Computed ROE:</span>
+                        <span id="dp-roe-rail" class="metric-val" style="color: var(--signal-positive); font-weight:700;">0.00%</span>
                     </div>
                 </div>
             </div>

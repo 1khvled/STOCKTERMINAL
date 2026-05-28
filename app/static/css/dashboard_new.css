@@ -7,41 +7,33 @@
     --bg-elevated: #1a1a1a;       /* Hover rows, input backgrounds */
     --bg-header: #0d0d0d;         /* Nav, tab bars, section headers */
 
-    --border: #2a2a2a;            /* All borders — never white-alpha */
-    --border-strong: #3a3a3a;     /* Focused borders, active states */
+    --border: #222222;            /* Grid line divider - Bloomberg-grade very fine dark grey */
+    --border-strong: #333333;     /* Active borders, highlights */
 
     --text-primary: #e8e8e8;      /* Main readable text */
-    --text-secondary: #999999;    /* Labels, captions, helper text */
-    --text-muted: #555555;        /* Disabled, skeleton, very minor */
+    --text-secondary: #aaaaaa;    /* Subtitles, secondary readouts */
+    --text-muted: #555555;        /* Labels, very dim captions */
 
-    /* Bloomberg Signal Colors — used ONLY for data meaning */
-    --signal-buy: #ff8c00;        /* Bloomberg orange — BUY / positive action */
-    --signal-positive: #00aa44;   /* Price up, positive delta */
-    --signal-negative: #cc2200;   /* Price down, negative delta */
-    --signal-neutral: #888888;    /* HOLD / flat / no signal */
-    --signal-caution: #ccaa00;    /* Warnings, grey zone indicators */
-    --signal-highlight: #ff8c00;  /* Active tab, selected state */
+    /* strict signal colors */
+    --signal-buy: #ff8c00;        /* Orange BUY signal */
+    --signal-positive: #00ff66;   /* Bright green for positive */
+    --signal-negative: #ff3333;   /* Red for negative */
+    --signal-neutral: #888888;    /* Neutral HOLD signal */
+    --signal-caution: #ffcc00;    /* Caution zone */
+    --signal-highlight: #ff8c00;  /* Active indicator */
 
     --font-mono: 'JetBrains Mono', 'Courier New', monospace;
     --font-ui: 'Outfit', system-ui, sans-serif;
-
-    /* Spacing & Shape */
-    --radius: 2px;               /* Nearly zero rounding — terminals are sharp */
-    --radius-sm: 1px;
-    --border-width: 1px;
 }
 
 /* ============================================================
-   GLOBAL BODY & RESET
+   GLOBAL BODY & RESET (Zero Rounding, No Halos, Full Viewport)
    ============================================================ */
 *, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-}
-
-html {
-    font-size: 13px;
+    border-radius: 0 !important; /* STRICT ZERO ROUNDED CORNERS */
 }
 
 body {
@@ -49,23 +41,22 @@ body {
     background-color: var(--bg-base);
     color: var(--text-primary);
     line-height: 1.4;
-    min-height: 100vh;
+    height: 100vh;
     display: flex;
     flex-direction: column;
-    overflow-x: hidden;
+    overflow: hidden;
 }
 
-/* Square Scrollbars */
+/* Scrollbars */
 ::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
+    width: 6px;
+    height: 6px;
 }
 ::-webkit-scrollbar-track {
     background: var(--bg-base);
 }
 ::-webkit-scrollbar-thumb {
     background: var(--border-strong);
-    border-radius: 0;
 }
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
@@ -81,9 +72,7 @@ nav {
     height: 36px;
     background: var(--bg-header);
     border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    z-index: 1000;
+    flex-shrink: 0;
     padding: 0 16px;
 }
 
@@ -98,17 +87,12 @@ nav {
     font-weight: 800;
     font-size: 13px;
     color: var(--signal-buy);
-    background: transparent;
-    padding: 0;
-    box-shadow: none;
 }
 
-/* Blinking cursor character | */
 .logo-container::after {
     content: '|';
     color: var(--signal-buy);
     font-family: var(--font-mono);
-    font-size: 13px;
     font-weight: 800;
     animation: blink 1s step-end infinite;
 }
@@ -124,10 +108,6 @@ nav {
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.1em;
-}
-
-.logo-tag {
-    display: none; /* Removed tags with decorative animations */
 }
 
 .nav-actions {
@@ -151,9 +131,7 @@ nav {
     text-decoration: none;
     display: inline-flex;
     align-items: center;
-    gap: 0;
-    border-radius: 0;
-    transition: color 0.1s ease;
+    gap: 6px;
 }
 
 .nav-actions .btn:first-child {
@@ -162,86 +140,66 @@ nav {
 
 .nav-actions .btn:hover {
     color: var(--text-primary);
-    background: transparent;
-    transform: none;
-    box-shadow: none;
+    background: var(--bg-elevated);
 }
 
-.nav-actions .btn:active {
-    transform: none;
+.nav-actions .btn svg {
+    stroke: var(--text-secondary);
+}
+
+.nav-actions .btn:hover svg {
+    stroke: var(--text-primary);
 }
 
 /* ============================================================
-   LAYOUT SYSTEM (Workspace)
+   2. THREE COLUMN WORKSPACE LAYOUT
    ============================================================ */
 .workspace {
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    flex-grow: 1;
     display: grid;
-    grid-template-columns: 280px 1fr;
-    gap: 0;
-    align-items: stretch;
+    grid-template-columns: 280px 1fr 220px;
+    flex-grow: 1;
+    height: 0; /* Let overflow: hidden take effect on flex child */
+    overflow: hidden;
 }
 
-@media (max-width: 1100px) {
-    .workspace {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* ============================================================
-   2. SIDEBAR
-   ============================================================ */
+/* Left Sidebar (280px fixed) */
 .sidebar {
     background: var(--bg-surface);
     border-right: 1px solid var(--border);
-    padding: 0;
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 36px);
-    position: sticky;
-    top: 36px;
+    height: 100%;
+    overflow: hidden;
+}
+
+.sidebar-scrollable-content {
+    flex-grow: 1;
     overflow-y: auto;
+    padding-bottom: 20px;
 }
 
-.sidebar .card {
-    background: transparent;
-    border: none;
-    padding: 0;
-    box-shadow: none;
+.sidebar-pinned-bottom {
+    flex-shrink: 0;
+    padding: 12px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-header);
 }
 
-.sidebar .card:hover {
-    border-color: rgba(0,0,0,0);
-    box-shadow: none;
-    transform: none;
-}
-
-/* Section Header Bar */
 .sidebar .section-label {
     background: var(--bg-header);
     border-bottom: 1px solid var(--border);
-    padding: 6px 12px;
-    font-size: 0.65rem; /* ~10px */
+    padding: 8px 12px;
+    font-size: 10px;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--text-muted);
-    margin-bottom: 0;
-    display: block;
-}
-
-.sidebar .section-label::before,
-.sidebar .section-label::after {
-    display: none; /* No decorative indicator markers or accent lines */
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+    font-weight: 700;
 }
 
 /* Slider Groups */
 .slider-group {
     padding: 10px 12px;
     border-bottom: 1px solid var(--border);
-    margin-bottom: 0;
 }
 
 .slider-header {
@@ -252,48 +210,36 @@ nav {
 }
 
 .slider-label {
-    font-size: 0.72rem;
+    font-size: 10px;
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
 }
 
 .slider-value {
     font-family: var(--font-mono);
-    font-size: 0.8rem;
+    font-size: 11px;
     font-weight: 700;
     color: var(--signal-buy);
-    background: transparent;
-    border: none;
-    padding: 0;
-    border-radius: 0;
 }
 
 .slider-help {
-    font-size: 0.65rem;
+    font-size: 9px;
     color: var(--text-muted);
-    margin-bottom: 6px;
-    line-height: 1.3;
-    font-style: normal;
+    margin-bottom: 8px;
+    line-height: 1.2;
 }
 
-/* Range inputs (sliders) */
+/* Flat square range slider */
 .slider-control {
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
-    height: 2px;
+    height: 4px;
     background: var(--border-strong);
     outline: none;
     cursor: pointer;
-    border: none;
-    transition: none;
     padding: 0;
-}
-
-.slider-control:hover {
-    border-color: transparent;
 }
 
 .slider-control::-webkit-slider-thumb {
@@ -302,234 +248,359 @@ nav {
     width: 10px;
     height: 10px;
     background: var(--signal-buy);
-    border-radius: 0; /* Square thumb */
-    border: none;
     cursor: pointer;
-    box-shadow: none;
-    transition: none;
 }
 
-.slider-control::-webkit-slider-thumb:hover {
-    transform: none;
-    border-color: transparent;
-}
-
-/* CAPM Result Box */
+/* CAPM Result Card */
 .capm-card {
     background: var(--bg-header);
-    border: none;
-    border-left: 2px solid var(--signal-buy);
-    border-radius: 0;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--signal-buy);
     padding: 8px 12px;
-    margin: 10px 12px 14px;
-    box-shadow: none;
+    margin: 12px;
 }
 
 .capm-formula {
     font-family: var(--font-mono);
-    font-size: 0.68rem;
+    font-size: 9px;
     color: var(--text-muted);
     margin-bottom: 2px;
 }
 
 .capm-result {
     font-family: var(--font-mono);
-    font-size: 1rem;
+    font-size: 12px;
     font-weight: 700;
     color: var(--text-primary);
 }
 
-/* DCF Output Display Widget */
+/* DCF Output Widget */
 .dcf-widget {
     background: var(--bg-header);
-    border: 1px solid var(--border-strong);
-    border-top: 2px solid var(--signal-buy);
-    border-radius: 0;
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--signal-buy);
     padding: 10px 12px;
-    margin: 14px 12px;
+    margin: 12px;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    text-align: left;
     gap: 4px;
-    box-shadow: none;
-}
-
-.dcf-widget::before {
-    display: none;
 }
 
 .widget-label {
-    font-size: 0.65rem;
-    color: var(--text-muted);
+    font-size: 9px;
+    color: var(--text-secondary);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-family: var(--font-ui);
+    font-weight: 700;
 }
 
 .widget-val {
-    font-size: 1.4rem;
+    font-size: 18px;
     font-weight: 700;
     font-family: var(--font-mono);
     color: var(--text-primary);
-    letter-spacing: normal;
 }
 
 .widget-return {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 11px;
     font-weight: 700;
-    padding: 0;
-    border-radius: 0;
-    background: transparent !important;
-    border: none !important;
 }
 
-/* Save Button */
-.sidebar #save-btn {
-    width: calc(100% - 24px);
-    margin: 0 auto 16px;
-    height: 30px;
+.return-positive {
+    color: var(--signal-positive);
+}
+
+.return-negative {
+    color: var(--signal-negative);
+}
+
+/* Pinned Save button */
+#save-btn {
+    width: 100%;
+    height: 32px;
     background: var(--signal-buy);
-    color: #000; /* Black text on orange */
-    border-radius: var(--radius);
+    color: #000;
     font-family: var(--font-mono);
-    font-size: 0.7rem;
+    font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
     border: none;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    transition: background 0.1s ease;
-    box-shadow: none;
 }
 
-.sidebar #save-btn:hover {
+#save-btn:hover {
     background: #cc7000;
-    transform: none;
 }
 
-.sidebar #save-btn svg {
+#save-btn svg {
     stroke: #000;
 }
 
 /* ============================================================
-   3. STOCK HEADER CARD
+   3. MAIN CANVAS (Center area)
    ============================================================ */
-.research-area {
+.main-canvas {
     display: flex;
     flex-direction: column;
-    gap: 0; /* Tight stack */
-    min-width: 0;
+    height: 100%;
+    overflow: hidden;
     background: var(--bg-base);
 }
 
-.stock-header-card {
+/* Row 1: Stock Header Bar (48px tall, single line) */
+.stock-header-bar {
+    height: 48px;
     background: var(--bg-surface);
     border-bottom: 1px solid var(--border);
-    border-radius: 0;
     display: flex;
-    flex-direction: row;
-    justify-content: flex-start;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 24px;
-    padding: 10px 16px;
-    box-shadow: none;
-}
-
-.stock-header-card::before {
-    display: none;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 16px;
+    flex-shrink: 0;
 }
 
 .stock-info {
     display: flex;
-    flex-direction: row;
-    align-items: baseline;
+    align-items: center;
     gap: 12px;
 }
 
 .sector-badge {
-    font-family: var(--font-ui);
-    font-size: 0.62rem;
+    font-size: 9px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
     padding: 2px 6px;
-    border-radius: 0;
-    background: transparent;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     border: 1px solid var(--border-strong);
 }
 
 .company-name {
-    font-size: 0.95rem;
+    font-size: 14px;
     font-weight: 700;
     color: var(--text-primary);
-    letter-spacing: normal;
 }
 
 .company-meta {
-    font-size: 0.72rem;
+    font-size: 10px;
     color: var(--text-muted);
     font-family: var(--font-mono);
 }
 
-.header-quotes {
+.header-price-info {
     display: flex;
-    gap: 24px;
-    align-items: baseline;
-}
-
-.quote-block-dynamic {
-    display: flex;
-    flex-direction: row;
-    align-items: baseline;
+    align-items: center;
     gap: 8px;
+    font-family: var(--font-mono);
 }
 
 .quote-lbl {
-    font-size: 0.6rem;
+    font-size: 10px;
     color: var(--text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-family: var(--font-mono);
 }
 
 .quote-price {
-    font-size: 1.4rem;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.quote-change {
+    font-size: 11px;
+    font-weight: 700;
+}
+
+/* Row 2: Stats Strip */
+.stats-strip {
+    background: var(--bg-header);
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    flex-shrink: 0;
+}
+
+.stat-node {
+    border-right: 1px solid var(--border);
+    padding: 8px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.stat-node:last-child {
+    border-right: none;
+}
+
+.stat-node-label {
+    font-size: 9px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.stat-node-val {
+    font-size: 13px;
     font-weight: 700;
     color: var(--text-primary);
     font-family: var(--font-mono);
 }
 
-.quote-change {
-    font-size: 0.78rem;
+/* Row 3: Price Chart Panel (~30% of canvas height) */
+.chart-panel {
+    height: 30%;
+    min-height: 180px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chart-container {
+    position: relative;
+    flex-grow: 1;
+    width: 100%;
+    overflow: hidden;
+}
+
+.chart-svg {
+    width: 100%;
+    height: 100%;
+}
+
+.chart-tooltip {
+    position: absolute;
+    display: none;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-strong);
+    color: var(--text-primary);
+    padding: 4px 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* Row 4: Tab Navigation Bar */
+.tab-nav {
+    background: var(--bg-header);
+    border-bottom: 1px solid var(--border);
+    height: 32px;
+    display: flex;
+    flex-shrink: 0;
+}
+
+.tab-btn {
+    height: 100%;
+    padding: 0 14px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    border: none;
+    border-right: 1px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.tab-btn:hover {
+    color: var(--text-secondary);
+    background: var(--bg-elevated);
+}
+
+.tab-btn.active {
+    background: var(--bg-surface);
+    border-bottom: 2px solid var(--signal-buy);
+    color: var(--text-primary);
+    margin-bottom: -1px;
+}
+
+/* Row 5: Tab Content Panel (Scrollable) */
+.tab-content-panel {
+    flex-grow: 1;
+    overflow-y: auto;
+    background: var(--bg-base);
+}
+
+.tab-panel {
+    display: none;
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+/* ============================================================
+   4. RIGHT RAIL (220px fixed)
+   ============================================================ */
+.right-rail {
+    width: 220px;
+    background: var(--bg-surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    flex-shrink: 0;
+}
+
+.rail-section {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.rail-section .section-label {
+    font-size: 9px;
     font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.rail-section .metric-val {
+    font-size: 18px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+}
+
+.rail-section .metric-sub {
+    font-size: 10px;
+    color: var(--text-muted);
     font-family: var(--font-mono);
 }
 
-/* Verdict Badge Styling */
+/* Verdict Box */
+.verdict-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
 .badge-verdict {
     font-family: var(--font-mono);
-    font-size: 0.65rem;
+    font-size: 11px;
     font-weight: 700;
-    padding: 3px 10px;
-    border-radius: 0;
+    padding: 3px 8px;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    display: inline-block;
-    box-shadow: none !important;
 }
 
 .badge-buy {
     background: var(--signal-buy) !important;
     color: #000 !important;
-    border: none !important;
 }
 
 .badge-hold {
@@ -541,238 +612,120 @@ nav {
 .badge-sell {
     background: var(--signal-negative) !important;
     color: #fff !important;
-    border: none !important;
 }
 
-/* Confidence Bar styling */
-#stock-confidence-container {
-    border: none !important;
-    box-shadow: none !important;
-    background: transparent !important;
-    padding: 0 !important;
-}
-
-.verdict-conf-dynamic span:first-child {
-    font-size: 0.55rem;
-    color: var(--text-muted);
-}
-
-.verdict-conf-dynamic span:last-child {
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-}
-
+/* Verdict Confidence Bar */
 .confidence-bar-bg {
-    background: var(--border) !important;
-    border-radius: 0 !important;
-    height: 3px !important;
+    width: 100%;
+    height: 4px;
+    background: var(--bg-elevated);
+    margin-top: 4px;
 }
 
 #stock-confidence-bar {
-    background: var(--signal-buy) !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
+    width: 0%;
+    height: 100%;
+    background: var(--signal-highlight);
 }
 
-/* ============================================================
-   4. STATS STRIP
-   ============================================================ */
-.stats-strip {
-    background: var(--bg-header);
-    border-bottom: 1px solid var(--border);
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 0;
-}
-
-.stat-node {
-    background: transparent;
-    border: none;
-    border-right: 1px solid var(--border);
-    border-radius: 0;
-    padding: 10px 14px;
+/* Consensus target price */
+.target-row {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    box-shadow: none !important;
 }
 
-.stat-node::before {
-    display: none; /* No decorative indicator markers or gradients */
+/* Solvency zone color labels */
+.solvency-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
 }
 
-.stat-node:hover {
-    transform: none;
-    border-color: var(--border);
-    box-shadow: none;
-}
-
-.stat-node-label {
-    font-family: var(--font-ui);
-    font-size: 0.62rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-}
-
-.stat-node-val {
-    font-size: 0.95rem;
+.solvency-zone-label {
+    font-size: 10px;
     font-weight: 700;
-    color: var(--text-primary);
-    font-family: var(--font-mono);
+    text-transform: uppercase;
+    padding: 2px 6px;
 }
 
-/* ============================================================
-   5. PRICE CHART CARD
-   ============================================================ */
-.chart-card {
-    background: var(--bg-surface);
-    border-bottom: 1px solid var(--border);
-    border-radius: 0;
-    padding: 12px 16px;
-    box-shadow: none;
+.zone-safe {
+    color: var(--signal-positive);
+    border: 1px solid var(--signal-positive);
+}
+
+.zone-grey {
+    color: var(--signal-caution);
+    border: 1px solid var(--signal-caution);
+}
+
+.zone-distress {
+    color: var(--signal-negative);
+    border: 1px solid var(--signal-negative);
+}
+
+/* DuPont compact representation */
+.dupont-compact {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
-.chart-card:hover {
-    border-color: var(--border);
-    box-shadow: none;
-    transform: none;
-}
-
-.chart-header {
+.dupont-row-item {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-}
-
-.chart-container {
-    width: 100%;
-    height: 180px;
-}
-
-.chart-svg {
-    stroke-width: 1.5px;
-}
-
-.chart-tooltip {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-strong);
-    color: var(--text-primary);
-    border-radius: var(--radius-sm);
-    box-shadow: none;
-}
-
-/* ============================================================
-   6. TAB NAVIGATION BAR
-   ============================================================ */
-.tab-nav {
-    background: var(--bg-header);
-    border-bottom: 2px solid var(--border);
-    height: 32px;
-    padding: 0;
-    border-radius: 0;
-    position: sticky;
-    top: 36px;
-    z-index: 100;
-    overflow: visible;
-    display: flex;
-    gap: 0;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-}
-
-.tab-btn {
-    height: 100%;
-    padding: 0 14px;
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-    border: none;
-    border-right: 1px solid var(--border);
-    background: transparent;
-    border-radius: 0;
-    transition: color 0.1s ease;
-}
-
-.tab-btn:hover {
+    font-size: 11px;
+    font-family: var(--font-mono);
     color: var(--text-secondary);
-    background: transparent;
 }
 
-.tab-btn.active {
-    background: var(--bg-surface);
-    border-bottom: 2px solid var(--signal-buy);
-    color: var(--text-primary);
-    box-shadow: none;
-    margin-bottom: -2px; /* Overlap active border */
+.dupont-row-item .metric-val {
+    font-size: 11px;
+}
+
+.dupont-total-row {
+    border-top: 1px solid var(--border-strong);
+    padding-top: 6px;
+    margin-top: 2px;
+    font-weight: 700;
+    color: #fff;
 }
 
 /* ============================================================
-   7. CONTENT PANELS / NARRATIVE CARDS
+   5. TAB PANELS INTERIOR SUB-LAYOUTS
    ============================================================ */
-.tab-panel {
-    display: none;
-    animation: none; /* Terminals are fast, no animations */
-}
 
-.tab-panel.active {
-    display: flex;
-    flex-direction: column;
-    gap: 1px; /* Sitting flush */
-}
-
+/* Narrative / Cards */
 .narrative-card {
     background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 0;
-    margin-bottom: 1px;
-    padding: 14px 16px;
-    border-left: 1px solid var(--border); /* Replaced color indicators */
-}
-
-.narrative-card:hover {
-    border-color: var(--border);
-    box-shadow: none;
-}
-
-.narrative-card:nth-child(n) {
-    border-left: 1px solid var(--border); /* No color stripes */
+    border-bottom: 1px solid var(--border);
+    padding: 12px 14px;
 }
 
 .narrative-title {
-    font-size: 0.65rem;
+    font-size: 10px;
     font-weight: 700;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 10px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
 }
 
 .narrative-title svg {
-    width: 12px;
-    height: 12px;
-    stroke: var(--signal-buy);
     margin-right: 6px;
+    stroke: var(--signal-buy);
 }
 
 .narrative-body {
-    font-size: 0.8rem;
+    font-size: 11px;
     color: var(--text-secondary);
-    line-height: 1.55;
+    line-height: 1.5;
 }
 
-/* Skeleton Loading bars */
 .skeleton {
-    border-radius: 0;
     background: var(--bg-elevated);
-    animation: none; /* No loading sparkles */
-    opacity: 0.5;
+    opacity: 0.4;
 }
 
 .skeleton-text {
@@ -780,79 +733,177 @@ nav {
     margin-bottom: 6px;
 }
 
-/* Notion qualitative subpage buttons */
-.sub-nav {
+/* Tab 1: AI Verdict & Thesis Subpages (60/40) */
+.verdict-thesis-grid {
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: 1px;
+    background: var(--border);
+}
+
+.verdict-thesis-left, .verdict-thesis-right {
     display: flex;
-    gap: 0;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--bg-base);
+}
+
+/* Tab 2: Solvency & DuPont stack */
+.solvency-dupont-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--border);
+}
+
+.dupont-row-zone, .altman-table-zone {
+    padding: 14px 16px;
+    background: var(--bg-surface);
+}
+
+.dupont-card {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.dupont-node {
+    flex: 1;
     background: var(--bg-header);
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.dupont-node-label {
+    font-size: 9px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.dupont-node-val {
+    font-size: 14px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+}
+
+.dupont-multiplier {
+    font-size: 14px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+}
+
+/* Tab 3: Detailed Statements Layout (Selector side-by-side with Chart, table below) */
+.statements-tab-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.statements-top-zone {
+    display: flex;
     border-bottom: 1px solid var(--border);
-    padding: 2px 2px 0;
+    height: 140px;
+    background: var(--bg-surface);
+    flex-shrink: 0;
 }
 
-.sub-tab-btn {
-    background: transparent;
-    border: none;
+.selector-side {
+    width: 250px;
     border-right: 1px solid var(--border);
-    padding: 6px 14px;
-    border-radius: 0;
-    color: var(--text-secondary);
-    font-size: 0.72rem;
-    font-weight: 600;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
-.sub-tab-btn:hover {
-    color: #fff;
+.chart-side {
+    flex-grow: 1;
+    position: relative;
+    background: var(--bg-surface);
+}
+
+#chart-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+}
+
+.statements-bottom-zone {
+    overflow-y: auto;
+}
+
+/* Selector Toggle Buttons */
+.financial-statement-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.btn-toggle {
+    height: 24px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-align: left;
+    padding-left: 10px;
+}
+
+.btn-toggle:hover {
+    color: var(--text-secondary);
     background: var(--bg-elevated);
 }
 
-.sub-tab-btn.active {
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    border-top: 2px solid var(--signal-buy);
-    margin-top: -2px;
+.btn-toggle.active {
+    background: var(--signal-buy) !important;
+    color: #000 !important;
+    border-color: var(--signal-buy) !important;
 }
 
-/* ============================================================
-   8. DATA TABLES
-   ============================================================ */
+/* Tables styling */
 .table-container {
-    width: 100%;
-    overflow-x: auto;
-    border: 1px solid var(--border);
-    border-radius: 0;
-    background: var(--bg-surface);
+    border: none;
 }
 
 .statement-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.78rem;
-    text-align: left;
+    font-size: 11px;
 }
 
 .statement-table th {
     background: var(--bg-header);
-    color: var(--text-muted);
+    color: var(--text-secondary);
     font-weight: 700;
     padding: 6px 10px;
     border-bottom: 1px solid var(--border-strong);
     font-family: var(--font-mono);
-    font-size: 0.62rem;
+    font-size: 9px;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
 }
 
 .statement-table td {
-    padding: 7px 10px;
+    padding: 6px 10px;
     border-bottom: 1px solid var(--border);
     color: var(--text-secondary);
     font-family: var(--font-mono);
-    transition: none;
 }
 
 .statement-table tr:hover td {
     background: var(--bg-elevated);
     color: #fff;
+    cursor: pointer;
 }
 
 .statement-table tr.header-row td {
@@ -866,123 +917,153 @@ nav {
     font-family: var(--font-ui);
     font-weight: 600;
     color: var(--text-primary);
-    max-width: 250px;
 }
 
 .statement-table td.val-cell {
     text-align: right;
 }
 
-/* Color codes on table numbers */
-.statement-table td.val-cell.positive,
-.peers-positive {
-    color: var(--signal-positive) !important;
+/* Tab 4: Relative Peer Valuation (65/35 grid) */
+.relative-tab-grid {
+    display: grid;
+    grid-template-columns: 65fr 35fr;
+    gap: 1px;
+    background: var(--border);
 }
 
-.statement-table td.val-cell.negative,
-.peers-negative {
-    color: var(--signal-negative) !important;
+.relative-left, .relative-right {
+    padding: 14px 16px;
+    background: var(--bg-surface);
 }
 
-/* Total Rows */
-.statement-table tr.total-row td {
+.reconciliation-nodes-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.reconciliation-nodes-stack .stat-node {
+    border: 1px solid var(--border);
     background: var(--bg-header);
+}
+
+.reconciliation-nodes-stack .highlight-node {
+    border-left: 3px solid var(--signal-positive);
+}
+
+/* Tab 5: Notion Qualitative Hub */
+.notion-content-card {
+    padding: 12px 14px;
+    background: var(--bg-surface);
+}
+
+/* Tab 6: Fundamentals Deep Dive (2 column top grid, Moat full-width below) */
+.fundamentals-tab-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--border);
+}
+
+.fundamentals-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+}
+
+.fundamentals-left-col, .fundamentals-right-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--bg-base);
+}
+
+.fundamentals-bottom-row {
+    background: var(--bg-surface);
+}
+
+/* Tab 7: Sentiment & Macro (Macro/Sector Left, Analysts/News Right) */
+.sentiment-tab-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+}
+
+.sentiment-left-col, .sentiment-right-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--bg-base);
+}
+
+/* Tab 8: Risks & Catalysts (50/50 split) */
+.risks-tab-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+}
+
+.risks-left-col, .risks-right-col {
+    background: var(--bg-surface);
+}
+
+.flex-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.flex-item {
+    background: var(--bg-header);
+    border: 1px solid var(--border);
+    padding: 10px;
+}
+
+.flex-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.flex-item-title {
+    font-size: 11px;
     font-weight: 700;
+}
+
+.flex-item-badge {
+    font-size: 8px;
+    padding: 2px 4px;
+    font-weight: 700;
+}
+
+.badge-high {
+    background: var(--signal-negative);
     color: #fff;
 }
 
-/* ============================================================
-   9. DUPONT WIDGET
-   ============================================================ */
-.dupont-card {
-    background: transparent;
-    border: none;
-    padding: 0;
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
-    margin-bottom: 16px;
-    border-radius: 0;
+.badge-medium {
+    background: var(--signal-caution);
+    color: #000;
 }
 
-.dupont-node {
-    flex: 1;
-    min-width: 120px;
-    border: 1px solid var(--border);
-    padding: 10px 12px;
-    background: var(--bg-header);
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    align-items: flex-start;
+.badge-low {
+    background: var(--signal-positive);
+    color: #000;
 }
 
-.dupont-node-label {
-    font-size: 0.62rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-}
-
-.dupont-node-val {
-    font-family: var(--font-mono);
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.dupont-multiplier {
-    font-family: var(--font-mono);
-    font-size: 1rem;
-    color: var(--text-muted);
-    padding: 0 4px;
-}
-
-/* Final node: computed ROE */
-.dupont-node:last-child {
-    border-left: 2px solid var(--signal-positive);
-}
-.dupont-node:last-child .dupont-node-val {
-    color: var(--signal-positive);
-}
-
-/* ============================================================
-   10. STATEMENT SELECTOR BUTTONS
-   ============================================================ */
-.financial-statement-selector {
-    display: flex;
-    gap: 0; /* Sit flush */
-}
-
-.btn-toggle {
-    border-radius: 0;
-    height: 26px;
-    padding: 0 12px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: none;
-}
-
-.btn-toggle:hover {
-    border-color: var(--border-strong);
+.flex-item-desc {
+    font-size: 10px;
     color: var(--text-secondary);
-    background: transparent;
-}
-
-.btn-toggle.active {
-    background: var(--signal-buy) !important;
-    color: #000 !important;
-    border-color: var(--signal-buy) !important;
 }
 
 /* ============================================================
-   12. NOTIFICATION TOAST
+   6. NOTIFICATION TOAST
    ============================================================ */
 #notification {
     position: fixed;
@@ -992,8 +1073,6 @@ nav {
     border: 1px solid var(--border-strong);
     border-left: 2px solid var(--signal-positive);
     padding: 10px 14px;
-    border-radius: 0;
-    box-shadow: none;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1015,48 +1094,6 @@ nav {
 #notification-msg {
     color: var(--text-primary);
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 10px;
     font-weight: 700;
-}
-
-/* ============================================================
-   13. ALTMAN Z-SCORE LEGEND
-   ============================================================ */
-.altman-legend-bar {
-    display: flex;
-    gap: 12px;
-    background: var(--bg-header);
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-    margin-top: 14px;
-}
-
-.altman-legend-span {
-    font-size: 0.72rem;
-    padding: 2px 6px;
-    display: inline-flex;
-    flex-direction: column;
-}
-
-.altman-legend-span.safe {
-    border-left: 2px solid var(--signal-positive);
-}
-
-.altman-legend-span.grey {
-    border-left: 2px solid var(--signal-caution);
-}
-
-.altman-legend-span.distress {
-    border-left: 2px solid var(--signal-negative);
-}
-
-.altman-legend-title {
-    font-weight: 700;
-    font-size: 0.7rem;
-    margin-bottom: 2px;
-}
-
-.altman-legend-desc {
-    color: var(--text-secondary);
-    font-size: 0.65rem;
 }

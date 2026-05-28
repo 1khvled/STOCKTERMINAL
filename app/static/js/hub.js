@@ -812,6 +812,200 @@
                 if (batchQueue.length > 0) {
                     const contDiv = document.createElement('div');
                     contDiv.className = 'log-line log-warn';
+        let batchQueue = [];
+        let isBatchProcessing = false;
+
+        // Start SSE Log Stream Analysis with Batch Queue Support
+        function startAnalysis(e) {
+            if (e) e.preventDefault();
+            const tickerInput = document.getElementById('ticker-input');
+            const rawValue = tickerInput.value.trim().toUpperCase();
+            
+            if (rawValue) {
+                // Split by comma, remove whitespace, filter empty strings
+                const tickers = rawValue.split(',').map(t => t.trim()).filter(t => t);
+                batchQueue.push(...tickers);
+                tickerInput.value = ''; // clear input
+            }
+            
+            if (!isBatchProcessing && batchQueue.length > 0) {
+                processNextInBatch();
+            }
+        }
+
+        function processNextInBatch() {
+            if (batchQueue.length === 0) {
+                isBatchProcessing = false;
+                fetchCatalog();
+                const submitBtn = document.getElementById('submit-btn');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `Compile Terminal <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>`;
+                document.getElementById('abort-btn').style.display = "none";
+                return;
+            }
+            
+            isBatchProcessing = true;
+            const ticker = batchQueue.shift();
+
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.disabled = true;
+            if (batchQueue.length > 0) {
+                submitBtn.innerText = `Compiling (${batchQueue.length} queued)...`;
+            } else {
+                submitBtn.innerText = "Compiling...";
+            }
+            
+            // Show abort button
+            document.getElementById('abort-btn').style.display = "inline-block";
+
+            // Reset stepper and statuses
+            resetStepper();
+            startStopwatch();
+            
+            const statusBadge = document.getElementById('terminal-status-badge');
+            statusBadge.innerText = "🟡 COMPILING";
+            statusBadge.className = "badge-status badge-status-running";
+
+            const termCard = document.getElementById('terminal-card');
+            termCard.className = "card terminal-card running";
+
+            const logsBox = document.getElementById('terminal-logs');
+            
+            const now = new Date();
+            const timeStr = now.toTimeString().split(' ')[0];
+            
+            // Don't overwrite the whole innerHTML, just append to keep previous run logs if batching
+            const cursor = logsBox.querySelector('.terminal-cursor');
+            if (cursor) cursor.remove();
+            
+            logsBox.innerHTML += `<div class="log-line log-info" style="margin-top: 15px; border-top: 1px solid var(--border); padding-top: 10px;"><span class="log-timestamp">[${timeStr}]</span> > Starting real-time compilation log stream for stock: ${ticker}</div>`;
+            appendTerminalCursor(logsBox);
+            logsBox.scrollTop = logsBox.scrollHeight;
+
+            // Start SSE Ingestion Stream
+            activeEventSource = new EventSource(`/api/stream?ticker=${ticker}`);
+
+            activeEventSource.onmessage = function(event) {
+                const line = event.data;
+
+                if (line.startsWith("REDIRECT:")) {
+                    activeEventSource.close();
+                    activeEventSource = null;
+                    clearInterval(stopwatchTimer);
+                    
+                    // Mark all steps complete
+                    for (let i = 1; i <= 6; i++) {
+                        setStepState(i, "completed");
+                    }
+                    
+                    statusBadge.innerText = "✅ COMPLETE";
+                    statusBadge.className = "badge-status badge-status-complete";
+                    termCard.className = "card terminal-card complete";
+
+                    const nextUrl = line.split("REDIRECT:")[1].trim();
+                    
+                    const termCursor = logsBox.querySelector('.terminal-cursor');
+                    if (termCursor) termCursor.remove();
+
+                    const div = document.createElement('div');
+                    div.className = 'log-line log-success';
+                    
+                    const nowInner = new Date();
+                    const timeStrInner = nowInner.toTimeString().split(' ')[0];
+                    
+                    if (batchQueue.length > 0) {
+                        div.innerHTML = `<span class="log-timestamp">[${timeStrInner}]</span> ✅ ANALYSIS COMPLETE FOR ${ticker}! Starting next in queue in 3 seconds...`;
+                        logsBox.appendChild(div);
+                        appendTerminalCursor(logsBox);
+                        logsBox.scrollTop = logsBox.scrollHeight;
+                        
+                        setTimeout(processNextInBatch, 3000);
+                    } else {
+                        div.innerHTML = `<span class="log-timestamp">[${timeStrInner}]</span> ✅ BATCH ANALYSIS COMPLETE! Redirecting to workstation...`;
+                        logsBox.appendChild(div);
+                        appendTerminalCursor(logsBox);
+                        logsBox.scrollTop = logsBox.scrollHeight;
+                        
+                        setTimeout(() => {
+                            window.location.href = nextUrl;
+                        }, 1500);
+                    }
+                    return;
+                }
+
+                if (line.includes("keepalive")) {
+                    return; // Ignore keepalives
+                }
+
+                // Check logs to update stepper checkmarks
+                parseLogsForStep(line);
+
+                const cursor = logsBox.querySelector('.terminal-cursor');
+                if (cursor) cursor.remove();
+
+                const div = document.createElement('div');
+                div.className = 'log-line';
+                if (line.includes("❌") || line.includes("failed") || line.includes("failed completely")) {
+                    div.className += ' log-error';
+                    if (activeStep > 0) setStepState(activeStep, "failed");
+                    termCard.className = "card terminal-card failed";
+                } else if (line.includes("✅") || line.includes("Saved")) {
+                    div.className += ' log-success';
+                } else if (line.includes("⚠️") || line.includes("Warning")) {
+                    div.className += ' log-warn';
+                } else {
+                    div.className += ' log-info';
+                }
+
+                const nowLog = new Date();
+                const timeStrLog = nowLog.toTimeString().split(' ')[0];
+
+                div.innerHTML = `<span class="log-timestamp">[${timeStrLog}]</span> ${line}`;
+                logsBox.appendChild(div);
+                
+                appendTerminalCursor(logsBox);
+                logsBox.scrollTop = logsBox.scrollHeight;
+            };
+
+            activeEventSource.onerror = function(err) {
+                console.error("SSE stream error:", err);
+                if (activeEventSource) {
+                    activeEventSource.close();
+                    activeEventSource = null;
+                }
+                clearInterval(stopwatchTimer);
+                
+                statusBadge.innerText = "❌ FAILED";
+                statusBadge.className = "badge-status badge-status-failed";
+                termCard.className = "card terminal-card failed";
+                
+                if (activeStep > 0) {
+                    setStepState(activeStep, "failed");
+                }
+                
+                const cursor = logsBox.querySelector('.terminal-cursor');
+                if (cursor) cursor.remove();
+
+                const div = document.createElement('div');
+                div.className = 'log-line log-error';
+                
+                const nowErr = new Date();
+                const timeStrErr = nowErr.toTimeString().split(' ')[0];
+                
+                div.innerHTML = `<span class="log-timestamp">[${timeStrErr}]</span> ❌ Error: Real-time stream aborted. Terminal compilation succeeded but stream failed. Refreshing database index...`;
+                logsBox.appendChild(div);
+                appendTerminalCursor(logsBox);
+                logsBox.scrollTop = logsBox.scrollHeight;
+
+                const submitBtn = document.getElementById('submit-btn');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `Compile Terminal <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>`;
+                document.getElementById('abort-btn').style.display = "none";
+                
+                // If there are more in the queue, continue despite the error!
+                if (batchQueue.length > 0) {
+                    const contDiv = document.createElement('div');
+                    contDiv.className = 'log-line log-warn';
                     contDiv.innerHTML = `<span class="log-timestamp">[SYSTEM]</span> ⚠️ Proceeding to next ticker in queue in 3 seconds...`;
                     logsBox.appendChild(contDiv);
                     appendTerminalCursor(logsBox);
@@ -826,40 +1020,6 @@
 
         // Initialize Page
         fetchCatalog();
-
-        // ─── Live News Polling ───
-        async function fetchMacroNews() {
-            try {
-                const res = await fetch('/api/news/macro');
-                const data = await res.json();
-                if (data.status === 'success' && data.news.length > 0) {
-                    const container = document.getElementById('macro-news-feed');
-                    const htmlItems = data.news.map(item => {
-                        const date = new Date(item.pubDate);
-                        const timeStr = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                        return `
-                            <a href="${escapeHTML(item.link)}" target="_blank" style="text-decoration:none;">
-                                <div class="card" style="padding: 12px; background: rgba(255,255,255,0.02); transition: all 0.2s ease;">
-                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
-                                        <span style="font-size:0.65rem; color:var(--text-secondary); text-transform:uppercase; font-family:'JetBrains Mono', monospace;">${escapeHTML(item.publisher || 'Wire')}</span>
-                                        <span style="font-size:0.65rem; color:var(--emerald); font-family:'JetBrains Mono', monospace;">${timeStr}</span>
-                                    </div>
-                                    <div style="font-size:0.85rem; font-weight:600; color:var(--text-primary); line-height:1.4;">
-                                        ${escapeHTML(item.title)}
-                                    </div>
-                                </div>
-                            </a>
-                        `;
-                    });
-                    container.innerHTML = htmlItems.join('');
-                }
-            } catch (e) {
-                console.error("News fetch failed", e);
-            }
-        }
-        
-        fetchMacroNews();
-        setInterval(fetchMacroNews, 60000); // refresh every minute
 
         // Auto-start analysis from dashboard recompile button
         const urlParams = new URLSearchParams(window.location.search);

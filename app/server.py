@@ -7,7 +7,11 @@ import sys
 import re
 import io
 import subprocess
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
 
 # Fix Windows encoding issues for standard outputs
 if sys.platform == "win32":
@@ -407,57 +411,7 @@ def get_stock_news(ticker):
     except Exception as e:
         return {"error": str(e)}, 500
 
-@app.route("/macro")
-def macro_dashboard():
-    """Serve the Macro Command Center."""
-    return render_template("macro.html")
 
-@app.route("/macro/scorecard/<asset>")
-def macro_scorecard(asset):
-    return render_template('scorecard.html', asset=asset.upper())
-
-@app.route("/macro/cot")
-def macro_cot_dashboard():
-    return render_template('cot.html')
-
-@app.route("/macro/top-setups")
-def macro_top_setups():
-    return render_template('top_setups.html')
-
-@app.route("/macro/sentiment")
-def macro_sentiment():
-    return render_template('sentiment.html')
-
-def _fetch_macro_data():
-    """Fetch live deep G7+ Macro Data with Actual + Previous values."""
-    from macro_fetcher import get_deep_macro_matrix
-    try:
-        data = get_deep_macro_matrix()
-        return data
-    except Exception as e:
-        logger.error(f"Macro fetch failed: {e}")
-        return {}
-
-def _fetch_flat_macro_data():
-    """Fetch macro data flattened to just actual values (backward compat)."""
-    from macro_fetcher import get_flat_macro_matrix
-    try:
-        return get_flat_macro_matrix()
-    except Exception as e:
-        logger.error(f"Flat macro fetch failed: {e}")
-        return {}
-
-@app.route("/api/macro_data")
-def get_macro_data():
-    try:
-        data = _fetch_macro_data()
-        return {"status": "success", "data": data}
-    except Exception as e:
-        return {"error": str(e)}, 500
-
-from flask import session, request, redirect, url_for, flash, render_template
-import logging
-logger = logging.getLogger(__name__)
 
 
 ticker_tape_cache = {"data": None, "timestamp": 0}
