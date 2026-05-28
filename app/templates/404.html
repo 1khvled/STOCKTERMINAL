@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 Not Found - StockerAI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+    <style>
+        .error-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+            gap: 24px;
+        }
+        .error-code {
+            font-size: 6rem;
+            font-weight: 900;
+            color: var(--ruby);
+            font-family: var(--font-mono);
+            line-height: 1;
+        }
+        .error-msg {
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container" style="width: 100%;">
+        <div class="error-code">404</div>
+        <div class="error-msg">Resource Not Found</div>
+        <p style="color: var(--text-muted); max-width: 400px; line-height: 1.5;">The database record, ticker symbol, or page you are looking for does not exist or has been removed.</p>
+        <a href="/" class="btn-action" style="padding: 10px 24px; font-size: 1rem; border-color: var(--emerald); color: var(--emerald);">Return to Hub</a>
+    </div>
+</body>
+</html>

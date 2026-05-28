@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="StockerAI Quant Terminal Hub - Bloomberg-Grade Institutional Investment Dashboard & Pipeline Engine">
+    <title>StockerAI // Institutional Stock Portfolio Hub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/theme.css">
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+</head>
+<body>
+    <div class="main-content" style="padding: 0; gap: 0; margin-left: 0;">
+
+    <!-- Institutional Ticker Tape -->
+    <div class="ticker-wrap" style="background: #000; border-bottom: 1px solid #333; font-family: var(--font-mono); font-size: 0.85rem;">
+        <div class="ticker-tape">
+            {% if tape_data %}
+                {% for item in tape_data %}
+                <div class="ticker-item"><span class="ticker-symbol" style="color: #888;">{{ item.label }}</span> <span class="ticker-val" style="color: #e0e0e0;">{{ item.val }}</span> <span class="ticker-change {% if item.pct >= 0 %}up{% else %}down{% endif %}" style="color: {% if item.pct >= 0 %}#388e3c{% else %}#c62828{% endif %};">{% if item.pct >= 0 %}+{% endif %}{{ "%.2f"|format(item.pct) }}{% if not item.is_yield %}%{% endif %}</span> <span style="color: #333; margin: 0 12px;">|</span></div>
+                {% endfor %}
+                <!-- Duplicated for seamless scrolling -->
+                {% for item in tape_data %}
+                <div class="ticker-item"><span class="ticker-symbol" style="color: #888;">{{ item.label }}</span> <span class="ticker-val" style="color: #e0e0e0;">{{ item.val }}</span> <span class="ticker-change {% if item.pct >= 0 %}up{% else %}down{% endif %}" style="color: {% if item.pct >= 0 %}#388e3c{% else %}#c62828{% endif %};">{% if item.pct >= 0 %}+{% endif %}{{ "%.2f"|format(item.pct) }}{% if not item.is_yield %}%{% endif %}</span> <span style="color: #333; margin: 0 12px;">|</span></div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+
+
+    <!-- Main Workspace -->
+    <div class="workspace">
+        <!-- Ingestion & Terminal Logs Panels -->
+        <div class="ingest-grid">
+            <!-- Left Panel Ingestion Card -->
+            <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; gap: 20px;">
+                <div>
+                    <div class="section-label">Pipeline Ingestion Engine</div>
+                    <h1 class="command-title">Initiate Stock Quant Analysis</h1>
+                    <p class="command-desc">Enter any valid stock ticker symbol (e.g. MSFT, CRM, MU). The system will fetch real-time financial statements, CAPM WACC, SEC EDGAR filings, Notion research logs, and compile a dynamic Excel workbook and AI research record.</p>
+                    
+                    <form class="command-form" id="analysis-form" onsubmit="startAnalysis(event)">
+                        <div class="input-group">
+                            <input type="text" class="ticker-input" id="ticker-input" placeholder="Enter stock symbol (e.g. CRM)" autocomplete="off" required>
+                            <svg class="input-icon" width="16" height="16" fill="none" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        </div>
+                        <button type="submit" class="submit-btn" id="submit-btn">
+                            Compile Terminal
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                    </form>
+
+                    <!-- Ingestion Ticker Presets -->
+                    <div class="presets-container" style="margin-top: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span style="font-size: 0.7rem; font-family: 'JetBrains Mono', monospace; color: var(--text-muted); letter-spacing: 0.5px;">QUICK RUN:</span>
+                        <button type="button" class="preset-badge" onclick="selectPreset('CRM')">CRM</button>
+                        <button type="button" class="preset-badge" onclick="selectPreset('MU')">MU</button>
+                        <button type="button" class="preset-badge" onclick="selectPreset('AAPL')">AAPL</button>
+                        <button type="button" class="preset-badge" onclick="selectPreset('MSFT')">MSFT</button>
+                        <button type="button" class="preset-badge" onclick="selectPreset('NVDA')">NVDA</button>
+                        <button type="button" class="preset-badge" onclick="selectPreset('TSLA')">TSLA</button>
+                    </div>
+                </div>
+
+                <!-- Quant Workstation Vitals HUD (Expanded to 6 Cards) -->
+                <div>
+                    <div class="vitals-label" style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                        System Workstation Vitals
+                        <span style="flex-grow: 1; height: 1px; background: var(--border);"></span>
+                    </div>
+                    <div class="vitals-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                        <div class="vital-card">
+                            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase;">Server Status</span>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background-color: var(--emerald); box-shadow: 0 0 8px var(--emerald); animation: pulse 2s infinite;"></span>
+                                <span style="font-size: 0.85rem; font-weight: 700; color: #fff;">ACTIVE</span>
+                            </div>
+                        </div>
+                        <div class="vital-card">
+                            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase;">Quant Universe</span>
+                            <span style="font-size: 0.85rem; font-weight: 700; color: #fff;">{{ RECENT_COUNT }} Tickers</span>
+                        </div>
+                        <div class="vital-card">
+                            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase;">Disk Cache</span>
+                            <span style="font-size: 0.85rem; font-weight: 700; color: #fff;">{{ CACHE_SIZE }}</span>
+                        </div>
+                        <div class="vital-card">
+                            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase;">AI Engine</span>
+                            <span style="font-size: 0.8rem; font-weight: 700; color: var(--sapphire); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Llama3-70B via Groq API">Llama 3 (Groq)</span>
+                        </div>
+                        <div class="vital-card">
+                            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase;">API Interface</span>
+                            <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">SSE Stream</span>
+                        </div>
+                        <div class="vital-card">
+                            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase;">Last Subprocess</span>
+                            <span id="vitals-last-run" style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary);">N/A</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel Terminal Console Card (Grows on Running / Aborting / Aborted / Succeeded) -->
+            <div class="card terminal-card" id="terminal-card">
+                <div>
+                    <div class="section-label" style="margin-bottom: 8px;">Pipeline Telemetry Console</div>
+                    
+                    <!-- High-tech Terminal Controls & HUD Toolbar -->
+                    <div class="terminal-header-hud" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span id="terminal-status-badge" class="badge-status badge-status-idle">🟢 IDLE</span>
+                            <span id="terminal-timer" style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-secondary); font-weight: 600;">Elapsed: 00.00s</span>
+                        </div>
+                        <div class="terminal-actions" style="display: flex; gap: 6px;">
+                            <button type="button" class="terminal-action-btn" onclick="toggleFullscreen()" title="Toggle Fullscreen Mode">⤢ Fullscreen</button>
+                            <button type="button" class="terminal-action-btn" onclick="clearTerminal()" title="Clear Console">Clear</button>
+                            <button type="button" class="terminal-action-btn" onclick="copyTerminal()" title="Copy Logs to Clipboard">Copy</button>
+                            <button type="button" class="terminal-action-btn" onclick="downloadTerminal()" title="Download Log Output">Download</button>
+                            <button type="button" id="abort-btn" class="terminal-action-btn abort-btn" onclick="abortAnalysis()" style="display: none;" title="Abort Compilation Process">Abort</button>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Visual Stage Stepper HUD (Horizontal Pipeline Connector Mode) -->
+                    <div class="stepper-hud">
+                        <div id="step-node-1" class="step-node pending" data-step="1">
+                            <span class="step-status-icon">⚪</span>
+                            <span class="step-label-text">Statements</span>
+                        </div>
+                        <div class="step-connector" id="step-connector-1"></div>
+                        <div id="step-node-2" class="step-node pending" data-step="2">
+                            <span class="step-status-icon">⚪</span>
+                            <span class="step-label-text">Notion Hub</span>
+                        </div>
+                        <div class="step-connector" id="step-connector-2"></div>
+                        <div id="step-node-3" class="step-node pending" data-step="3">
+                            <span class="step-status-icon">⚪</span>
+                            <span class="step-label-text">Groq AI</span>
+                        </div>
+                        <div class="step-connector" id="step-connector-3"></div>
+                        <div id="step-node-4" class="step-node pending" data-step="4">
+                            <span class="step-status-icon">⚪</span>
+                            <span class="step-label-text">SVG Charts</span>
+                        </div>
+                        <div class="step-connector" id="step-connector-4"></div>
+                        <div id="step-node-5" class="step-node pending" data-step="5">
+                            <span class="step-status-icon">⚪</span>
+                            <span class="step-label-text">Excel Model</span>
+                        </div>
+                        <div class="step-connector" id="step-connector-5"></div>
+                        <div id="step-node-6" class="step-node pending" data-step="6">
+                            <span class="step-status-icon">⚪</span>
+                            <span class="step-label-text">DB Sync</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Terminal Output Console (500px tall with scanline overlay and green neon indicator logs) -->
+                <div class="terminal-box" id="terminal-logs">
+                    <div class="log-line log-info"><span class="log-timestamp">[SYSTEM HUD]</span> Ingestion telemetry initialized. Ready to receive subprocess logs...<span class="terminal-cursor">_</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEW Card: Live Balance Sheet Summary panel -->
+        <div class="card" id="balance-sheet-card">
+            <div class="section-label">Live Balance Sheet & Solvency Snapshot</div>
+            <div class="balance-sheet-header">
+                <h2 class="catalog-title" id="bs-company-title">Select Ticker Symbol to Load Metrics</h2>
+                <span class="logo-tag" id="bs-ticker-badge" style="display:none; font-family: 'JetBrains Mono', monospace;">TICKER</span>
+            </div>
+            
+            <!-- Sleek Placeholder state initially -->
+            <div class="empty-state" id="bs-placeholder" style="padding: 40px; border: 1px dashed var(--border); border-radius: var(--radius-sm);">
+                🔍 Select a company from the Local Quant Database Catalog below to populate this real-time balance sheet and institutional solvency scorecard.
+            </div>
+
+            <!-- Balanced sheet tiles grid initially hidden -->
+            <div class="bs-grid" id="bs-grid" style="display:none;">
+                <div class="bs-tile">
+                    <span class="bs-label">Market Capitalization</span>
+                    <span class="bs-value" id="bs-market-cap">-</span>
+                    <span class="bs-subtext" id="bs-market-cap-sub">Spot Value</span>
+                </div>
+                <div class="bs-tile">
+                    <span class="bs-label">Total Revenue (TTM)</span>
+                    <span class="bs-value" id="bs-revenue">-</span>
+                    <span class="bs-subtext" id="bs-revenue-sub">Top Line Stream</span>
+                </div>
+                <div class="bs-tile">
+                    <span class="bs-label">Free Cash Flow (TTM)</span>
+                    <span class="bs-value" id="bs-fcf">-</span>
+                    <span class="bs-subtext" id="bs-fcf-sub">Cash Generation</span>
+                </div>
+                <div class="bs-tile">
+                    <span class="bs-label">Total Cash Reservoirs</span>
+                    <span class="bs-value" id="bs-cash">-</span>
+                    <span class="bs-subtext" id="bs-cash-sub">Liquidity Buffer</span>
+                </div>
+                <div class="bs-tile">
+                    <span class="bs-label">Total Debt Liabilities</span>
+                    <span class="bs-value" id="bs-debt">-</span>
+                    <span class="bs-subtext" id="bs-debt-sub">Outstanding Debt</span>
+                </div>
+                <div class="bs-tile">
+                    <span class="bs-label">Net Debt Position</span>
+                    <span class="bs-value" id="bs-net-debt">-</span>
+                    <span class="bs-subtext" id="bs-net-debt-sub">Debt minus Cash</span>
+                </div>
+                <div class="bs-tile">
+                    <span class="bs-label">Book Value per Share</span>
+                    <span class="bs-value" id="bs-book-value">-</span>
+                    <span class="bs-subtext" id="bs-book-value-sub">Intrinsic Equity</span>
+                </div>
+                <div class="bs-tile">
+                    <span class="bs-label">Debt-to-Equity Ratio</span>
+                    <span class="bs-value" id="bs-de-ratio">-</span>
+                    <span class="bs-subtext" id="bs-de-ratio-sub">Leverage Score</span>
+                </div>
+                <div class="bs-tile">
+                    <span class="bs-label">Current Ratio (Solvency)</span>
+                    <span class="bs-value" id="bs-current-ratio">-</span>
+                    <span class="bs-subtext" id="bs-current-ratio-sub">Short-term Cover</span>
+                </div>
+                <div class="bs-tile">
+                    <span class="bs-label">Quick Ratio (Acid Test)</span>
+                    <span class="bs-value" id="bs-quick-ratio">-</span>
+                    <span class="bs-subtext" id="bs-quick-ratio-sub">Liquid Assets</span>
+                </div>
+                <div class="bs-tile">
+                    <span class="bs-label">Return on Equity (ROE)</span>
+                    <span class="bs-value" id="bs-roe">-</span>
+                    <span class="bs-subtext" id="bs-roe-sub">Capital Efficiency</span>
+                </div>
+                <div class="bs-tile">
+                    <span class="bs-label">Return on Assets (ROA)</span>
+                    <span class="bs-value" id="bs-roa">-</span>
+                    <span class="bs-subtext" id="bs-roa-sub">Asset Utilization</span>
+                </div>
+            </div>
+        </div>
+
+
+
+        <!-- database Sortable Catalog Panel -->
+        <div class="card">
+            <div class="section-label">Local Quant Database Catalog</div>
+            
+            <div class="catalog-header">
+                <h2 class="catalog-title" id="catalog-count">Analyzed Stock Universe (0 Tickers)</h2>
+                
+                <div class="filter-group">
+                    <!-- Search input field for responsive filtering -->
+                    <div style="position: relative;">
+                        <input type="text" id="catalog-search" oninput="applyFilters()" placeholder="Filter by ticker or name..." class="select-filter" style="width: 220px; padding-left: 32px;">
+                        <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 0.8rem; color: var(--text-muted);">🔎</span>
+                    </div>
+                    
+                    <select class="select-filter" id="filter-verdict" onchange="applyFilters()">
+                        <option value="ALL">All Verdicts</option>
+                        <option value="BUY">BUY / STRONG BUY</option>
+                        <option value="HOLD">HOLD</option>
+                        <option value="SELL">SELL / STRONG SELL</option>
+                    </select>
+                    <select class="select-filter" id="filter-sector" onchange="applyFilters()">
+                        <option value="ALL">All Sectors</option>
+                        <!-- Dynamic sectors injected here -->
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="catalog-table">
+                    <thead>
+                        <tr>
+                            <th onclick="sortCatalog('ticker')">Ticker <span class="sort-icon" id="sort-ticker">↕</span></th>
+                            <th onclick="sortCatalog('company_name')">Company Name <span class="sort-icon" id="sort-company_name">↕</span></th>
+                            <th onclick="sortCatalog('sector')">Sector <span class="sort-icon" id="sort-sector">↕</span></th>
+                            <th onclick="sortCatalog('verdict')">Verdict <span class="sort-icon" id="sort-verdict">↕</span></th>
+                            <th onclick="sortCatalog('confidence')">Confidence <span class="sort-icon" id="sort-confidence">↕</span></th>
+                            <th onclick="sortCatalog('current_price')">Price <span class="sort-icon" id="sort-current_price">↕</span></th>
+                            <th onclick="sortCatalog('upside')">Implied Return <span class="sort-icon" id="sort-upside">↕</span></th>
+                            <th onclick="sortCatalog('altman_z')">Altman Z <span class="sort-icon" id="sort-altman_z">↕</span></th>
+                            <th onclick="sortCatalog('beneish_m')">Beneish M <span class="sort-icon" id="sort-beneish_m">↕</span></th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="catalog-body">
+                        <tr>
+                            <td colspan="10" class="empty-state">Loading your personal stock database...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Institutional Footer Bar -->
+    <footer class="system-footer">
+        <span>StockerAI Quant Valuation Engine v2.0 // Institutional Portals</span>
+        <div class="footer-status">
+            <span class="footer-dot"></span>
+            <span>Local Quant Daemon Connected (:5000)</span>
+        </div>
+        <span>Python 3.10+ // Flask // SSE Real-time Logs</span>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/hub.js') }}"></script>

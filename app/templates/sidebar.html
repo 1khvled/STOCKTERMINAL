@@ -1,0 +1,29 @@
+<div class="sidebar">
+    <div class="sidebar-header">
+        <div class="brand-title">
+            <span style="color:var(--cyan);">📊</span> StockerAI
+        </div>
+        <div style="margin-top:8px;">
+            <span class="brand-badge">STANDALONE EDITION</span>
+        </div>
+    </div>
+    <div class="nav-links">
+        <a href="/" class="nav-item {% if request.path == '/' %}active{% endif %}">
+            <span style="width:20px;">⚡</span> Execution Hub
+        </a>
+    </div>
+    
+    <div style="margin-top:auto; padding:24px; border-top:1px solid var(--border);">
+        <div style="font-family:var(--font-mono); font-size:0.75rem; color:var(--text-secondary); margin-bottom: 12px;">
+            SYSTEM STATUS: <span style="color:var(--emerald);">ONLINE</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size:0.85rem; color:#fff; font-weight:600;">
+                👤 LOCAL USER
+                <span style="font-size:0.65rem; color:var(--cyan); border:1px solid var(--cyan); padding:2px 6px; border-radius:4px; margin-left:4px;">ADMIN</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/spa_router.js"></script>

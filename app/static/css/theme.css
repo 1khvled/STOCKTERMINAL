@@ -1,0 +1,392 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800;900&family=JetBrains+Mono:wght@400;700;800&display=swap');
+
+:root {
+    /* EXACT MACROMETRICS PALETTE */
+    --bg-base: #000000;
+    --bg-panel: #111111;
+    --bg-hover: #1a1a1a;
+    --border: #333333;
+    --border-highlight: #444444;
+    
+    --text-primary: #e0e0e0;
+    --text-secondary: #888888;
+    --text-muted: #525252;
+    
+    --emerald: #388e3c; /* Exact Macrometrics Mint/Teal */
+    --ruby: #c62828;    /* Standard Red for alerts */
+    --gold: #fbc02d;
+    --cyan: #1565c0;    /* Exact Macrometrics Cyan */
+    --accent: #1565c0;
+    
+    /* Exact Macrometrics Fonts */
+    --font-sans: 'Arial', sans-serif;
+    --font-mono: 'Consolas', 'Courier New', monospace;
+    
+    --sidebar-width: 260px;
+}
+
+body {
+    margin: 0;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    display: flex;
+    min-height: 100vh;
+}
+
+/* =========================================
+   SIDEBAR LAYOUT
+   ========================================= */
+.sidebar {
+    width: var(--sidebar-width);
+    background: #111111;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    height: 100vh;
+    z-index: 1000;
+}
+
+.sidebar-header {
+    padding: 24px;
+    border-bottom: 1px solid var(--border);
+}
+
+.brand-title {
+    font-size: 1.25rem;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.brand-badge {
+    background: transparent;
+    color: var(--cyan);
+    border: 1px solid transparent;
+    padding: 2px 6px;
+    border-radius: 0;
+    font-size: 0.55rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.nav-links {
+    display: flex;
+    flex-direction: column;
+    padding: 24px 12px;
+    gap: 8px;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 0;
+    transition: none;
+    border: 1px solid transparent;
+}
+
+.nav-item:hover, .nav-item.active {
+    background: var(--bg-hover);
+    color: #fff;
+}
+
+.nav-item.active {
+    border-color: var(--border-highlight);
+    background: transparent;
+    color: var(--cyan);
+}
+
+/* =========================================
+   MAIN CONTENT AREA
+   ========================================= */
+.main-content {
+    flex: 1;
+    margin-left: var(--sidebar-width);
+    padding: 32px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.page-title {
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: -1px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    color: var(--emerald);
+    border: 1px solid transparent;
+    padding: 4px 8px;
+    border-radius: 0;
+    font-size: 0.65rem;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.live-badge::before {
+    content: '';
+    display: block;
+    width: 6px;
+    height: 6px;
+    background: var(--emerald);
+    border-radius: 0;
+    animation: blink 2s infinite;
+}
+
+@keyframes blink { 0% {opacity:1;} 50% {opacity:0.3;} 100% {opacity:1;} }
+
+/* =========================================
+   PANELS & GLASSMORPHISM
+   ========================================= */
+.panel {
+    background: #111111;
+    border: 1px solid var(--border);
+    border-radius: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.panel-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #000000;
+}
+
+.panel-title {
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.panel-body {
+    padding: 24px;
+    position: relative;
+}
+
+/* =========================================
+   INSTITUTIONAL DATA TABLES
+   ========================================= */
+table.terminal-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+table.terminal-table th {
+    text-align: left;
+    padding: 12px 24px;
+    font-size: 0.65rem;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+
+table.terminal-table td {
+    padding: 16px 24px;
+    font-size: 0.9rem;
+    border-bottom: 1px solid transparent;
+    font-family: var(--font-mono);
+}
+
+table.terminal-table tr:hover td {
+    background: transparent;
+}
+
+/* Zebra Striping */
+table.terminal-table tr:nth-child(even) td {
+    background: transparent;
+}
+table.terminal-table tr:hover td {
+    background: var(--bg-hover);
+}
+
+/* Text Heatmaps */
+.heat-green { color: var(--emerald); }
+.heat-red { color: var(--ruby); }
+.heat-neutral { color: var(--text-secondary); }
+
+.asset-cell {
+    font-family: var(--font-sans);
+    font-weight: 800;
+    font-size: 1rem;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.btn-action {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    border-radius: 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    transition: none;
+    font-family: var(--font-sans);
+}
+
+.btn-action:hover {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    background: transparent;
+}
+
+/* =========================================
+   SKELETON LOADERS
+   ========================================= */
+.skeleton-row {
+    animation: skeleton-pulse 1.5s infinite;
+}
+
+.skeleton-cell {
+    height: 16px;
+    background: transparent;
+    border-radius: 0;
+    width: 100%;
+}
+
+@keyframes skeleton-pulse {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { opacity: 0.5; }
+}
+
+/* =========================================
+   SPA ROUTER LOADER
+   ========================================= */
+#spa-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: var(--cyan);
+    width: 0%;
+    z-index: 9999;
+    transition: none;
+    box-shadow: none;
+    pointer-events: none;
+}
+
+/* =========================================
+   RESPONSIVE DESIGN (MOBILE & TABLET)
+   ========================================= */
+.mobile-nav-toggle {
+    display: none;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    border-radius: 0;
+    cursor: pointer;
+    margin-right: 16px;
+}
+
+@media (max-width: 1024px) {
+    .sidebar {
+        transform: translateX(-100%);
+        transition: none;
+    }
+    .sidebar.open {
+        transform: translateX(0);
+        box-shadow: none;
+    }
+    .main-content {
+        margin-left: 0;
+        padding: 24px 16px;
+    }
+    .mobile-nav-toggle {
+        display: inline-block;
+    }
+    .page-title {
+        font-size: 1.5rem;
+    }
+    
+    /* Tables on mobile */
+    .table-container {
+        overflow-x: auto;
+    }
+}
+
+@media (max-width: 768px) {
+    .panel-body {
+        padding: 16px;
+    }
+    .grid {
+        grid-template-columns: 1fr;
+    }
+    .flex-row {
+        flex-direction: column;
+    }
+}
+
+/* =========================================
+   INSTITUTIONAL TERMINAL OVERRIDES
+   ========================================= */
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 0;
+    border: 1px solid var(--border);
+}
+
+th, td {
+    padding: 4px 8px !important;
+    border: 1px solid var(--border) !important;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+}
+
+th {
+    background-color: var(--bg-hover) !important;
+    color: var(--text-secondary) !important;
+    font-weight: normal;
+    text-transform: uppercase;
+}
+
+tbody tr:hover {
+    background-color: transparent !important;
+    border-left: 2px solid var(--cyan) !important;
+}
+
+/* Button overrides for instant snap */
+.btn-action:hover, .btn-sm:hover, button:hover {
+    background-color: var(--cyan) !important;
+    color: #000000 !important;
+    border-color: var(--cyan) !important;
+    transition: none !important;
+}

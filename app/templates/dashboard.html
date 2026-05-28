@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ ticker }} // Interactive Stock Workstation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard_new.css') }}">
+</head>
+<body>
+    <nav>
+        <div class="logo-container">
+            <span class="logo-symbol">S_AI</span>
+            <span class="logo-text">StockerAI Terminal</span>
+            <span class="logo-tag">Quantitative Workstation</span>
+        </div>
+        <div class="nav-actions">
+            <a href="/guide" class="btn">
+                📚 Reference Guide
+            </a>
+            <a href="/stocks" class="btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                Stock Hub
+            </a>
+            <a href="/excel/{{ ticker }}" class="btn" id="excel-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Download Excel Model
+            </a>
+        </div>
+    </nav>
+
+    <div class="workspace">
+        <!-- Sidebar Inputs -->
+        <div class="sidebar">
+            <div class="card">
+                <div class="section-label">Valuation Model Parameters</div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Risk-Free Rate (R_f)</span>
+                        <span class="slider-value" id="rf-val">4.2%</span>
+                    </div>
+                    <div class="slider-help">Yield on risk-free government bonds (your absolute baseline return)</div>
+                    <input type="range" min="2.0" max="6.0" step="0.1" value="4.2" class="slider-control" id="rf-slider">
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Beta Coefficient (β)</span>
+                        <span class="slider-value" id="beta-val">1.20</span>
+                    </div>
+                    <div class="slider-help">Price volatility compared to market (1.00 is equal; &gt;1.00 is more volatile)</div>
+                    <input type="range" min="0.5" max="2.5" step="0.05" value="1.20" class="slider-control" id="beta-slider">
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Equity Risk Premium (ERP)</span>
+                        <span class="slider-value" id="erp-val">5.5%</span>
+                    </div>
+                    <div class="slider-help">The extra profit margin investors demand for holding equities over safe bonds</div>
+                    <input type="range" min="4.0" max="10.0" step="0.1" value="5.5" class="slider-control" id="erp-slider">
+                </div>
+
+                <div class="capm-card">
+                    <div class="capm-formula">Cost of Equity = R_f + (β * ERP)</div>
+                    <div class="capm-result" id="capm-cost-val">Cost of Equity: 10.8%</div>
+                    <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px; line-height: 1.2;">Minimum yearly return investors require to hold this stock based on risk</div>
+                </div>
+
+                <div class="section-label" style="margin-top: 24px;">Growth Assumptions</div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Growth Rate Years 1-5</span>
+                        <span class="slider-value" id="growth15-val">15.0%</span>
+                    </div>
+                    <div class="slider-help">Estimated annual cash flow growth rate for the next 5 years</div>
+                    <input type="range" min="0.0" max="40.0" step="0.5" value="15.0" class="slider-control" id="growth15-slider">
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Growth Rate Years 6-10</span>
+                        <span class="slider-value" id="growth610-val">10.0%</span>
+                    </div>
+                    <div class="slider-help">Growth rate for years 6-10 as the company's expansion naturally matures</div>
+                    <input type="range" min="0.0" max="25.0" step="0.5" value="10.0" class="slider-control" id="growth610-slider">
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Terminal Growth Rate</span>
+                        <span class="slider-value" id="terminal-val">2.5%</span>
+                    </div>
+                    <div class="slider-help">Growth rate assumed forever after year 10 (usually matches GDP/inflation e.g. 2-3%)</div>
+                    <input type="range" min="0.5" max="5.0" step="0.1" value="2.5" class="slider-control" id="terminal-slider">
+                </div>
+
+                <div class="dcf-widget" style="margin-top: 24px;">
+                    <div class="widget-label">Implied DCF Fair Value</div>
+                    <div class="widget-val" id="implied-dcf-val">$0.00</div>
+                    <div class="widget-return" id="implied-return-val">+0.0%</div>
+                    <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px; line-height: 1.2;">Estimated intrinsic worth of the stock today based on all future cash flows</div>
+                </div>
+
+                <button class="btn btn-primary" id="save-btn" style="width: 100%; justify-content: center; margin-top: 16px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    Save Changes to Excel
+                </button>
+            </div>
+        </div>
+
+        <!-- Right Side Primary Terminal Content -->
+        <div class="research-area">
+            <!-- Header Banner Card -->
+            <div class="card stock-header-card">
+                <div class="stock-info">
+                    <span class="sector-badge" id="stock-sector">Sector</span>
+                    <span class="company-name" id="stock-name">Company Name</span>
+                    <span class="company-meta" id="stock-ticker-header">Ticker // Company Full Name</span>
+                </div>
+                
+                <div class="header-quotes">
+                    <div class="quote-block-dynamic">
+                        <span class="quote-lbl">Last Traded</span>
+                        <span class="quote-price" id="header-price">$0.00</span>
+                        <span class="quote-change" id="header-price-change">+0.00% today</span>
+                    </div>
+                    <div class="quote-block-dynamic">
+                        <span class="quote-lbl">Consensus Target</span>
+                        <span class="quote-price" style="color: var(--accent);" id="header-target">$0.00</span>
+                        <span class="quote-change" style="color: var(--text-secondary);" id="header-analyst-count">? Analyst consensus</span>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 12px; margin-left: auto;">
+                    <span class="badge-verdict" id="stock-verdict">HOLD</span>
+                    <div id="stock-confidence-container" class="verdict-banner-dynamic" style="display: flex; gap: 10px; align-items: center;">
+                        <div class="verdict-conf-dynamic">
+                            <span>Confidence</span>
+                            <span id="stock-confidence" style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--accent);">--%</span>
+                        </div>
+                        <div class="confidence-bar-bg" style="width: 44px; height: 5px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden; display: flex;">
+                            <div id="stock-confidence-bar" style="width: 0%; height: 100%; background: var(--gradient-accent); border-radius: 99px; transition: width 1s var(--ease);"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Strip row -->
+            <div class="stats-strip">
+                <div class="stat-node">
+                    <span class="stat-node-label">Current Market Price</span>
+                    <span class="stat-node-val" id="price-val">$0.00</span>
+                </div>
+                <div class="stat-node">
+                    <span class="stat-node-label">Weighted Fair Value</span>
+                    <span class="stat-node-val" id="fair-val">$0.00</span>
+                </div>
+                <div class="stat-node">
+                    <span class="stat-node-label">Trailing / Forward PE</span>
+                    <span class="stat-node-val" id="pe-val">N/A / N/A</span>
+                </div>
+                <div class="stat-node">
+                    <span class="stat-node-label">Trailing / Forward EPS</span>
+                    <span class="stat-node-val" id="eps-val">$0.00 / $0.00</span>
+                </div>
+            </div>
+
+            <!-- Price Trend Line Chart Panel -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <span class="stat-node-label" style="font-weight: 700; color: #fff;">1-Year Weekly Trend Price History</span>
+                    <span class="node-label" id="chart-close-tracker" style="color: var(--emerald); font-weight: 700;">Close: $0.00</span>
+                </div>
+                <div class="chart-container" id="chart-container-root">
+                    <svg class="chart-svg" id="price-chart-svg"></svg>
+                    <div class="chart-tooltip" id="chart-tooltip-el">Date: Price</div>
+                </div>
+            </div>
+
+            <div class="tab-nav" id="tab-nav-bar">
+                <button class="tab-btn active" data-tab="tab-verdict">AI Verdict & Thesis</button>
+                <button class="tab-btn" data-tab="tab-solvency">Solvency & DuPont Health</button>
+                <button class="tab-btn" data-tab="tab-financials">Detailed Statements</button>
+                <button class="tab-btn" data-tab="tab-relative">Relative Peer Valuation</button>
+                <button class="tab-btn" data-tab="tab-notion" id="notion-nav-btn">Notion Qualitative Hub</button>
+                <button class="tab-btn" data-tab="tab-fundamentals">Fundamentals deep dive</button>
+                <button class="tab-btn" data-tab="tab-sentiment">Sentiment & Macro</button>
+                <button class="tab-btn" data-tab="tab-risks">Risks & Catalysts</button>
+            </div>
+
+            <!-- 1. Verdict & Thesis -->
+            <div class="tab-panel active" id="tab-verdict">
+                <div class="narrative-card">
+                    <div class="narrative-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2.5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                        Executive Research Summary
+                    </div>
+                    <div class="narrative-body" id="executive-summary">
+                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                    </div>
+                </div>
+
+                <div class="narrative-card">
+                    <div class="narrative-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        Core Investment Verdict Reasoning
+                    </div>
+                    <div class="narrative-body" id="verdict-reasoning">
+                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                    </div>
+                </div>
+
+                <div class="narrative-card">
+                    <div class="narrative-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+                        Target Sizing & Portfolio Weight Sizing Strategy
+                    </div>
+                    <div class="narrative-body" id="sizing-strategy">
+                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <!-- 2. Solvency & DuPont Health Tab -->
+            <div class="tab-panel" id="tab-solvency">
+                <div class="card" style="padding: 20px;">
+                    <div class="narrative-title">3-Stage DuPont ROE Decomposition</div>
+                    <div class="dupont-card">
+                        <div class="dupont-node">
+                            <span class="dupont-node-label">Net Profit Margin</span>
+                            <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: normal; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;">Profitability (Margins)</div>
+                            <span class="dupont-node-val" id="dp-margin">0.00%</span>
+                        </div>
+                        <span class="dupont-multiplier">×</span>
+                        <div class="dupont-node">
+                            <span class="dupont-node-label">Asset Turnover</span>
+                            <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: normal; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;">Sales Efficiency</div>
+                            <span class="dupont-node-val" id="dp-turnover">0.00x</span>
+                        </div>
+                        <span class="dupont-multiplier">×</span>
+                        <div class="dupont-node">
+                            <span class="dupont-node-label">Equity Multiplier</span>
+                            <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: normal; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;">Debt Leverage</div>
+                            <span class="dupont-node-val" id="dp-leverage">0.00x</span>
+                        </div>
+                        <span class="dupont-multiplier">=</span>
+                        <div class="dupont-node">
+                            <span class="dupont-node-label">Computed ROE</span>
+                            <div style="font-size: 0.62rem; color: var(--emerald); font-weight: normal; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;">Overall Return</div>
+                            <span class="dupont-node-val" id="dp-roe" style="color: var(--emerald);">0.00%</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 20px; padding: 16px; background-color: var(--bg-input); border: 1px dashed var(--border); border-radius: var(--radius-sm); font-size: 0.8rem; line-height: 1.5; color: var(--text-secondary);">
+                        <strong style="color: #fff; display: block; margin-bottom: 6px;">💡 What does DuPont ROE mean in plain English?</strong>
+                        ROE (Return on Equity) measures how efficiently a company generates profits for its shareholders. 
+                        The 3-stage DuPont model breaks this down into three core operational drivers:
+                        <ul style="margin-left: 20px; margin-top: 6px; display: flex; flex-direction: column; gap: 6px; list-style-type: disc;">
+                            <li><strong>Profitability (Net Profit Margin)</strong>: How much profit the company makes per $1 of sales. Higher margins mean strong brand value or cost control.</li>
+                            <li><strong>Asset Efficiency (Asset Turnover)</strong>: How productively the company uses its assets to generate sales. Higher turnover means faster inventory or asset utility.</li>
+                            <li><strong>Leverage (Equity Multiplier)</strong>: How much debt the company uses to fund its operations. While debt boosts shareholder returns, high leverage increases solvency risk.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card" style="padding: 20px;">
+                    <div class="narrative-title">Altman Z-Score 5-Factor Solvency Breakdown</div>
+                    <div class="table-container">
+                        <table class="statement-table" id="altman-table">
+                            <thead>
+                                <tr>
+                                    <th>Factor</th>
+                                    <th>Financial Parameter Description</th>
+                                    <th>Formula Index</th>
+                                    <th>Weight</th>
+                                    <th>Weighted Score</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="font-weight: 700; color: #fff;">X1 Factor</td>
+                                    <td>Working Capital / Total Assets (Liquidity measure)</td>
+                                    <td id="altman-x1">0.00</td>
+                                    <td>1.20</td>
+                                    <td id="altman-wx1" style="font-family: 'JetBrains Mono', monospace;">0.00</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 700; color: #fff;">X2 Factor</td>
+                                    <td>Retained Earnings / Total Assets (Cumulative profitability)</td>
+                                    <td id="altman-x2">0.00</td>
+                                    <td>1.40</td>
+                                    <td id="altman-wx2" style="font-family: 'JetBrains Mono', monospace;">0.00</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 700; color: #fff;">X3 Factor</td>
+                                    <td>EBIT / Total Assets (Pre-interest and pre-tax productivity)</td>
+                                    <td id="altman-x3">0.00</td>
+                                    <td>3.30</td>
+                                    <td id="altman-wx3" style="font-family: 'JetBrains Mono', monospace;">0.00</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 700; color: #fff;">X4 Factor</td>
+                                    <td>Market Value of Equity / Total Liabilities (Financial leverage)</td>
+                                    <td id="altman-x4">0.00</td>
+                                    <td>0.60</td>
+                                    <td id="altman-wx4" style="font-family: 'JetBrains Mono', monospace;">0.00</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 700; color: #fff;">X5 Factor</td>
+                                    <td>Sales / Total Assets (Asset efficiency / sales generation)</td>
+                                    <td id="altman-x5">0.00</td>
+                                    <td>0.999</td>
+                                    <td id="altman-wx5" style="font-family: 'JetBrains Mono', monospace;">0.00</td>
+                                </tr>
+                                <tr style="background: var(--bg-input); font-weight: 700;">
+                                    <td colspan="4" style="color: #fff; padding-left: 20px;">Total Calculated Altman Z-Score</td>
+                                    <td id="altman-total-score" style="color: var(--emerald); font-family: 'JetBrains Mono', monospace; font-size: 1.1rem;">0.00</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style="margin-top: 20px; padding: 16px; background-color: var(--bg-input); border: 1px dashed var(--border); border-radius: var(--radius-sm); font-size: 0.8rem; line-height: 1.5; color: var(--text-secondary);">
+                        <strong style="color: #fff; display: block; margin-bottom: 6px;">💡 What does the Altman Z-Score mean in plain English?</strong>
+                        The Altman Z-Score is a trusted quantitative formula used to evaluate a company's financial stability and predict the likelihood of financial distress or bankruptcy within the next 2 years. 
+                        It compiles 5 crucial financial ratios (measuring liquidity, profitability, productivity, leverage, and activity) into a single score:
+                        <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 200px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--emerald-border); background-color: var(--emerald-glow); text-align: center;">
+                                <strong style="color: var(--emerald); display: block; font-size: 0.85rem; margin-bottom: 4px;">🟢 Safe Zone (Z > 2.99)</strong>
+                                <span style="font-size: 0.72rem; line-height: 1.3; display: block;">Excellent financial strength. The company is extremely solid with virtually no immediate distress risk.</span>
+                            </div>
+                            <div style="flex: 1; min-width: 200px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--gold-border); background-color: var(--gold-glow); text-align: center;">
+                                <strong style="color: var(--gold); display: block; font-size: 0.85rem; margin-bottom: 4px;">🟡 Grey Zone (1.81 - 2.99)</strong>
+                                <span style="font-size: 0.72rem; line-height: 1.3; display: block;">Moderate risk. The business is stable, but has some leverage or margin pressure. Monitor closely.</span>
+                            </div>
+                            <div style="flex: 1; min-width: 200px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--ruby-border); background-color: var(--ruby-glow); text-align: center;">
+                                <strong style="color: var(--ruby); display: block; font-size: 0.85rem; margin-bottom: 4px;">🔴 Distress Zone (Z < 1.81)</strong>
+                                <span style="font-size: 0.72rem; line-height: 1.3; display: block;">High risk. Indicates serious financial pressure. Warrants deep due diligence on debt obligations.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Financial Statements Tab -->
+            <div class="tab-panel" id="tab-financials">
+                <div class="card" style="padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+                        <div class="narrative-title" style="margin-bottom: 0;">Quarter-over-Quarter Detailed Statements</div>
+                        <div class="financial-statement-selector" style="display: flex; gap: 6px;">
+                            <button class="btn-toggle active" onclick="loadStatement('income', this)">Income Statement</button>
+                            <button class="btn-toggle" onclick="loadStatement('balance', this)">Balance Sheet</button>
+                            <button class="btn-toggle" onclick="loadStatement('cashflow', this)">Cash Flow</button>
+                        </div>
+                    </div>
+
+                    <!-- Click-to-Chart Container -->
+                    <div id="financial-row-chart-container" style="display:none; margin-bottom: 20px; background-color: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 15px; height: 260px; position: relative;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <span style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: var(--text-secondary);" id="financial-chart-title">Quarterly Trend</span>
+                            <button style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; line-height: 1;" onclick="closeFinancialChart()">&times;</button>
+                        </div>
+                        <div style="height: calc(100% - 30px); width: 100%;">
+                            <canvas id="financial-row-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="statement-table" id="statement-table-root">
+                            <tr><td style="padding: 20px; text-align: center;">Loading statements...</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Relative Peer Valuation Tab -->
+            <div class="tab-panel" id="tab-relative">
+                <div class="card" style="padding: 20px;">
+                    <div class="narrative-title">Peer Group Multiples Comparison Grid</div>
+                    <div class="table-container">
+                        <table class="statement-table" id="peers-table">
+                            <thead>
+                                <tr>
+                                    <th>Ticker</th>
+                                    <th>Trailing P/E</th>
+                                    <th>Price / Sales</th>
+                                    <th>Price / Book</th>
+                                    <th>EV / EBITDA</th>
+                                </tr>
+                            </thead>
+                            <tbody id="peers-table-body">
+                                <tr>
+                                    <td colspan="5" class="empty-state">No peer multiples data loaded.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card" style="padding: 20px;">
+                    <div class="narrative-title">Implied Valuation Reconciliation Dashboard</div>
+                    <div class="stats-strip" id="relative-valuation-summary-grid">
+                        <div class="stat-node">
+                            <span class="stat-node-label">Intrinsic DCF Target</span>
+                            <span class="stat-node-val" id="rel-dcf-target">$0.00</span>
+                        </div>
+                        <div class="stat-node">
+                            <span class="stat-node-label">Forward Multiples Target</span>
+                            <span class="stat-node-val" id="rel-multiple-target">$0.00</span>
+                        </div>
+                        <div class="stat-node">
+                            <span class="stat-node-label">Consensus Analyst Target</span>
+                            <span class="stat-node-val" id="rel-analyst-target">$0.00</span>
+                        </div>
+                        <div class="stat-node">
+                            <span class="stat-node-label">Reconciled Fair Value</span>
+                            <span class="stat-node-val" style="color: var(--emerald);" id="rel-reconciled-target">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Notion Qualitative Hub -->
+            <div class="tab-panel" id="tab-notion">
+                <div class="sub-nav" id="notion-sub-nav">
+                    <!-- Dynamic Sub Tabs injected here -->
+                </div>
+                <div class="narrative-card" style="margin-top: 12px;">
+                    <div class="narrative-body" id="notion-content-area">
+                        Notion qualitative company records are loading dynamically...
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. Fundamentals Deep Dive -->
+            <div class="tab-panel" id="tab-fundamentals">
+                <div class="narrative-card">
+                    <div class="narrative-title">Revenue Quality & Structure</div>
+                    <div class="narrative-body" id="f-revenue">
+                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                    </div>
+                </div>
+                <div class="narrative-card">
+                    <div class="narrative-title">Margins & DuPont ROE Profitability Decompositions</div>
+                    <div class="narrative-body" id="f-profit">
+                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                    </div>
+                </div>
+                <div class="narrative-card">
+                    <div class="narrative-title">Earnings Power & Multiple Valuations</div>
+                    <div class="narrative-body" id="f-earnings">
+                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                    </div>
+                </div>
+                <div class="narrative-card">
+                    <div class="narrative-title">Balance Sheet Health & Solvency Buffer</div>
+                    <div class="narrative-body" id="f-balance">
+                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                    </div>
+                </div>
+                <div class="narrative-card">
+                    <div class="narrative-title">Economic Moat Strengths & Disruption Vulnerability</div>
+                    <div class="narrative-body" id="f-moat">
+                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. Sentiment & Macro -->
+            <div class="tab-panel" id="tab-sentiment">
+                <div class="narrative-card">
+                    <div class="narrative-title">Macro Environment Outlook</div>
+                    <div class="narrative-body" id="m-macro">
+                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                    </div>
+                </div>
+                <div class="narrative-card">
+                    <div class="narrative-title">Sector Outlook & Secular Growth Drivers</div>
+                    <div class="narrative-body" id="m-sector">
+                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                    </div>
+                </div>
+                <div class="narrative-card">
+                    <div class="narrative-title">Wall Street Analyst Targets & Consensus</div>
+                    <div class="narrative-body" id="s-analysts">
+                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                    </div>
+                </div>
+                <div class="narrative-card">
+                    <div class="narrative-title">Institutional Positioning & Insider Accumulation</div>
+                    <div class="narrative-body" id="s-institution">
+                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                    </div>
+                </div>
+                <div class="narrative-card">
+                    <div class="narrative-title">Media Sentiment & Alpha Vantage Feed Themes</div>
+                    <div class="narrative-body" id="s-news">
+                        <div class="skeleton skeleton-text" style="width: 90%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 80%;"></div>
+                        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7. Risks & Catalysts -->
+            <div class="tab-panel" id="tab-risks">
+                <div class="narrative-card">
+                    <div class="narrative-title">Upcoming Company Catalysts & Timelines</div>
+                    <div class="flex-list" id="catalysts-list">
+                        <!-- Dynamic Catalysts go here -->
+                    </div>
+                </div>
+                <div class="narrative-card">
+                    <div class="narrative-title">Operational Risks & Threat Severity Assessment</div>
+                    <div class="flex-list" id="risks-list">
+                        <!-- Dynamic Risks go here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <span id="notification-msg">Excel Model Saved Successfully!</span>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockerAI // Institutional Quantitative Reference Guide</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX Math Engine for Professional Equation Rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+
+    <style>
+        :root {
+            --bg-obsidian: #08090b;
+            --bg-panel: #0d0e12;
+            --bg-input: #050507;
+            --border: #1c1e24;
+            --border-hover: #2a2d36;
+            --border-active: #3f61ec;
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --text-muted: #4b5563;
+            
+            --emerald: #10b981;
+            --emerald-glow: rgba(16, 185, 129, 0.05);
+            --emerald-border: rgba(16, 185, 129, 0.15);
+            
+            --gold: #f59e0b;
+            --gold-glow: rgba(245, 158, 11, 0.05);
+            --gold-border: rgba(245, 158, 11, 0.15);
+            
+            --ruby: #ef4444;
+            --ruby-glow: rgba(239, 68, 68, 0.05);
+            --ruby-border: rgba(239, 68, 68, 0.15);
+            
+            --radius-sm: 4px;
+            --radius-md: 6px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-obsidian);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            letter-spacing: -0.1px;
+        }
+
+        /* Nav Header */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 32px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(5, 7, 12, 0.95);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-symbol {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--bg-obsidian);
+            background: var(--text-primary);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .logo-text {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .logo-tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--emerald);
+            background: var(--emerald-glow);
+            border: 1px solid var(--emerald-border);
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .btn {
+            background: var(--bg-panel);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            border-color: var(--border-hover);
+            background: rgba(255, 255, 255, 0.02);
+            color: #fff;
+        }
+
+        /* Workspace Grid */
+        .workspace {
+            max-width: 1200px;
+            width: 100%;
+            margin: 32px auto;
+            padding: 0 24px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+
+        .header-card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 32px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            border-top: 3px solid var(--text-primary);
+        }
+
+        .guide-title {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+        }
+
+        .guide-subtitle {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .section-card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 32px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            scroll-margin-top: 100px;
+        }
+
+        .section-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-label::after {
+            content: '';
+            flex-grow: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .section-title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .section-title span.number {
+            background: var(--border);
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+
+        .sub-subtitle {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-style: italic;
+            margin-bottom: 24px;
+            border-bottom: 1px dashed var(--border);
+            padding-bottom: 8px;
+        }
+
+        .concept-body {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .concept-body p {
+            margin-bottom: 12px;
+        }
+
+        /* LaTeX Equation Box */
+        .math-box {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 24px;
+            margin-bottom: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            overflow-x: auto;
+        }
+
+        .math-box-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            align-self: flex-start;
+        }
+
+        .notion-code-inline {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--emerald);
+            background: var(--bg-input);
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+        }
+
+        /* Notion Callout Box Styles */
+        .callout {
+            border-radius: var(--radius-sm);
+            padding: 18px 24px;
+            margin-bottom: 24px;
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .callout-icon {
+            font-size: 1.25rem;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+
+        .callout-content {
+            color: var(--text-primary);
+        }
+
+        .callout-content strong {
+            color: #fff;
+        }
+
+        .callout-note {
+            background: rgba(59, 130, 246, 0.03);
+            border: 1px solid rgba(59, 130, 246, 0.15);
+            border-left: 3px solid #3b82f6;
+        }
+
+        .callout-warning {
+            background: var(--gold-glow);
+            border: 1px solid var(--gold-border);
+            border-left: 3px solid var(--gold);
+        }
+
+        .callout-success {
+            background: var(--emerald-glow);
+            border: 1px solid var(--emerald-border);
+            border-left: 3px solid var(--emerald);
+        }
+
+        /* Piotroski Table */
+        .piotroski-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+        }
+
+        .piotroski-table th {
+            background: #0e0e11;
+            font-weight: 700;
+            color: #fff;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+        }
+
+        .piotroski-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .piotroski-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .piotroski-table tr:hover td {
+            background: rgba(255, 255, 255, 0.01);
+            color: #fff;
+        }
+
+        .notion-quote {
+            border-left: 3px solid var(--text-muted);
+            padding-left: 14px;
+            font-style: italic;
+            margin: 12px 0 24px 0;
+            color: var(--text-secondary);
+        }
+
+        .notion-link {
+            color: var(--border-active);
+            text-decoration: none;
+            border-bottom: 1px dashed var(--border-active);
+            transition: all 0.15s ease;
+        }
+
+        .notion-link:hover {
+            color: #fff;
+            border-bottom-style: solid;
+        }
+
+        /* Back to Hub Floating Anchor */
+        .back-hub {
+            position: fixed;
+            bottom: 24px;
+            left: 24px;
+            z-index: 1000;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="logo-container">
+            <span class="logo-symbol">S_AI</span>
+            <span class="logo-text">StockerAI Terminal</span>
+            <span class="logo-tag">Quantitative Reference Guide</span>
+        </div>
+        <div>
+            <a href="/" class="btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                Stock Hub
+            </a>
+        </div>
+    </nav>
+
+    <div class="workspace">
+        <!-- Floating Home Anchor -->
+        <a href="/" class="btn back-hub">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            Terminal Hub
+        </a>
+
+        <!-- Header Card -->
+        <div class="header-card">
+            <div class="section-label">Bloomberg-Grade Formula Compendium</div>
+            <h1 class="guide-title">StockerAI Institutional Quantitative Reference Guide</h1>
+            <p class="guide-subtitle">A dynamically loaded and parsed compilation directly from StockerAI's Notion Reference Hub. Fully compiled in real-time in the browser.</p>
+        </div>
+
+            <blockquote class="notion-quote">strong>A to Z Bloomberg-Grade Formula Compendium</strong><em>Written for professional-grade equity analysis. Every formula, every variable, every diagnostic threshold.</em></blockquote>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="callout callout-note">
+        <div class="callout-icon">💡</div>
+        <div class="callout-content">strong>How to use this guide:</strong> Each section follows the same architecture — Theory → Formula → Variables → Thresholds → Case Diagnostic. Read sequentially for first-time users; use as a reference lookup for experienced analysts. All LaTeX blocks are copy-paste ready for Notion equation blocks.</div>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+</div>
+<!-- Section Card -->
+<div class="section-card" id="section-1">
+    <div class="section-label">Section 1.0 // Model Framework</div>
+    <h2 class="section-title"><span class="number">1</span> CAPM &amp; WACC Solver</h2>
+    <div class="sub-subtitle"><em>The Hurdle Rate of Capital — Why a Dollar Tomorrow Costs More Than a Dollar Today</em></div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🧠 Theoretical Concept</div>
+    <p class="concept-body">Every firm has a <strong>cost of capital</strong> — the minimum return it must generate to justify its existence from the perspective of those who funded it. This is not accounting cost. It is <strong>opportunity cost</strong>: what investors could have earned elsewhere at equivalent risk.</p>
+    <p class="concept-body">CAPM answers the equity side of that question. WACC blends equity and debt into a single discount rate used in every DCF model.</p>
+    <p class="concept-body"><strong>Why this matters:</strong> If a firm earns 8% on invested capital but its WACC is 10%, it is destroying value — regardless of what the income statement says. The entire logic of intrinsic valuation collapses without a rigorous WACC.</p>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">📐 Mathematical Formulas</div>
+    <p class="concept-body"><strong>Cost of Equity (CAPM):</strong>
+$$K_e = R_f + (\beta \times ERP)$$</p>
+    <p class="concept-body"><strong>Weighted Average Cost of Capital:</strong>
+$$WACC = \left(\frac{E}{V} \times K_e\right) + \left(\frac{D}{V} \times K_d \times (1 - t)\right)$$</p>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🔢 Variable Breakdown</div>
+    <div class="table-container" style="margin: 20px 0;">
+        <table class="piotroski-table">
+            <tr>
+                <th>Variable</th>
+                <th>Definition</th>
+                <th>Source / Notes</th>
+            </tr>
+            <tr>
+                <td>$R_f$</td>
+                <td>Risk-Free Rate</td>
+                <td>10Y US Treasury yield (<code class="notion-code-inline">^TNX</code>), updated dynamically</td>
+            </tr>
+            <tr>
+                <td>$\beta$</td>
+                <td>Systematic Risk (Beta)</td>
+                <td>Covariance of asset returns with market; $\beta=1$ = market risk</td>
+            </tr>
+            <tr>
+                <td>$ERP$</td>
+                <td>Equity Risk Premium</td>
+                <td>Standard academic consensus: <strong>5.5%</strong> (Damodaran)</td>
+            </tr>
+            <tr>
+                <td>$K_e$</td>
+                <td>Cost of Equity</td>
+                <td>Output of CAPM — minimum return equity investors demand</td>
+            </tr>
+            <tr>
+                <td>$K_d$</td>
+                <td>Cost of Debt</td>
+                <td>Effective interest rate on outstanding debt; use pre-tax rate</td>
+            </tr>
+            <tr>
+                <td>$t$</td>
+                <td>Corporate Tax Rate</td>
+                <td>Effective tax rate from income statement</td>
+            </tr>
+            <tr>
+                <td>$E/V$</td>
+                <td>Equity Weight</td>
+                <td>Market cap ÷ (Market cap + Total debt)</td>
+            </tr>
+            <tr>
+                <td>$D/V$</td>
+                <td>Debt Weight</td>
+                <td>Total debt ÷ (Market cap + Total debt)</td>
+            </tr>
+            <tr>
+                <td>$V$</td>
+                <td>Total Firm Value</td>
+                <td>Market cap + Total debt (market values, not book)</td>
+            </tr>
+        </table>
+    </div>
+    <div class="callout callout-warning">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-content">strong>Common Trap — Book vs. Market Values:</strong> Always use <strong>market value of equity</strong> (market cap), not book equity, when computing $E/V$ and $D/V$. Using book values systematically understates equity weight for growth companies and inflates WACC.</div>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">📊 Diagnostics &amp; Thresholds</div>
+    <div class="table-container" style="margin: 20px 0;">
+        <table class="piotroski-table">
+            <tr>
+                <th>WACC Range</th>
+                <th>Signal</th>
+                <th>Interpretation</th>
+            </tr>
+            <tr>
+                <td>&lt; 6%</td>
+                <td>🟢 Low Hurdle</td>
+                <td>Capital-light, low-beta, investment-grade debt. Easy to clear. Common in utilities/consumer staples.</td>
+            </tr>
+            <tr>
+                <td>6% – 10%</td>
+                <td>🟡 Normal Range</td>
+                <td>Most S&amp;P 500 large caps. Moderate leverage. Reasonable equity risk.</td>
+            </tr>
+            <tr>
+                <td>10% – 14%</td>
+                <td>🟠 Elevated</td>
+                <td>High beta, sub-investment grade, or capital-heavy business model.</td>
+            </tr>
+            <tr>
+                <td>&gt; 14%</td>
+                <td>🔴 High Hurdle</td>
+                <td>Distressed, speculative, or emerging market exposure. DCF extremely sensitive to assumptions.</td>
+            </tr>
+        </table>
+    </div>
+    <p class="concept-body"><strong>Capital Structure Intuition:</strong></p>
+    <ul class="concept-body" style="padding-left: 20px; margin-bottom: 20px;">
+        <li style="margin-bottom: 6px;"><strong>High $E/V$</strong> (equity-heavy): Tech firms, asset-light models. WACC dominated by $K_e$.</li>
+        <li style="margin-bottom: 6px;"><strong>High $D/V$</strong> (debt-heavy): Utilities, REITs, leveraged buyouts. Debt tax shield reduces WACC — until leverage becomes distress risk.</li>
+        <li style="margin-bottom: 6px;">The <strong>tax shield</strong> ($K_d \times (1-t)$) is why debt is cheaper than equity. Interest is deductible; dividends are not.</li>
+</ul>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🔬 Case Diagnostic — NVIDIA (NVDA)</div>
+    <blockquote class="notion-quote">strong>Scenario:</strong> NVDA in late 2024. $R_f = 4.3%$ (10Y Treasury). $\beta = 1.72$. $ERP = 5.5%$.</blockquote>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+</div>
+<!-- Section Card -->
+<div class="section-card" id="section-2">
+    <div class="section-label">Section 2.0 // Model Framework</div>
+    <h2 class="section-title"><span class="number">2</span> Multi-Stage Discounted Cash Flow (DCF) Model</h2>
+    <div class="sub-subtitle"><em>The Present Value of All Future Economic Reality</em></div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🧠 Theoretical Concept</div>
+    <p class="concept-body">A DCF model answers one question: <strong>what is this business worth in today's dollars, given all the cash it will ever generate?</strong></p>
+    <p class="concept-body">The model works in three stages:</p>
+    <ol class="concept-body" style="padding-left: 20px; margin-bottom: 20px;">
+        <li style="margin-bottom: 6px;"><strong>Stage 1 (Years 1–5):</strong> High-growth phase — analyst projects explicit FCF with aggressive growth assumptions</li>
+        <li style="margin-bottom: 6px;"><strong>Stage 2 (Years 6–10):</strong> Transition phase — growth moderates as competition intensifies</li>
+        <li style="margin-bottom: 6px;"><strong>Terminal Value:</strong> The perpetuity beyond Year 10 — captures 60–80% of total DCF value for most firms</li>
+</ol>
+    <p class="concept-body">The discount rate (WACC) accounts for the fact that a dollar received in Year 10 is worth far less than a dollar today — both because of inflation and because of risk.</p>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">📐 Mathematical Formulas</div>
+    <p class="concept-body"><strong>Stage 1 + Stage 2 Present Value:</strong>
+$$PV = \sum_{t=1}^{5} \frac{FCF_0 \times (1 + g_{1\text{-}5})^t}{(1 + WACC)^t} + \sum_{t=6}^{10} \frac{FCF_5 \times (1 + g_{6\text{-}10})^{t-5}}{(1 + WACC)^t}$$</p>
+    <p class="concept-body"><strong>Terminal Value (Gordon Growth Model):</strong>
+$$TV = \frac{FCF_{10} \times (1 + g_{terminal})}{WACC - g_{terminal}}$$</p>
+    <p class="concept-body"><strong>Present Value of Terminal Value:</strong>
+$$PV(TV) = \frac{TV}{(1 + WACC)^{10}}$$</p>
+    <p class="concept-body"><strong>Intrinsic Value Per Share:</strong>
+$$\text{Intrinsic Value} = \frac{PV(FCF) + PV(TV) - \text{Net Debt}}{\text{Shares Outstanding}}$$</p>
+    <p class="concept-body"><strong>Net Debt:</strong>
+$$\text{Net Debt} = \text{Total Debt} - \text{Total Cash &amp; Equivalents}$$</p>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🔢 Variable Breakdown</div>
+    <div class="table-container" style="margin: 20px 0;">
+        <table class="piotroski-table">
+            <tr>
+                <th>Variable</th>
+                <th>Definition</th>
+                <th>Notes</th>
+            </tr>
+            <tr>
+                <td>$FCF_0$</td>
+                <td>Base Free Cash Flow</td>
+                <td>LTM (Last Twelve Months) FCF = Operating Cash Flow − CapEx</td>
+            </tr>
+            <tr>
+                <td>$g_{1\text{-}5}$</td>
+                <td>Stage 1 Growth Rate</td>
+                <td>Analyst assumption; anchored to revenue growth + margin trajectory</td>
+            </tr>
+            <tr>
+                <td>$g_{6\text{-}10}$</td>
+                <td>Stage 2 Growth Rate</td>
+                <td>Transitional deceleration; typically 50–70% of Stage 1 rate</td>
+            </tr>
+            <tr>
+                <td>$g_{terminal}$</td>
+                <td>Terminal Growth Rate</td>
+                <td><strong>Hard cap: never exceed long-run nominal GDP growth (~2.5–3%)</strong></td>
+            </tr>
+            <tr>
+                <td>$WACC$</td>
+                <td>Discount Rate</td>
+                <td>Must exceed $g_{terminal}$ or TV formula breaks (denominator → 0)</td>
+            </tr>
+            <tr>
+                <td>Net Debt</td>
+                <td>Debt net of cash</td>
+                <td>Negative net debt = net cash position (adds to equity value)</td>
+            </tr>
+            <tr>
+                <td>Shares Outstanding</td>
+                <td>Diluted share count</td>
+                <td>Use fully diluted (including options, RSUs, convertibles)</td>
+            </tr>
+        </table>
+    </div>
+    <div class="callout callout-warning">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-content">strong>Terminal Value Dominance:</strong> For most growth companies, PV(TV) represents 60–80% of total intrinsic value. This means your terminal growth rate assumption is the single most important number in the model. A 0.5% change in $g_{terminal}$ can move intrinsic value by 20–30%. Treat it with extreme caution — never assume terminal growth &gt; 3%.</div>
+    </div>
+    <div class="callout callout-note">
+        <div class="callout-icon">💡</div>
+        <div class="callout-content">strong>Sensitivity Table Best Practice:</strong> Always run a 2D sensitivity matrix: WACC (rows) × terminal growth rate (columns). A single-point DCF output without sensitivity analysis is not institutional-grade work.</div>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🚨 Quantitative Breakthrough: The Forward EPS Cash Conversion Fallback</div>
+    <div class="sub-subtitle"><em>Solving the Cyclical Cash Flow Trap</em></div>
+    <p class="concept-body"><strong>The Problem — Why TTM DCF Fails on CapEx-Heavy or Cyclical Companies:</strong></p>
+    <p class="concept-body">Traditional DCF uses trailing-twelve-month (TTM) Free Cash Flow as $FCF_0$. This creates a systematic failure mode:</p>
+    <div class="math-box">
+        <div class="math-box-label">Equation Formula</div>
+        <div class="equation">$$FCF_{TTM} = \text{Operating Cash Flow}<em>{TTM} - \text{CapEx}</em>{TTM}$$</div>
+    </div>
+    <p class="concept-body">When a company undergoes a massive CapEx supercycle (e.g., NVIDIA building AI infrastructure, Samsung constructing fabs, cyclical miners at trough), $CapEx_{TTM}$ balloons while future earnings potential soars. The result: <strong>FCF goes negative or near-zero</strong>, and the DCF spits out an absurd intrinsic value (e.g., $32 for NVDA when it was trading at $800+).</p>
+    <p class="concept-body">This is not a company problem. It is a <strong>model failure</strong> — you are punishing a company for investing in its future.</p>
+    <p class="concept-body"><strong>The Solution — StockerAI Forward EPS Cash Conversion Fallback:</strong></p>
+    <div class="math-box">
+        <div class="math-box-label">Equation Formula</div>
+        <div class="equation">$$\textbf{If } FCF_{trailing} \leq 0 \textbf{ and } ForwardEPS &gt; 0:$$</div>
+    </div>
+    <div class="math-box">
+        <div class="math-box-label">Equation Formula</div>
+        <div class="equation">$$FCF_{Proxy} = Forward\ EPS \times Shares\ Outstanding$$</div>
+    </div>
+    <p class="concept-body"><strong>How the Fallback Mechanism Works:</strong></p>
+    <div class="table-container" style="margin: 20px 0;">
+        <table class="piotroski-table">
+            <tr>
+                <th>Step</th>
+                <th>Action</th>
+            </tr>
+            <tr>
+                <td>1</td>
+                <td>Detect: $FCF_{trailing} \leq 0$ AND $Forward\ EPS &gt; 0$</td>
+            </tr>
+            <tr>
+                <td>2</td>
+                <td>Set model flag: <code class="notion-code-inline">is_forward_base = True</code></td>
+            </tr>
+            <tr>
+                <td>3</td>
+                <td>Replace $FCF_0$ with $FCF_{Proxy} = ForwardEPS \times SharesOutstanding$</td>
+            </tr>
+            <tr>
+                <td>4</td>
+                <td>Override growth assumptions → conservative sustainable rates</td>
+            </tr>
+            <tr>
+                <td>5</td>
+                <td>Stage 1: $g_{1\text{-}5} = 5%$, Stage 2: $g_{6\text{-}10} = 3%$</td>
+            </tr>
+            <tr>
+                <td>6</td>
+                <td>Run standard multi-stage DCF on the forward-based proxy</td>
+            </tr>
+        </table>
+    </div>
+    <div class="callout callout-note">
+        <div class="callout-icon">💡</div>
+        <div class="callout-content">strong>Why Forward EPS?</strong> Analyst consensus forward EPS already incorporates the normalization of CapEx cycles. It reflects what the business earns at steady-state — which is exactly what the terminal value phase of a DCF represents. Using it as a proxy base bridges the gap between the current investment cycle and the long-run profitability picture.</div>
+    </div>
+    <div class="callout callout-warning">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-content">strong>When NOT to use the Fallback:</strong> If a company has negative forward EPS (genuine losses), the fallback should not activate. A burning cash company is not the same as a profitable company with elevated CapEx. The fallback is for <strong>profitable businesses with distorted trailing cash flows</strong>, not loss-making startups.</div>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🔬 Case Diagnostic — NVIDIA (NVDA) CapEx Trap</div>
+    <blockquote class="notion-quote">strong>Scenario:</strong> FY2024. NVDA's TTM FCF was compressed by massive data center build-out investment. Simple TTM DCF output: ~$32/share (absurd vs. market price of $800+).</blockquote>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+</div>
+<!-- Section Card -->
+<div class="section-card" id="section-3">
+    <div class="section-label">Section 3.0 // Model Framework</div>
+    <h2 class="section-title"><span class="number">3</span> 3-Stage DuPont ROE Decomposition</h2>
+    <div class="sub-subtitle"><em>Deconstructing Return on Equity — Profitability, Efficiency, or Just Leverage?</em></div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🧠 Theoretical Concept</div>
+    <p class="concept-body">Return on Equity (ROE) is the most cited profitability metric in equity analysis. It measures how many dollars of net income a firm generates per dollar of shareholders' equity.</p>
+    <p class="concept-body"><strong>The problem:</strong> A company can show spectacular ROE through three entirely different paths — genuine profitability, capital efficiency, or simply borrowing aggressively to amplify returns. The 3-Stage DuPont decomposition surgically separates these three sources.</p>
+    <p class="concept-body">Two companies with identical 25% ROE can be radically different investments. One earns it through 40% net margins (Apple). Another earns it by carrying 10x leverage (a levered retailer). The DuPont framework reveals which.</p>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">📐 Mathematical Formula</div>
+    <div class="math-box">
+        <div class="math-box-label">Equation Formula</div>
+        <div class="equation">$$ROE = \underbrace{\left(\frac{\text{Net Income}}{\text{Revenue}}\right)}<em>{\text{Profitability}} \times \underbrace{\left(\frac{\text{Revenue}}{\text{Total Assets}}\right)}</em>{\text{Efficiency}} \times \underbrace{\left(\frac{\text{Total Assets}}{\text{Shareholders' Equity}}\right)}_{\text{Leverage}}$$</div>
+    </div>
+    <div class="math-box">
+        <div class="math-box-label">Equation Formula</div>
+        <div class="equation">$$ROE = \text{Net Profit Margin} \times \text{Asset Turnover} \times \text{Equity Multiplier}$$</div>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🔢 Variable Breakdown</div>
+    <div class="table-container" style="margin: 20px 0;">
+        <table class="piotroski-table">
+            <tr>
+                <th>Component</th>
+                <th>Formula</th>
+                <th>What It Measures</th>
+                <th>High = ?</th>
+            </tr>
+            <tr>
+                <td><strong>Net Profit Margin</strong></td>
+                <td>Net Income / Revenue</td>
+                <td>Pricing power + cost control</td>
+                <td>🟢 Strong moat, pricing power</td>
+            </tr>
+            <tr>
+                <td><strong>Asset Turnover</strong></td>
+                <td>Revenue / Total Assets</td>
+                <td>How hard assets work</td>
+                <td>🟢 Capital efficiency</td>
+            </tr>
+            <tr>
+                <td><strong>Equity Multiplier</strong></td>
+                <td>Total Assets / Equity</td>
+                <td>Financial leverage</td>
+                <td>⚠️ Could be risk, not quality</td>
+            </tr>
+        </table>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">📊 Diagnostics &amp; Thresholds</div>
+    <div class="table-container" style="margin: 20px 0;">
+        <table class="piotroski-table">
+            <tr>
+                <th>ROE</th>
+                <th>Quality Signal</th>
+                <th>Notes</th>
+            </tr>
+            <tr>
+                <td>&lt; 10%</td>
+                <td>🔴 Poor</td>
+                <td>Below cost of equity for most firms — destroys shareholder value</td>
+            </tr>
+            <tr>
+                <td>10% – 15%</td>
+                <td>🟡 Adequate</td>
+                <td>Average for capital-intensive industries</td>
+            </tr>
+            <tr>
+                <td>15% – 25%</td>
+                <td>🟢 Good</td>
+                <td>Indicates genuine competitive advantage</td>
+            </tr>
+            <tr>
+                <td>&gt; 25%</td>
+                <td>🟢🟢 Excellent</td>
+                <td>Franchise businesses (MSFT, AAPL, MA) — but verify source</td>
+            </tr>
+        </table>
+    </div>
+    <div class="callout callout-warning">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-content">strong>The Debt-Inflated ROE Trap:</strong> A firm with negative book equity (accumulated losses exceed paid-in capital — common in mature buyback machines like McDonald's or Boeing) will show <strong>negative or infinite ROE</strong>. This is not a quality signal. Always decompose before interpreting. If the equity multiplier is 10x+ and profit margins are thin, the ROE is a leverage mirage.</div>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🔬 Case Diagnostic — Two 25% ROE Companies</div>
+    <div class="table-container" style="margin: 20px 0;">
+        <table class="piotroski-table">
+            <tr>
+                <th>Metric</th>
+                <th>Company A (VISA)</th>
+                <th>Company B (Highly Levered Retailer)</th>
+            </tr>
+            <tr>
+                <td>Net Profit Margin</td>
+                <td>51%</td>
+                <td>3%</td>
+            </tr>
+            <tr>
+                <td>Asset Turnover</td>
+                <td>0.49x</td>
+                <td>2.1x</td>
+            </tr>
+            <tr>
+                <td>Equity Multiplier</td>
+                <td>1.0x</td>
+                <td>4.0x</td>
+            </tr>
+            <tr>
+                <td><strong>ROE</strong></td>
+                <td><strong>25%</strong></td>
+                <td><strong>25%</strong></td>
+            </tr>
+            <tr>
+                <td><strong>Verdict</strong></td>
+                <td>🟢 Franchise quality — earned through pricing power</td>
+                <td>🔴 Leverage illusion — one recession from distress</td>
+            </tr>
+        </table>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+</div>
+<!-- Section Card -->
+<div class="section-card" id="section-4">
+    <div class="section-label">Section 4.0 // Model Framework</div>
+    <h2 class="section-title"><span class="number">4</span> Altman Z-Score</h2>
+    <div class="sub-subtitle"><em>Solvency Radar — Predicting Bankruptcy Risk Within 24 Months</em></div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🧠 Theoretical Concept</div>
+    <p class="concept-body">Developed by Edward Altman in 1968, the Z-Score is an <strong>OLS multivariate discriminant model</strong> that combines five financial ratios into a single score predictive of corporate bankruptcy within 2 years. Originally tested on 66 manufacturing firms, it remains one of the most validated models in corporate finance.</p>
+    <p class="concept-body">The Z-Score does not predict <em>if</em> a company will fail — it predicts <em>how far</em> it is from the financial profile of companies that have failed historically.</p>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">📐 Mathematical Formula</div>
+    <div class="math-box">
+        <div class="math-box-label">Equation Formula</div>
+        <div class="equation">$$Z = 1.2A + 1.4B + 3.3C + 0.6D + 0.999E$$</div>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🔢 Variable Breakdown</div>
+    <div class="table-container" style="margin: 20px 0;">
+        <table class="piotroski-table">
+            <tr>
+                <th>Variable</th>
+                <th>Formula</th>
+                <th>What It Captures</th>
+                <th>Weight</th>
+            </tr>
+            <tr>
+                <td>$A$</td>
+                <td>Working Capital / Total Assets</td>
+                <td>Short-term liquidity buffer</td>
+                <td>1.2</td>
+            </tr>
+            <tr>
+                <td>$B$</td>
+                <td>Retained Earnings / Total Assets</td>
+                <td>Cumulative profitability over lifetime</td>
+                <td>1.4</td>
+            </tr>
+            <tr>
+                <td>$C$</td>
+                <td>EBIT / Total Assets</td>
+                <td>Core operating productivity of assets</td>
+                <td>3.3</td>
+            </tr>
+            <tr>
+                <td>$D$</td>
+                <td>Market Value of Equity / Total Liabilities</td>
+                <td>Market's implied leverage coverage</td>
+                <td>0.6</td>
+            </tr>
+            <tr>
+                <td>$E$</td>
+                <td>Revenue / Total Assets</td>
+                <td>Asset turnover / sales generation</td>
+                <td>0.999</td>
+            </tr>
+        </table>
+    </div>
+    <div class="callout callout-note">
+        <div class="callout-icon">💡</div>
+        <div class="callout-content">strong>Variable $C$ has the highest weight (3.3x)</strong> — EBIT/Assets. Altman found operating profitability relative to asset base is the single strongest discriminator between distressed and healthy firms. A company can survive negative working capital temporarily; it cannot survive prolonged EBIT destruction.</div>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">📊 Thresholds</div>
+    <div class="table-container" style="margin: 20px 0;">
+        <table class="piotroski-table">
+            <tr>
+                <th>Z-Score</th>
+                <th>Zone</th>
+                <th>Signal</th>
+            </tr>
+            <tr>
+                <td>$Z &gt; 2.99$</td>
+                <td>🟢 <strong>Safe Zone</strong></td>
+                <td>Low bankruptcy risk. Financially robust.</td>
+            </tr>
+            <tr>
+                <td>$1.81 \leq Z \leq 2.99$</td>
+                <td>🟡 <strong>Gray Zone</strong></td>
+                <td>Uncertain. Watch for trend deterioration.</td>
+            </tr>
+            <tr>
+                <td>$Z &lt; 1.81$</td>
+                <td>🔴 <strong>Distress Zone</strong></td>
+                <td>High bankruptcy probability within 24 months.</td>
+            </tr>
+        </table>
+    </div>
+    <div class="callout callout-warning">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-content">strong>Original Z-Score Limitations:</strong> Altman's original model was calibrated on manufacturing firms. For non-manufacturing or financial firms, use the <strong>Z''-Score variant</strong> (different coefficients). Also note: the model uses market cap (variable $D$), so a company whose stock has crashed may mechanically enter distress zone even if fundamentals are sound. Always cross-check with Piotroski F-Score and cash runway.</div>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🔬 Case Diagnostic — Cyclical Steel Company at Trough</div>
+    <blockquote class="notion-quote">A steel company in a down-cycle: negative working capital from inventory write-downs, depressed EBIT, heavy debt load, cratering stock price.</blockquote>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+</div>
+<!-- Section Card -->
+<div class="section-card" id="section-5">
+    <div class="section-label">Section 5.0 // Model Framework</div>
+    <h2 class="section-title"><span class="number">5</span> Piotroski F-Score</h2>
+    <div class="sub-subtitle"><em>9-Point Binary Fundamental Health Screen</em></div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🧠 Theoretical Concept</div>
+    <p class="concept-body">Joseph Piotroski (2000) created a <strong>9-point binary scoring system</strong> to separate fundamentally strengthening companies from deteriorating ones. Each criterion scores 1 (positive signal) or 0 (negative/neutral). No partial credit.</p>
+    <p class="concept-body">The F-Score is particularly powerful as a <strong>long/short screen</strong>: go long high-F-Score value stocks (8–9), short low-F-Score value traps (0–3). Backtests showed significant alpha generation, particularly in small/mid-cap value universes.</p>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">📊 Factor Grid</div>
+    <div class="table-container" style="margin: 20px 0;">
+        <table class="piotroski-table">
+            <tr>
+                <th>Category</th>
+                <th>Criterion</th>
+                <th>+1 If...</th>
+            </tr>
+            <tr>
+                <td><strong>Profitability</strong></td>
+                <td>Net Income</td>
+                <td>ROA &gt; 0 (positive net income)</td>
+            </tr>
+            <tr>
+                <td></td>
+                <td>Operating Cash Flow</td>
+                <td>CFO &gt; 0</td>
+            </tr>
+            <tr>
+                <td></td>
+                <td>ROA Change</td>
+                <td>ROA increased YoY</td>
+            </tr>
+            <tr>
+                <td></td>
+                <td>Cash Flow Quality</td>
+                <td>CFO &gt; Net Income (accruals check)</td>
+            </tr>
+            <tr>
+                <td><strong>Leverage &amp; Structure</strong></td>
+                <td>Long-Term Debt Ratio</td>
+                <td>LT Debt / Avg Assets decreased YoY</td>
+            </tr>
+            <tr>
+                <td></td>
+                <td>Current Ratio</td>
+                <td>Current ratio increased YoY</td>
+            </tr>
+            <tr>
+                <td></td>
+                <td>Share Dilution</td>
+                <td>No new shares issued in past year</td>
+            </tr>
+            <tr>
+                <td><strong>Operating Efficiency</strong></td>
+                <td>Gross Margin</td>
+                <td>Gross margin expanded YoY</td>
+            </tr>
+            <tr>
+                <td></td>
+                <td>Asset Turnover</td>
+                <td>Asset turnover ratio increased YoY</td>
+            </tr>
+        </table>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">📊 Thresholds</div>
+    <div class="table-container" style="margin: 20px 0;">
+        <table class="piotroski-table">
+            <tr>
+                <th>F-Score</th>
+                <th>Signal</th>
+                <th>Action</th>
+            </tr>
+            <tr>
+                <td><strong>8 – 9</strong></td>
+                <td>🟢 Strong</td>
+                <td>Fundamental momentum. Long candidate in value screens.</td>
+            </tr>
+            <tr>
+                <td><strong>4 – 7</strong></td>
+                <td>🟡 Moderate</td>
+                <td>Mixed signals. Requires deeper qualitative review.</td>
+            </tr>
+            <tr>
+                <td><strong>0 – 3</strong></td>
+                <td>🔴 Weak</td>
+                <td>Fundamental deterioration. Value trap risk. Short candidate.</td>
+            </tr>
+        </table>
+    </div>
+    <div class="callout callout-note">
+        <div class="callout-icon">💡</div>
+        <div class="callout-content">strong>Cash Flow Quality Check (CFO &gt; Net Income):</strong> This single criterion is one of the most powerful fraud and accruals detectors in the grid. If a company consistently reports net income significantly above operating cash flow, it is building accruals — revenue recognized before cash is collected. This is the accounting fingerprint of earnings manipulation (see Beneish M-Score below).</div>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🔬 Case Diagnostic — Two Value Stocks at Same P/B</div>
+    <blockquote class="notion-quote">Two industrial companies, both trading at 0.8x book value.</blockquote>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+</div>
+<!-- Section Card -->
+<div class="section-card" id="section-6">
+    <div class="section-label">Section 6.0 // Model Framework</div>
+    <h2 class="section-title"><span class="number">6</span> Beneish M-Score</h2>
+    <div class="sub-subtitle"><em>Earnings Manipulation &amp; Accounting Fraud Detection</em></div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🧠 Theoretical Concept</div>
+    <p class="concept-body">The Beneish M-Score is an <strong>8-variable probit regression</strong> developed by Professor Messod Beneish (1999) to detect the probability that a firm is manipulating its reported earnings. It was famously used by Cornish and Titman students to identify Enron as a likely manipulator one year before its collapse.</p>
+    <p class="concept-body">The model does not prove fraud — it flags companies whose accounting patterns <strong>statistically resemble</strong> those of firms later caught manipulating financials.</p>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">📐 Mathematical Formula</div>
+    <div class="math-box">
+        <div class="math-box-label">Equation Formula</div>
+        <div class="equation">$$M = -4.84 + 0.920 \cdot DSRI + 0.528 \cdot GMI + 0.404 \cdot AQI + 0.892 \cdot SGI$$
+$$+ 0.115 \cdot DEPI - 0.172 \cdot SGAI + 4.679 \cdot TATA - 0.327 \cdot LVGI$$</div>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🔢 Variable Breakdown</div>
+    <div class="table-container" style="margin: 20px 0;">
+        <table class="piotroski-table">
+            <tr>
+                <th>Variable</th>
+                <th>Formula</th>
+                <th>What It Flags</th>
+            </tr>
+            <tr>
+                <td><strong>DSRI</strong></td>
+                <td>$(Rec_t / Sales_t) \div (Rec_{t-1} / Sales_{t-1})$</td>
+                <td>Rising receivables relative to sales → revenue recognition gaming</td>
+            </tr>
+            <tr>
+                <td><strong>GMI</strong></td>
+                <td>$Margin_{t-1} \div Margin_t$</td>
+                <td>Gross margin deterioration → pressure to manipulate</td>
+            </tr>
+            <tr>
+                <td><strong>AQI</strong></td>
+                <td>$[1-(CA_t+PPE_t)/TA_t] \div [1-(CA_{t-1}+PPE_{t-1})/TA_{t-1}]$</td>
+                <td>Growth in intangibles/deferred costs → asset quality degradation</td>
+            </tr>
+            <tr>
+                <td><strong>SGI</strong></td>
+                <td>$Sales_t \div Sales_{t-1}$</td>
+                <td>Rapid sales growth → incentive to sustain growth by any means</td>
+            </tr>
+            <tr>
+                <td><strong>DEPI</strong></td>
+                <td>$DeprRate_{t-1} \div DeprRate_t$</td>
+                <td>Slowing depreciation → extending asset lives to boost earnings</td>
+            </tr>
+            <tr>
+                <td><strong>SGAI</strong></td>
+                <td>$(SGA_t/Sales_t) \div (SGA_{t-1}/Sales_{t-1})$</td>
+                <td>Rising overhead relative to sales → efficiency deterioration</td>
+            </tr>
+            <tr>
+                <td><strong>TATA</strong></td>
+                <td>$(NetIncome_t - CFO_t) \div TotalAssets_t$</td>
+                <td><strong>The most powerful variable</strong> — total accruals. High = earnings not backed by cash</td>
+            </tr>
+            <tr>
+                <td><strong>LVGI</strong></td>
+                <td>$Lev_t \div Lev_{t-1}$</td>
+                <td>Rising leverage → debt covenant pressure to inflate earnings</td>
+            </tr>
+        </table>
+    </div>
+    <div class="callout callout-warning">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-content">strong>TATA is the nuclear variable.</strong> Its coefficient is 4.679 — by far the largest in the model. Total accruals (Net Income minus Cash from Operations, scaled by assets) directly measures the gap between accounting earnings and economic reality. Companies with persistently high TATA are reporting income they are not collecting in cash. This is the most reliable early-warning signal of earnings quality deterioration.</div>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">📊 Thresholds</div>
+    <div class="table-container" style="margin: 20px 0;">
+        <table class="piotroski-table">
+            <tr>
+                <th>M-Score</th>
+                <th>Signal</th>
+                <th>Interpretation</th>
+            </tr>
+            <tr>
+                <td>$M \leq -2.22$</td>
+                <td>🟢 Very Low Risk</td>
+                <td>Accounting appears clean</td>
+            </tr>
+            <tr>
+                <td>$-2.22 &lt; M \leq -1.78$</td>
+                <td>🟡 Gray Zone</td>
+                <td>Monitor — some elevated indicators</td>
+            </tr>
+            <tr>
+                <td>$M &gt; -1.78$</td>
+                <td>🔴 High Manipulation Risk</td>
+                <td>Accounting patterns statistically consistent with manipulation</td>
+            </tr>
+        </table>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🔬 Case Diagnostic — Enron (Historical)</div>
+    <blockquote class="notion-quote">Running Beneish on Enron's 2000 financials (pre-collapse):</blockquote>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+</div>
+<!-- Section Card -->
+<div class="section-card" id="section-7">
+    <div class="section-label">Section 7.0 // Model Framework</div>
+    <h2 class="section-title"><span class="number">7</span> 5-Year Log-Linear Historical Regression Trend</h2>
+    <div class="sub-subtitle"><em>Exponential Price Channels — Mapping Where a Stock Stands in Its Long-Run Vector</em></div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🧠 Theoretical Concept</div>
+    <p class="concept-body">Stock prices grow <strong>exponentially</strong>, not linearly. A stock that compounds at 20% annually does not add the same dollar amount each year — it adds an accelerating amount. Plotting raw prices against time and fitting a linear trend line systematically underestimates early-period prices and overestimates late-period prices.</p>
+    <p class="concept-body"><strong>The solution:</strong> Transform prices to log-scale. A log-linear regression on weekly data maps the <strong>constant percentage growth rate</strong> (CAGR) as a straight line. Standard deviation bands around this line create <strong>dynamic support/resistance channels</strong> calibrated to the stock's own historical volatility.</p>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">📐 Mathematical Formulas</div>
+    <p class="concept-body"><strong>Log transformation:</strong>
+$$y = \ln(Price), \quad x = \text{Weekly Trading Index (0, 1, 2, \ldots, 260)}$$</p>
+    <p class="concept-body"><strong>OLS Regression Coefficients:</strong>
+$$\beta = \frac{\sum (x - \bar{x})(y - \bar{y})}{\sum (x - \bar{x})^2}, \qquad \alpha = \bar{y} - \beta\bar{x}$$</p>
+    <p class="concept-body"><strong>Annualized CAGR from Slope:</strong>
+$$\text{CAGR} = e^{52\beta} - 1$$</p>
+    <p class="concept-body"><strong>Standard Error of Regression:</strong>
+$$\sigma = \sqrt{\frac{\sum (y_i - \hat{y}_i)^2}{n - 2}}$$</p>
+    <p class="concept-body"><strong>Price Channel Bounds (±1.5σ):</strong>
+$$\text{Upper Band} = e^{(\alpha + \beta x + 1.5\sigma)}$$
+$$\text{Lower Band} = e^{(\alpha + \beta x - 1.5\sigma)}$$</p>
+    <p class="concept-body"><strong>Current Price Deviation (Z-score from trend):</strong>
+$$Z_{deviation} = \frac{\ln(Price_{current}) - (\alpha + \beta x_{current})}{\sigma}$$</p>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🔢 Variable Breakdown</div>
+    <div class="table-container" style="margin: 20px 0;">
+        <table class="piotroski-table">
+            <tr>
+                <th>Variable</th>
+                <th>Definition</th>
+                <th>Notes</th>
+            </tr>
+            <tr>
+                <td>$\alpha$</td>
+                <td>Intercept</td>
+                <td>Log-price at week 0 of the regression window</td>
+            </tr>
+            <tr>
+                <td>$\beta$</td>
+                <td>Slope</td>
+                <td>Log-price change per week. Multiply by 52 and exponentiate → CAGR</td>
+            </tr>
+            <tr>
+                <td>$\sigma$</td>
+                <td>Standard Error of Regression</td>
+                <td>Volatility of log-price around trend line</td>
+            </tr>
+            <tr>
+                <td>$R^2$</td>
+                <td>Coefficient of Determination</td>
+                <td>How well the trend line fits. &gt;0.85 = strong trend, &lt;0.5 = noisy/no trend</td>
+            </tr>
+            <tr>
+                <td>$Z_{deviation}$</td>
+                <td>Current Deviation from Trend</td>
+                <td>Standard deviations above/below the 5-year regression midline</td>
+            </tr>
+            <tr>
+                <td>1.5σ Bands</td>
+                <td>Channel Boundaries</td>
+                <td>±1.5 standard errors — empirically captures ~87% of price observations</td>
+            </tr>
+        </table>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">📊 Diagnostics &amp; Thresholds</div>
+    <div class="table-container" style="margin: 20px 0;">
+        <table class="piotroski-table">
+            <tr>
+                <th>$Z_{deviation}$</th>
+                <th>Signal</th>
+                <th>Interpretation</th>
+            </tr>
+            <tr>
+                <td>$&gt; +1.5\sigma$</td>
+                <td>🔴 Overbought / Extended</td>
+                <td>Price significantly above long-run trend. Mean reversion risk.</td>
+            </tr>
+            <tr>
+                <td>$+0.5\sigma$ to $+1.5\sigma$</td>
+                <td>🟡 Elevated</td>
+                <td>Momentum phase. Trend intact but stretched.</td>
+            </tr>
+            <tr>
+                <td>$-0.5\sigma$ to $+0.5\sigma$</td>
+                <td>🟢 Fair Value</td>
+                <td>Trading at or near historical trend. Neutral signal.</td>
+            </tr>
+            <tr>
+                <td>$-0.5\sigma$ to $-1.5\sigma$</td>
+                <td>🟢 Discounted</td>
+                <td>Below trend. Historically favorable entry zone.</td>
+            </tr>
+            <tr>
+                <td>$&lt; -1.5\sigma$</td>
+                <td>🟢🟢 Deep Value / Distress</td>
+                <td>Far below trend. Either exceptional opportunity or broken trend.</td>
+            </tr>
+        </table>
+    </div>
+    <div class="callout callout-warning">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-content">strong>The $R^2$ Gating Rule:</strong> Never interpret the channel bands for stocks with $R^2 &lt; 0.60$. A low $R^2$ means the regression is not describing a real trend — it is fitting noise. High-volatility small-caps, biotech, and recent IPOs often fail this filter. The tool is designed for established companies with 5+ years of meaningful price history.</div>
+    </div>
+    <div class="callout callout-note">
+        <div class="callout-icon">💡</div>
+        <div class="callout-content">strong>Why 1.5σ instead of 2σ?</strong> Standard normal 2σ captures 95% of observations. In log-price space, 1.5σ empirically captures ~87% of weekly closes for most large-caps — wide enough to filter noise, tight enough to generate actionable signals. Using 2σ produces bands so wide they lose diagnostic value.</div>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="sub-subtitle">🔬 Case Diagnostic — NVIDIA 5-Year Log-Linear Regression</div>
+    <blockquote class="notion-quote">strong>Window:</strong> 2019–2024 (260 weekly observations)</blockquote>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+</div>
+<!-- Section Card -->
+<div class="section-card" id="section-8">
+    <div class="section-label">Section 8.0 // Model Framework</div>
+    <h2 class="section-title"><span class="number">8</span> Appendix: Quick Reference — All Thresholds</h2>
+    <div class="table-container" style="margin: 20px 0;">
+        <table class="piotroski-table">
+            <tr>
+                <th>Model</th>
+                <th>Variable</th>
+                <th>Safe</th>
+                <th>Gray</th>
+                <th>Danger</th>
+            </tr>
+            <tr>
+                <td><strong>WACC</strong></td>
+                <td>WACC %</td>
+                <td>&lt; 8%</td>
+                <td>8–12%</td>
+                <td>&gt; 12%</td>
+            </tr>
+            <tr>
+                <td><strong>DCF</strong></td>
+                <td>Margin of Safety</td>
+                <td>&gt; 30%</td>
+                <td>10–30%</td>
+                <td>&lt; 10%</td>
+            </tr>
+            <tr>
+                <td><strong>DuPont ROE</strong></td>
+                <td>ROE</td>
+                <td>&gt; 15%</td>
+                <td>10–15%</td>
+                <td>&lt; 10%</td>
+            </tr>
+            <tr>
+                <td><strong>Altman Z</strong></td>
+                <td>Z-Score</td>
+                <td>&gt; 2.99</td>
+                <td>1.81–2.99</td>
+                <td>&lt; 1.81</td>
+            </tr>
+            <tr>
+                <td><strong>Piotroski F</strong></td>
+                <td>F-Score</td>
+                <td>8–9</td>
+                <td>4–7</td>
+                <td>0–3</td>
+            </tr>
+            <tr>
+                <td><strong>Beneish M</strong></td>
+                <td>M-Score</td>
+                <td>&lt; -2.22</td>
+                <td>-2.22 to -1.78</td>
+                <td>&gt; -1.78</td>
+            </tr>
+            <tr>
+                <td><strong>Log Regression</strong></td>
+                <td>Z-Deviation</td>
+                <td>±0.5σ</td>
+                <td>±0.5–1.5σ</td>
+                <td>&gt; ±1.5σ</td>
+            </tr>
+            <tr>
+                <td><strong>Log Regression</strong></td>
+                <td>R²</td>
+                <td>&gt; 0.85</td>
+                <td>0.60–0.85</td>
+                <td>&lt; 0.60</td>
+            </tr>
+        </table>
+    </div>
+    <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+    <div class="callout callout-note">
+        <div class="callout-icon">💡</div>
+        <div class="callout-content">strong>Last Updated:</strong> May 2026 — StockerAI Quantitative Framework v2.0
+All formulas verified against Damodaran (NYU), Altman (1968), Piotroski (2000), Beneish (1999), and Penman (Columbia).</div>
+    </div>
+</div>
+    </div>
+
+    <!-- Script to auto-focus sections if anchor is in URL -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const hash = window.location.hash;
+            if (hash) {
+                const el = document.querySelector(hash);
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth' });
+                }
+            }
+        });
+    </script>
+</body>
+</html>

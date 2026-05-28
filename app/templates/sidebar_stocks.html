@@ -1,0 +1,26 @@
+<div class="sidebar">
+    <div class="sidebar-header">
+        <div class="brand-title">
+            <span style="color:var(--cyan);">◆</span> StockerAI
+        </div>
+        <div style="margin-top:8px;">
+            <span class="brand-badge">STOCK TERMINAL</span>
+        </div>
+    </div>
+    <div class="nav-links">
+        <a href="/stocks" class="nav-item {% if request.path == '/stocks' or request.path == '/' %}active{% endif %}" data-page="stocks">
+            <span style="width:20px;">🖥️</span> Execution Hub
+        </a>
+        <a href="/guide" class="nav-item {% if request.path == '/guide' %}active{% endif %}" data-page="guide">
+            <span style="width:20px;">📖</span> Guide
+        </a>
+    </div>
+    
+    <div style="margin-top:auto; padding:24px; border-top:1px solid var(--border);">
+        <div style="font-family:var(--font-mono); font-size:0.75rem; color:var(--text-secondary); margin-bottom: 12px;">
+            SYSTEM STATUS: <span style="color:var(--emerald);">ONLINE</span>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/spa_router.js"></script>

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Equities Matrix | StockerAI</title>
+    <link rel="stylesheet" href="/static/css/theme.css">
+    <style>
+        th { text-align: center; }
+        td { text-align: center; }
+        .indicator-cell { text-align: left; font-family: var(--font-sans); font-weight: 700; color: #fff; min-width: 150px; }
+        .table-container { overflow-x: auto; margin-bottom: 24px; }
+    </style>
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="page-title">
+            Equities & Commodities Matrix
+            <span class="live-badge">LIVE ECONOMIC SCRAPE</span>
+        </div>
+        
+        <p style="color:var(--text-secondary); margin-top:-16px; font-size:0.85rem;">
+            Scoring algorithm: Calculates Actual vs Forecast economic prints (+1 / -1).
+        </p>
+
+        <div class="panel table-container">
+            <div class="panel-header">
+                <h3 class="panel-title">Global Indices & Commodities</h3>
+            </div>
+            <table class="terminal-table">
+                <thead>
+                    <tr>
+                        <th style="text-align: left;">Indicator</th>
+                        <th>Actual</th>
+                        <th>Forecast</th>
+                        <th>GOLD</th>
+                        <th>RUSSELL</th>
+                        <th>NASDAQ</th>
+                        <th>S&P500</th>
+                        <th>DOW</th>
+                        <th>SILVER</th>
+                        <th>NIKKEI</th>
+                        <th>XAGUSD</th>
+                        <th>BTC</th>
+                        <th>ETH</th>
+                        <th>DAX</th>
+                        <th>OILCash</th>
+                        <th>FR40</th>
+                    </tr>
+                </thead>
+                <tbody id="stocks-body">
+                    <tr class="skeleton-row"><td colspan="16"><div class="skeleton-cell"></div></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        async function loadData() {
+            try {
+                const res = await fetch('/api/assets_data');
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    const stocksBody = document.getElementById('stocks-body');
+                    stocksBody.innerHTML = '';
+                    
+                    const formatScore = (val) => {
+                        if(val > 0) return `<span class="heat-green" style="font-weight:900;">+1</span>`;
+                        if(val < 0) return `<span class="heat-red" style="font-weight:900;">-1</span>`;
+                        return `<span class="heat-neutral">0</span>`;
+                    }
+
+                    json.data.forEach(row => {
+                        let actualHtml = row.actual;
+                        if (row.actual > row.forecast) actualHtml = `<span class="heat-green" style="font-weight:800;">${row.actual}</span>`;
+                        else if (row.actual < row.forecast) actualHtml = `<span class="heat-red" style="font-weight:800;">${row.actual}</span>`;
+                        else actualHtml = `<span style="font-weight:800; color:var(--text-secondary);">${row.actual}</span>`;
+                        
+                        stocksBody.innerHTML += `
+                            <tr>
+                                <td class="indicator-cell">${row.indicator}</td>
+                                <td>${actualHtml}</td>
+                                <td style="color:var(--text-secondary);">${row.forecast}</td>
+                                <td>${formatScore(row.stock_scores.GOLD)}</td>
+                                <td>${formatScore(row.stock_scores.RUSSELL)}</td>
+                                <td>${formatScore(row.stock_scores.NASDAQ)}</td>
+                                <td>${formatScore(row.stock_scores['S&P500'])}</td>
+                                <td>${formatScore(row.stock_scores.DOW)}</td>
+                                <td>${formatScore(row.stock_scores.SILVER)}</td>
+                                <td>${formatScore(row.stock_scores.NIKKEI)}</td>
+                                <td>${formatScore(row.stock_scores.XAGUSD)}</td>
+                                <td>${formatScore(row.stock_scores.BTC)}</td>
+                                <td>${formatScore(row.stock_scores.ETH)}</td>
+                                <td>${formatScore(row.stock_scores.DAX)}</td>
+                                <td>${formatScore(row.stock_scores.OILCash)}</td>
+                                <td>${formatScore(row.stock_scores.FR40)}</td>
+                            </tr>
+                        `;
+                    });
+                }
+            } catch(e) {
+                document.getElementById('stocks-body').innerHTML = `<tr><td colspan="16" style="color:var(--ruby); text-align:center;">SYSTEM FAILURE</td></tr>`;
+            }
+        }
+        loadData();
+    </script>
+</body>
+</html>
