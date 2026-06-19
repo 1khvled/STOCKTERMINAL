@@ -137,6 +137,11 @@ def generate_dashboard(stock_data, analysis, output_path):
     conf = analysis.get("verdict_confidence", 50)
     vc = "#10b981" if v in ["BUY", "STRONG BUY"] else "#f43f5e" if v in ["SELL", "STRONG SELL"] else "#f59e0b"
     vbg = "rgba(16, 185, 129, 0.1)" if v in ["BUY", "STRONG BUY"] else "rgba(244, 63, 94, 0.1)" if v in ["SELL", "STRONG SELL"] else "rgba(245, 158, 11, 0.1)"
+
+    tv = analysis.get("thematic_verdict", "HOLD")
+    tv_reasoning = analysis.get("thematic_reasoning", "Awaiting narrative convergence.")
+    tvc = "#10b981" if tv in ["BUY", "STRONG BUY"] else "#f43f5e" if tv in ["SELL", "STRONG SELL"] else "#f59e0b"
+    tvbg = "rgba(16, 185, 129, 0.1)" if tv in ["BUY", "STRONG BUY"] else "rgba(244, 63, 94, 0.1)" if tv in ["SELL", "STRONG SELL"] else "rgba(245, 158, 11, 0.1)"
     
     moat = analysis.get("fundamental_analysis", {}).get("moat_rating", "N/A")
     mgmt = analysis.get("fundamental_analysis", {}).get("management_score", "N/A")
@@ -149,8 +154,8 @@ def generate_dashboard(stock_data, analysis, output_path):
         "dcf": f"Local Python DCF using {sd.get('dcf_data', {}).get('valuation_basis', 'FCF DCF')} from Yahoo/SEC-derived fundamentals.",
         "analyst_targets": "Yahoo Finance/yfinance analyst target and recommendation fields.",
         "earnings": "Yahoo Finance/yfinance earnings dates and history.",
-        "news_sentiment": "Alpha Vantage NEWS_SENTIMENT API plus Groq interpretation.",
-        "ai": "Groq-generated interpretation grounded in the embedded facts payload."
+        "news_sentiment": "Alpha Vantage NEWS_SENTIMENT API plus Nemotron interpretation.",
+        "ai": "Nemotron-generated interpretation grounded in the embedded facts payload."
     }
 
     facts_payload = {
@@ -174,7 +179,7 @@ def generate_dashboard(stock_data, analysis, output_path):
 
     interpretation_payload = {
         "analysis": analysis,
-        "provider": source_meta.get("providers", {}).get("ai_analysis", "Groq OpenAI-compatible chat completions")
+        "provider": source_meta.get("providers", {}).get("ai_analysis", "OpenRouter Nemotron Ultra reasoning model")
     }
 
     raw_data_payload = {
@@ -213,7 +218,7 @@ def generate_dashboard(stock_data, analysis, output_path):
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600;700&family=Geist:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-main: #08090b; /* Deep matte black */
@@ -250,7 +255,7 @@ def generate_dashboard(stock_data, analysis, output_path):
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Inter', sans-serif;
+            font-family: 'Geist', 'Inter', sans-serif;
             scrollbar-width: thin;
             scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
         }
@@ -1622,7 +1627,7 @@ def generate_dashboard(stock_data, analysis, output_path):
         <div class="sidebar-footer">
             <div>Data refreshed: {{REFRESH_DATE}}</div>
             <div>Latest price date: {{LATEST_PRICE_DATE}}</div>
-            <div>Sources: Yahoo Finance, Alpha Vantage, Groq</div>
+            <div>Sources: Yahoo Finance, Alpha Vantage, OpenRouter Nemotron</div>
             <div style="margin-top: 6px; color: var(--text-muted)">&copy; Quant Terminal v3.0</div>
         </div>
     </div>
@@ -1642,7 +1647,10 @@ def generate_dashboard(stock_data, analysis, output_path):
             
             <div class="ticker-center">
                 <div class="quote-block">
-                    <div class="quote-label">Last Traded</div>
+                    <div class="quote-label" style="display: inline-flex; align-items: center; gap: 6px; color: var(--emerald);">
+                        <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background-color: var(--emerald); box-shadow: 0 0 8px var(--emerald); animation: pulse 2s infinite;"></span>
+                        LIVE PRICE
+                    </div>
                     <div class="quote-value">${{CURRENT_PRICE}}</div>
                     <div class="quote-change" style="color: {{PRICE_CHANGE_COLOR}}">
                         {{PRICE_CHANGE_1D}}% today
@@ -3981,7 +3989,7 @@ def generate_dashboard(stock_data, analysis, output_path):
             <p><strong>Market data:</strong> {providers.get("market_data", "Yahoo Finance via yfinance")}</p>
             <p><strong>SEC filings:</strong> {providers.get("sec_filings", "SEC EDGAR submissions and companyfacts APIs")}</p>
             <p><strong>News sentiment:</strong> {providers.get("news_sentiment", "Alpha Vantage NEWS_SENTIMENT API")}</p>
-            <p><strong>AI analysis:</strong> {providers.get("ai_analysis", "Groq OpenAI-compatible chat completions")}</p>
+            <p><strong>AI analysis:</strong> {providers.get("ai_analysis", "OpenRouter Nemotron Ultra reasoning model")}</p>
             <p><strong>Local models:</strong> {providers.get("local_models", "Local Python valuation and technical models")}</p>
         </div>
         <div class="ai-section-box">
@@ -4146,6 +4154,10 @@ def generate_dashboard(stock_data, analysis, output_path):
         "{{VERDICT_CONFIDENCE}}": str(conf),
         "{{VERDICT_COLOR}}": vc,
         "{{VERDICT_BG}}": vbg,
+        "{{THEMATIC_VERDICT}}": tv,
+        "{{THEMATIC_REASONING}}": tv_reasoning.replace('"', '\"'),
+        "{{THEMATIC_COLOR}}": tvc,
+        "{{THEMATIC_BG}}": tvbg,
         "{{MOAT}}": moat,
         "{{MGMT}}": str(mgmt),
         "{{SENT_LABEL}}": sent_label,

@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard_new.css') }}">
+<style>
+    .system-wrapper {
+        padding: 32px;
+        max-width: 1400px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .vitals-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+    }
+
+    .vital-card {
+        background: rgba(32, 32, 32, 0.6);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        box-shadow: var(--shadow-md);
+        backdrop-filter: blur(10px);
+    }
+
+    .vital-title {
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+
+    .vital-value {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #fff;
+        font-family: var(--font-mono);
+    }
+
+    .details-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 24px;
+    }
+
+    @media (max-width: 992px) {
+        .details-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .tree-card {
+        background: rgba(20, 20, 20, 0.6);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        min-height: 400px;
+    }
+
+    .info-card {
+        background: rgba(20, 20, 20, 0.6);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .card-header-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--border-subtle);
+        padding-bottom: 12px;
+    }
+
+    .tree-container {
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        line-height: 1.8;
+    }
+
+    details {
+        margin-left: 16px;
+    }
+
+    summary {
+        cursor: pointer;
+        padding: 6px 10px;
+        border-radius: var(--radius-sm);
+        transition: background var(--ease-fast);
+        list-style: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    summary::-webkit-details-marker {
+        display: none;
+    }
+
+    summary::before {
+        content: '▶';
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        transition: transform var(--ease-fast);
+        display: inline-block;
+        width: 12px;
+    }
+
+    details[open] > summary::before {
+        transform: rotate(90deg);
+    }
+
+    summary:hover {
+        background: rgba(255, 255, 255, 0.05);
+        color: #fff;
+    }
+
+    .file-item {
+        margin-left: 32px;
+        padding: 6px 10px;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-radius: var(--radius-sm);
+        transition: background var(--ease-fast);
+    }
+
+    .file-item:hover {
+        background: rgba(255, 255, 255, 0.03);
+        color: #fff;
+    }
+
+    .file-size {
+        color: var(--text-muted);
+        font-size: 0.75rem;
+    }
+
+    .dir-icon {
+        color: var(--gold);
+        font-size: 1.1rem;
+    }
+
+    .file-icon {
+        color: var(--accent);
+        margin-right: 8px;
+        font-size: 1.1rem;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border-subtle);
+        font-size: 0.85rem;
+    }
+
+    .info-row:last-child {
+        border-bottom: none;
+    }
+
+    .info-row span:first-child {
+        color: var(--text-muted);
+    }
+
+    .info-row span:last-child {
+        color: #fff;
+        font-family: var(--font-mono);
+        font-weight: 500;
+        text-align: right;
+    }
+
+    .system-hero {
+        background: linear-gradient(135deg, rgba(20, 20, 20, 0.9), rgba(15, 15, 15, 0.95));
+        border: 1px solid var(--border-highlight);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 0 40px rgba(16, 185, 129, 0.05);
+        padding: 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 16px;
+    }
+
+    .system-hero::after {
+        content: '';
+        position: absolute;
+        top: 0; right: 0; width: 40%; height: 100%;
+        background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.15), transparent 60%);
+        pointer-events: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="system-wrapper">
+    <!-- Hero Banner -->
+    <div class="system-hero">
+        <div>
+            <h1 style="font-size: 2.2rem; font-weight: 800; color: #fff; letter-spacing: -0.04em; margin-bottom: 8px;">System Health Monitor</h1>
+            <p style="color: var(--text-secondary); font-size: 0.95rem;">Real-time runtime statistics, workspace tree allocations, and database telemetry.</p>
+        </div>
+        <button class="btn btn-primary" onclick="fetchHealthData()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            Refresh Telemetry
+        </button>
+    </div>
+
+    <!-- Vitals Grid -->
+    <div class="vitals-grid">
+        <div class="vital-card">
+            <span class="vital-title">Server Uptime</span>
+            <span class="vital-value" id="vital-uptime">--</span>
+        </div>
+        <div class="vital-card">
+            <span class="vital-title">Universe Size</span>
+            <span class="vital-value" id="vital-universe">--</span>
+        </div>
+        <div class="vital-card">
+            <span class="vital-title">Cache Size</span>
+            <span class="vital-value" id="vital-cache">--</span>
+        </div>
+        <div class="vital-card">
+            <span class="vital-title">Platform Node</span>
+            <span class="vital-value" id="vital-platform" style="font-size: 1.1rem; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">--</span>
+        </div>
+    </div>
+
+    <!-- Details Grid -->
+    <div class="details-grid">
+        <!-- File Explorer -->
+        <div class="tree-card">
+            <div class="card-header-title">
+                <span>File Explorer Allocation</span>
+                <span style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">./output/</span>
+            </div>
+            <div class="tree-container" id="tree-root">
+                <div style="padding: 40px; text-align: center; color: var(--text-muted);">Fetching workspace allocations...</div>
+            </div>
+        </div>
+
+        <!-- Software Environment -->
+        <div class="info-card">
+            <div class="card-header-title">Environment Runtime</div>
+            <div style="display: flex; flex-direction: column;">
+                <div class="info-row">
+                    <span>Python Context</span>
+                    <span id="env-python">--</span>
+                </div>
+                <div class="info-row">
+                    <span>Flask Engine</span>
+                    <span id="env-flask">--</span>
+                </div>
+                <div class="info-row">
+                    <span>Project Root</span>
+                    <span id="env-root" style="font-size: 0.75rem; word-break: break-all; max-width: 220px;">--</span>
+                </div>
+                <div class="info-row">
+                    <span>Output Directory</span>
+                    <span id="env-output" style="font-size: 0.75rem; word-break: break-all; max-width: 220px;">--</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function fetchHealthData() {
+        const root = document.getElementById('tree-root');
+        root.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-muted);">Fetching health telemetry...</div>';
+        
+        try {
+            const res = await fetch('/api/system/health');
+            const data = await res.json();
+            
+            // Populate Vitals
+            document.getElementById('vital-uptime').innerText = data.uptime || 'N/A';
+            document.getElementById('vital-universe').innerText = `${data.ticker_count} Tickers`;
+            document.getElementById('vital-cache').innerText = data.db_size || 'N/A';
+            document.getElementById('vital-platform').innerText = data.platform || 'N/A';
+            
+            // Populate Environment Details
+            const pyVer = data.python ? data.python.split(' ')[0] : 'Unknown';
+            document.getElementById('env-python').innerText = pyVer;
+            document.getElementById('env-flask').innerText = data.flask || 'Unknown';
+            document.getElementById('env-root').innerText = data.project_root || 'Unknown';
+            document.getElementById('env-output').innerText = data.output_dir || 'Unknown';
+            
+            // Populate Tree explorer
+            root.innerHTML = '';
+            if (data.file_tree && data.file_tree.length > 0) {
+                root.appendChild(renderNode(data.file_tree));
+            } else {
+                root.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-muted); border: 1px dashed var(--border-strong); border-radius: var(--radius-md);">Output directory is empty. Run an analysis to generate files.</div>';
+            }
+        } catch (e) {
+            console.error(e);
+            root.innerHTML = `<div style="padding: 40px; text-align: center; color: var(--ruby); border: 1px dashed rgba(244, 63, 94, 0.4); border-radius: var(--radius-md);">Error loading system monitor data: ${e.message}</div>`;
+        }
+    }
+
+    function renderNode(nodes) {
+        const ul = document.createElement('ul');
+        ul.style.listStyle = 'none';
+        ul.style.paddingLeft = '0';
+        ul.style.margin = '0';
+        
+        nodes.forEach(node => {
+            const li = document.createElement('li');
+            li.style.margin = '6px 0';
+            
+            if (node.type === 'directory') {
+                const det = document.createElement('details');
+                const sum = document.createElement('summary');
+                sum.innerHTML = `<span class="dir-icon">📁</span> <span style="font-weight: 600;">${node.name}</span>`;
+                
+                det.appendChild(sum);
+                det.appendChild(renderNode(node.children));
+                li.appendChild(det);
+            } else {
+                li.innerHTML = `
+                    <div class="file-item">
+                        <span><span class="file-icon">📄</span>${node.name}</span>
+                        <span class="file-size">${node.size} KB</span>
+                    </div>
+                `;
+            }
+            ul.appendChild(li);
+        });
+        return ul;
+    }
+
+    // Load on start
+    document.addEventListener('DOMContentLoaded', fetchHealthData);
+</script>
+{% endblock %}

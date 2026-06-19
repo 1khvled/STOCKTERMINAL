@@ -4,15 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StockerAI // Institutional Quantitative Reference Guide</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <!-- KaTeX Math Engine for Professional Equation Rendering -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
 
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/terminal.css') }}">
     <style>
         :root {
             --bg-obsidian: #08090b;
@@ -48,7 +47,7 @@
         }
 
         body {
-            font-family: 'Outfit', sans-serif;
+            font-family: 'Plus Jakarta Sans', sans-serif;
             background-color: var(--bg-obsidian);
             color: var(--text-primary);
             min-height: 100vh;
@@ -127,14 +126,119 @@
 
         /* Workspace Grid */
         .workspace {
-            max-width: 1200px;
+            max-width: 1400px;
             width: 100%;
             margin: 32px auto;
             padding: 0 24px;
             flex-grow: 1;
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 32px;
+            align-items: start;
+        }
+
+        .guide-content {
             display: flex;
             flex-direction: column;
             gap: 32px;
+            min-width: 0;
+        }
+
+        .toc-sidebar {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            position: sticky;
+            top: 100px;
+            max-height: calc(100vh - 140px);
+            overflow-y: auto;
+        }
+
+        .toc-title {
+            font-size: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+        }
+
+        .toc-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .toc-item a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: all 0.15s ease;
+            display: block;
+            line-height: 1.4;
+        }
+
+        .toc-item a:hover {
+            color: #fff;
+            padding-left: 4px;
+        }
+
+        .toc-item.active a {
+            color: var(--emerald);
+            font-weight: 600;
+            padding-left: 4px;
+        }
+
+        /* Search Box styles */
+        .search-container {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        #guide-search {
+            width: 100%;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            font-family: inherit;
+            transition: border-color var(--ease-fast);
+        }
+
+        #guide-search:focus {
+            outline: none;
+            border-color: var(--border-active);
+        }
+
+        .search-results-count {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 6px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .search-highlight {
+            background-color: rgba(245, 158, 11, 0.3);
+            color: #fff;
+            border-bottom: 2px solid var(--gold);
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+
+        @media (max-width: 992px) {
+            .workspace {
+                grid-template-columns: 1fr;
+            }
+            .toc-sidebar {
+                display: none !important;
+            }
         }
 
         .header-card {
@@ -375,7 +479,7 @@
 </head>
 <body>
     <nav>
-        <div class="logo-container">
+        <div class="logo-container" onclick="toggleTerminal()" style="cursor: pointer;" title="Open Terminal (Ctrl + ~)">
             <span class="logo-symbol">S_AI</span>
             <span class="logo-text">StockerAI Terminal</span>
             <span class="logo-tag">Quantitative Reference Guide</span>
@@ -388,19 +492,40 @@
         </div>
     </nav>
 
-    <div class="workspace">
-        <!-- Floating Home Anchor -->
-        <a href="/" class="btn back-hub">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
-            Terminal Hub
-        </a>
+    <div id="reading-progress-container" style="position: fixed; top: 0; left: 0; width: 100%; height: 4px; background: rgba(255,255,255,0.05); z-index: 9999;">
+        <div id="reading-progress-bar" style="width: 0%; height: 100%; background: var(--emerald); transition: width 0.1s ease;"></div>
+    </div>
 
-        <!-- Header Card -->
-        <div class="header-card">
-            <div class="section-label">Bloomberg-Grade Formula Compendium</div>
-            <h1 class="guide-title">StockerAI Institutional Quantitative Reference Guide</h1>
-            <p class="guide-subtitle">A dynamically loaded and parsed compilation directly from StockerAI's Notion Reference Hub. Fully compiled in real-time in the browser.</p>
-        </div>
+    <div class="workspace">
+        <!-- Sticky Left Sidebar -->
+        <aside class="toc-sidebar">
+            <div class="search-container">
+                <input type="text" id="guide-search" placeholder="Search guide..." autocomplete="off">
+                <div id="search-results-count" class="search-results-count" style="display: none;"></div>
+            </div>
+            <div class="toc-title">Table of Contents</div>
+            <ul class="toc-list" id="toc-list">
+                <!-- Dynamically populated -->
+            </ul>
+        </aside>
+
+        <!-- Main Content Column -->
+        <main class="guide-content">
+            <!-- Floating Home Anchor -->
+            <a href="/" class="btn back-hub">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+                Terminal Hub
+            </a>
+
+            <!-- Header Card -->
+            <div class="header-card">
+                <div class="section-label" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Bloomberg-Grade Formula Compendium</span>
+                    <span id="reading-time-estimate" style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-muted);">Calculating reading time...</span>
+                </div>
+                <h1 class="guide-title">StockerAI Institutional Quantitative Reference Guide</h1>
+                <p class="guide-subtitle">A dynamically loaded and parsed compilation directly from StockerAI's Notion Reference Hub. Fully compiled in real-time in the browser.</p>
+            </div>
 
             <blockquote class="notion-quote">strong>A to Z Bloomberg-Grade Formula Compendium</strong><em>Written for professional-grade equity analysis. Every formula, every variable, every diagnostic threshold.</em></blockquote>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
@@ -421,7 +546,7 @@
     <p class="concept-body">CAPM answers the equity side of that question. WACC blends equity and debt into a single discount rate used in every DCF model.</p>
     <p class="concept-body"><strong>Why this matters:</strong> If a firm earns 8% on invested capital but its WACC is 10%, it is destroying value — regardless of what the income statement says. The entire logic of intrinsic valuation collapses without a rigorous WACC.</p>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
-    <div class="sub-subtitle">📐 Mathematical Formulas</div>
+    <div class="sub-subtitle"> Mathematical Formulas</div>
     <p class="concept-body"><strong>Cost of Equity (CAPM):</strong>
 $$K_e = R_f + (\beta \times ERP)$$</p>
     <p class="concept-body"><strong>Weighted Average Cost of Capital:</strong>
@@ -483,7 +608,7 @@ $$WACC = \left(\frac{E}{V} \times K_e\right) + \left(\frac{D}{V} \times K_d \tim
         </table>
     </div>
     <div class="callout callout-warning">
-        <div class="callout-icon">⚠️</div>
+        <div class="callout-icon">⚠</div>
         <div class="callout-content">strong>Common Trap — Book vs. Market Values:</strong> Always use <strong>market value of equity</strong> (market cap), not book equity, when computing $E/V$ and $D/V$. Using book values systematically understates equity weight for growth companies and inflates WACC.</div>
     </div>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
@@ -544,7 +669,7 @@ $$WACC = \left(\frac{E}{V} \times K_e\right) + \left(\frac{D}{V} \times K_d \tim
 </ol>
     <p class="concept-body">The discount rate (WACC) accounts for the fact that a dollar received in Year 10 is worth far less than a dollar today — both because of inflation and because of risk.</p>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
-    <div class="sub-subtitle">📐 Mathematical Formulas</div>
+    <div class="sub-subtitle"> Mathematical Formulas</div>
     <p class="concept-body"><strong>Stage 1 + Stage 2 Present Value:</strong>
 $$PV = \sum_{t=1}^{5} \frac{FCF_0 \times (1 + g_{1\text{-}5})^t}{(1 + WACC)^t} + \sum_{t=6}^{10} \frac{FCF_5 \times (1 + g_{6\text{-}10})^{t-5}}{(1 + WACC)^t}$$</p>
     <p class="concept-body"><strong>Terminal Value (Gordon Growth Model):</strong>
@@ -602,7 +727,7 @@ $$\text{Net Debt} = \text{Total Debt} - \text{Total Cash &amp; Equivalents}$$</p
         </table>
     </div>
     <div class="callout callout-warning">
-        <div class="callout-icon">⚠️</div>
+        <div class="callout-icon">⚠</div>
         <div class="callout-content">strong>Terminal Value Dominance:</strong> For most growth companies, PV(TV) represents 60–80% of total intrinsic value. This means your terminal growth rate assumption is the single most important number in the model. A 0.5% change in $g_{terminal}$ can move intrinsic value by 20–30%. Treat it with extreme caution — never assume terminal growth &gt; 3%.</div>
     </div>
     <div class="callout callout-note">
@@ -667,7 +792,7 @@ $$\text{Net Debt} = \text{Total Debt} - \text{Total Cash &amp; Equivalents}$$</p
         <div class="callout-content">strong>Why Forward EPS?</strong> Analyst consensus forward EPS already incorporates the normalization of CapEx cycles. It reflects what the business earns at steady-state — which is exactly what the terminal value phase of a DCF represents. Using it as a proxy base bridges the gap between the current investment cycle and the long-run profitability picture.</div>
     </div>
     <div class="callout callout-warning">
-        <div class="callout-icon">⚠️</div>
+        <div class="callout-icon">⚠</div>
         <div class="callout-content">strong>When NOT to use the Fallback:</strong> If a company has negative forward EPS (genuine losses), the fallback should not activate. A burning cash company is not the same as a profitable company with elevated CapEx. The fallback is for <strong>profitable businesses with distorted trailing cash flows</strong>, not loss-making startups.</div>
     </div>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
@@ -686,7 +811,7 @@ $$\text{Net Debt} = \text{Total Debt} - \text{Total Cash &amp; Equivalents}$$</p
     <p class="concept-body"><strong>The problem:</strong> A company can show spectacular ROE through three entirely different paths — genuine profitability, capital efficiency, or simply borrowing aggressively to amplify returns. The 3-Stage DuPont decomposition surgically separates these three sources.</p>
     <p class="concept-body">Two companies with identical 25% ROE can be radically different investments. One earns it through 40% net margins (Apple). Another earns it by carrying 10x leverage (a levered retailer). The DuPont framework reveals which.</p>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
-    <div class="sub-subtitle">📐 Mathematical Formula</div>
+    <div class="sub-subtitle"> Mathematical Formula</div>
     <div class="math-box">
         <div class="math-box-label">Equation Formula</div>
         <div class="equation">$$ROE = \underbrace{\left(\frac{\text{Net Income}}{\text{Revenue}}\right)}<em>{\text{Profitability}} \times \underbrace{\left(\frac{\text{Revenue}}{\text{Total Assets}}\right)}</em>{\text{Efficiency}} \times \underbrace{\left(\frac{\text{Total Assets}}{\text{Shareholders' Equity}}\right)}_{\text{Leverage}}$$</div>
@@ -721,7 +846,7 @@ $$\text{Net Debt} = \text{Total Debt} - \text{Total Cash &amp; Equivalents}$$</p
                 <td><strong>Equity Multiplier</strong></td>
                 <td>Total Assets / Equity</td>
                 <td>Financial leverage</td>
-                <td>⚠️ Could be risk, not quality</td>
+                <td>⚠ Could be risk, not quality</td>
             </tr>
         </table>
     </div>
@@ -757,7 +882,7 @@ $$\text{Net Debt} = \text{Total Debt} - \text{Total Cash &amp; Equivalents}$$</p
         </table>
     </div>
     <div class="callout callout-warning">
-        <div class="callout-icon">⚠️</div>
+        <div class="callout-icon">⚠</div>
         <div class="callout-content">strong>The Debt-Inflated ROE Trap:</strong> A firm with negative book equity (accumulated losses exceed paid-in capital — common in mature buyback machines like McDonald's or Boeing) will show <strong>negative or infinite ROE</strong>. This is not a quality signal. Always decompose before interpreting. If the equity multiplier is 10x+ and profit margins are thin, the ROE is a leverage mirage.</div>
     </div>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
@@ -808,7 +933,7 @@ $$\text{Net Debt} = \text{Total Debt} - \text{Total Cash &amp; Equivalents}$$</p
     <p class="concept-body">Developed by Edward Altman in 1968, the Z-Score is an <strong>OLS multivariate discriminant model</strong> that combines five financial ratios into a single score predictive of corporate bankruptcy within 2 years. Originally tested on 66 manufacturing firms, it remains one of the most validated models in corporate finance.</p>
     <p class="concept-body">The Z-Score does not predict <em>if</em> a company will fail — it predicts <em>how far</em> it is from the financial profile of companies that have failed historically.</p>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
-    <div class="sub-subtitle">📐 Mathematical Formula</div>
+    <div class="sub-subtitle"> Mathematical Formula</div>
     <div class="math-box">
         <div class="math-box-label">Equation Formula</div>
         <div class="equation">$$Z = 1.2A + 1.4B + 3.3C + 0.6D + 0.999E$$</div>
@@ -886,7 +1011,7 @@ $$\text{Net Debt} = \text{Total Debt} - \text{Total Cash &amp; Equivalents}$$</p
         </table>
     </div>
     <div class="callout callout-warning">
-        <div class="callout-icon">⚠️</div>
+        <div class="callout-icon">⚠</div>
         <div class="callout-content">strong>Original Z-Score Limitations:</strong> Altman's original model was calibrated on manufacturing firms. For non-manufacturing or financial firms, use the <strong>Z''-Score variant</strong> (different coefficients). Also note: the model uses market cap (variable $D$), so a company whose stock has crashed may mechanically enter distress zone even if fundamentals are sound. Always cross-check with Piotroski F-Score and cash runway.</div>
     </div>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
@@ -1004,7 +1129,7 @@ $$\text{Net Debt} = \text{Total Debt} - \text{Total Cash &amp; Equivalents}$$</p
     <p class="concept-body">The Beneish M-Score is an <strong>8-variable probit regression</strong> developed by Professor Messod Beneish (1999) to detect the probability that a firm is manipulating its reported earnings. It was famously used by Cornish and Titman students to identify Enron as a likely manipulator one year before its collapse.</p>
     <p class="concept-body">The model does not prove fraud — it flags companies whose accounting patterns <strong>statistically resemble</strong> those of firms later caught manipulating financials.</p>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
-    <div class="sub-subtitle">📐 Mathematical Formula</div>
+    <div class="sub-subtitle"> Mathematical Formula</div>
     <div class="math-box">
         <div class="math-box-label">Equation Formula</div>
         <div class="equation">$$M = -4.84 + 0.920 \cdot DSRI + 0.528 \cdot GMI + 0.404 \cdot AQI + 0.892 \cdot SGI$$
@@ -1062,7 +1187,7 @@ $$+ 0.115 \cdot DEPI - 0.172 \cdot SGAI + 4.679 \cdot TATA - 0.327 \cdot LVGI$$<
         </table>
     </div>
     <div class="callout callout-warning">
-        <div class="callout-icon">⚠️</div>
+        <div class="callout-icon">⚠</div>
         <div class="callout-content">strong>TATA is the nuclear variable.</strong> Its coefficient is 4.679 — by far the largest in the model. Total accruals (Net Income minus Cash from Operations, scaled by assets) directly measures the gap between accounting earnings and economic reality. Companies with persistently high TATA are reporting income they are not collecting in cash. This is the most reliable early-warning signal of earnings quality deterioration.</div>
     </div>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
@@ -1106,7 +1231,7 @@ $$+ 0.115 \cdot DEPI - 0.172 \cdot SGAI + 4.679 \cdot TATA - 0.327 \cdot LVGI$$<
     <p class="concept-body">Stock prices grow <strong>exponentially</strong>, not linearly. A stock that compounds at 20% annually does not add the same dollar amount each year — it adds an accelerating amount. Plotting raw prices against time and fitting a linear trend line systematically underestimates early-period prices and overestimates late-period prices.</p>
     <p class="concept-body"><strong>The solution:</strong> Transform prices to log-scale. A log-linear regression on weekly data maps the <strong>constant percentage growth rate</strong> (CAGR) as a straight line. Standard deviation bands around this line create <strong>dynamic support/resistance channels</strong> calibrated to the stock's own historical volatility.</p>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
-    <div class="sub-subtitle">📐 Mathematical Formulas</div>
+    <div class="sub-subtitle"> Mathematical Formulas</div>
     <p class="concept-body"><strong>Log transformation:</strong>
 $$y = \ln(Price), \quad x = \text{Weekly Trading Index (0, 1, 2, \ldots, 260)}$$</p>
     <p class="concept-body"><strong>OLS Regression Coefficients:</strong>
@@ -1198,7 +1323,7 @@ $$Z_{deviation} = \frac{\ln(Price_{current}) - (\alpha + \beta x_{current})}{\si
         </table>
     </div>
     <div class="callout callout-warning">
-        <div class="callout-icon">⚠️</div>
+        <div class="callout-icon">⚠</div>
         <div class="callout-content">strong>The $R^2$ Gating Rule:</strong> Never interpret the channel bands for stocks with $R^2 &lt; 0.60$. A low $R^2$ means the regression is not describing a real trend — it is fitting noise. High-volatility small-caps, biotech, and recent IPOs often fail this filter. The tool is designed for established companies with 5+ years of meaningful price history.</div>
     </div>
     <div class="callout callout-note">
@@ -1288,19 +1413,199 @@ $$Z_{deviation} = \frac{\ln(Price_{current}) - (\alpha + \beta x_{current})}{\si
 All formulas verified against Damodaran (NYU), Altman (1968), Piotroski (2000), Beneish (1999), and Penman (Columbia).</div>
     </div>
 </div>
+        </main>
     </div>
 
-    <!-- Script to auto-focus sections if anchor is in URL -->
+    <!-- Script to auto-focus sections, handle scrollspy, reading progress, and search -->
     <script>
         document.addEventListener("DOMContentLoaded", () => {
+            // Reading Time Estimate
+            const contentEl = document.querySelector('.guide-content');
+            const text = contentEl.textContent || contentEl.innerText || '';
+            const words = text.trim().split(/\s+/).length;
+            const wpm = 200; // average WPM
+            const minutes = Math.ceil(words / wpm);
+            const timeEl = document.getElementById('reading-time-estimate');
+            if (timeEl) {
+                timeEl.textContent = `~${minutes} min read`;
+            }
+
+            // Scroll Progress Bar
+            window.addEventListener('scroll', () => {
+                const scrollTop = window.scrollY || document.documentElement.scrollTop;
+                const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const progress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
+                document.getElementById('reading-progress-bar').style.width = `${progress}%`;
+            });
+
+            // Auto-generate TOC links from H2.section-title elements
+            const tocList = document.getElementById('toc-list');
+            const sections = document.querySelectorAll('.section-card');
+            
+            sections.forEach(section => {
+                const id = section.id;
+                const titleEl = section.querySelector('.section-title');
+                if (!titleEl || !id) return;
+                
+                const titleText = titleEl.textContent.replace(/^\d+\s+/, '').trim(); // Remove section number prefix for clean text
+                
+                const li = document.createElement('li');
+                li.className = 'toc-item';
+                li.dataset.sectionId = id;
+                
+                const a = document.createElement('a');
+                a.href = `#${id}`;
+                a.textContent = titleText;
+                
+                a.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+                    history.pushState(null, null, `#${id}`);
+                });
+                
+                li.appendChild(a);
+                tocList.appendChild(li);
+            });
+
+            // Scrollspy using IntersectionObserver
+            const observerOptions = {
+                root: null,
+                rootMargin: '-10% 0px -80% 0px',
+                threshold: 0
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const id = entry.target.id;
+                        document.querySelectorAll('.toc-item').forEach(item => {
+                            item.classList.remove('active');
+                        });
+                        const activeItem = document.querySelector(`.toc-item[data-section-id="${id}"]`);
+                        if (activeItem) {
+                            activeItem.classList.add('active');
+                        }
+                    }
+                });
+            }, observerOptions);
+
+            sections.forEach(section => observer.observe(section));
+
+            // Smooth scroll to hash anchor on load
             const hash = window.location.hash;
             if (hash) {
                 const el = document.querySelector(hash);
                 if (el) {
-                    el.scrollIntoView({ behavior: 'smooth' });
+                    setTimeout(() => {
+                        el.scrollIntoView({ behavior: 'smooth' });
+                    }, 100);
                 }
+            }
+
+            // Full-text Search
+            const searchInput = document.getElementById('guide-search');
+            let debounceTimer;
+
+            searchInput.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    highlightSearch(searchInput.value);
+                }, 250);
+            });
+
+            function highlightSearch(query) {
+                removeHighlights();
+                if (!query || query.trim().length < 2) return;
+
+                const regex = new RegExp(`(${escapeRegExp(query)})`, 'gi');
+                const walker = document.createTreeWalker(contentEl, NodeFilter.SHOW_TEXT, null, false);
+                const nodesToReplace = [];
+                let matchCount = 0;
+
+                let node;
+                while (node = walker.nextNode()) {
+                    const parent = node.parentNode;
+                    if (parent && (
+                        parent.tagName === 'SCRIPT' || 
+                        parent.tagName === 'STYLE' || 
+                        parent.classList.contains('katex') || 
+                        parent.closest('.katex') ||
+                        parent.tagName === 'CODE' ||
+                        parent.tagName === 'NOSCRIPT'
+                    )) {
+                        continue;
+                    }
+
+                    const text = node.nodeValue;
+                    if (regex.test(text)) {
+                        nodesToReplace.push(node);
+                    }
+                }
+
+                nodesToReplace.forEach(node => {
+                    const parent = node.parentNode;
+                    if (!parent) return;
+
+                    const text = node.nodeValue;
+                    const fragment = document.createDocumentFragment();
+                    let lastIndex = 0;
+                    
+                    text.replace(regex, (match, p1, offset) => {
+                        if (offset > lastIndex) {
+                            fragment.appendChild(document.createTextNode(text.substring(lastIndex, offset)));
+                        }
+                        
+                        const mark = document.createElement('mark');
+                        mark.className = 'search-highlight';
+                        mark.textContent = match;
+                        fragment.appendChild(mark);
+                        
+                        matchCount++;
+                        lastIndex = offset + match.length;
+                        return match;
+                    });
+
+                    if (lastIndex < text.length) {
+                        fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
+                    }
+
+                    parent.replaceChild(fragment, node);
+                });
+
+                const countEl = document.getElementById('search-results-count');
+                if (countEl) {
+                    countEl.textContent = matchCount > 0 ? `${matchCount} match(es)` : 'No matches';
+                    countEl.style.display = 'block';
+                }
+
+                // Scroll to first match
+                const firstMatch = contentEl.querySelector('.search-highlight');
+                if (firstMatch) {
+                    firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+
+            function removeHighlights() {
+                const marks = contentEl.querySelectorAll('.search-highlight');
+                marks.forEach(mark => {
+                    const parent = mark.parentNode;
+                    if (parent) {
+                        parent.replaceChild(document.createTextNode(mark.textContent), mark);
+                        parent.normalize();
+                    }
+                });
+                const countEl = document.getElementById('search-results-count');
+                if (countEl) {
+                    countEl.style.display = 'none';
+                    countEl.textContent = '';
+                }
+            }
+
+            function escapeRegExp(string) {
+                return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             }
         });
     </script>
+    <script src="{{ url_for('static', filename='js/terminal.js') }}"></script>
 </body>
 </html>

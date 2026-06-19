@@ -1,0 +1,392 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard_new.css') }}">
+<style>
+    .wl-wrapper {
+        padding: 32px;
+        max-width: 1400px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .wl-hero {
+        background: linear-gradient(135deg, rgba(20, 20, 20, 0.9), rgba(15, 15, 15, 0.95));
+        border: 1px solid var(--border-highlight);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 0 40px rgba(245, 158, 11, 0.05);
+        padding: 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .wl-hero::after {
+        content: '';
+        position: absolute;
+        top: 0; right: 0; width: 40%; height: 100%;
+        background: radial-gradient(circle at top right, rgba(245, 158, 11, 0.15), transparent 60%);
+        pointer-events: none;
+    }
+
+    .wl-card {
+        background: rgba(32, 32, 32, 0.6);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        padding: 28px;
+        backdrop-filter: blur(10px);
+    }
+
+    .wl-title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        border-bottom: 1px solid var(--border-subtle);
+        padding-bottom: 16px;
+    }
+
+    .wl-meta {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+    }
+
+    .wl-count {
+        font-family: var(--font-mono);
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        background: rgba(255,255,255,0.05);
+        padding: 6px 12px;
+        border-radius: var(--radius-full);
+    }
+
+    .btn-danger-outline {
+        background: transparent;
+        border: 1px solid rgba(244, 63, 94, 0.5);
+        color: var(--ruby);
+        padding: 8px 16px;
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+        font-weight: 700;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-danger-outline:hover {
+        background: rgba(244, 63, 94, 0.1);
+        border-color: var(--ruby);
+    }
+
+    .wl-empty {
+        text-align: center;
+        padding: 80px 20px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-lg);
+        background: rgba(20, 20, 20, 0.5);
+    }
+
+    .wl-empty svg {
+        margin-bottom: 20px;
+        color: var(--gold);
+        opacity: 0.8;
+        filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.3));
+    }
+
+    .wl-empty-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 10px;
+    }
+
+    .wl-empty-desc {
+        font-size: 0.95rem;
+        color: var(--text-secondary);
+        max-width: 400px;
+        margin: 0 auto;
+    }
+
+    .wl-empty-desc a {
+        color: var(--accent);
+        text-decoration: underline;
+    }
+
+    .wl-table-wrap {
+        overflow-x: auto;
+    }
+
+    .wl-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .wl-table th {
+        padding: 12px 16px;
+        text-align: left;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        border-bottom: 1px solid var(--border-strong);
+        white-space: nowrap;
+    }
+
+    .wl-table td {
+        padding: 16px;
+        border-bottom: 1px solid var(--border-subtle);
+        color: var(--text-primary);
+        vertical-align: middle;
+    }
+
+    .wl-table tr:hover td {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .wl-ticker-cell {
+        font-family: var(--font-mono);
+        font-weight: 800;
+        color: #fff;
+        font-size: 1.1rem;
+    }
+
+    .wl-badge {
+        display: inline-block;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: var(--radius-sm);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .badge-buy { background: rgba(16, 185, 129, 0.15); color: var(--emerald); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-sell { background: rgba(244, 63, 94, 0.15); color: var(--ruby); border: 1px solid rgba(244, 63, 94, 0.3); }
+    .badge-hold { background: rgba(245, 158, 11, 0.15); color: var(--gold); border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-safe { background: rgba(16, 185, 129, 0.08); color: var(--emerald); }
+    .badge-grey { background: rgba(245, 158, 11, 0.08); color: var(--gold); }
+    .badge-distress { background: rgba(244, 63, 94, 0.08); color: var(--ruby); }
+
+    .wl-action-cell {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .wl-btn-sm {
+        padding: 6px 14px;
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+        font-weight: 700;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        transition: all 0.2s;
+    }
+
+    .wl-btn-open {
+        background: rgba(10, 132, 255, 0.15);
+        color: var(--accent);
+        border: 1px solid rgba(10, 132, 255, 0.3);
+    }
+
+    .wl-btn-open:hover {
+        background: rgba(10, 132, 255, 0.25);
+    }
+
+    .wl-btn-remove {
+        background: transparent;
+        color: var(--text-muted);
+        border: 1px solid var(--border-strong);
+    }
+
+    .wl-btn-remove:hover {
+        border-color: var(--ruby);
+        color: var(--ruby);
+        background: rgba(244, 63, 94, 0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wl-wrapper">
+    <!-- Hero Banner -->
+    <div class="wl-hero">
+        <div>
+            <h1 style="font-size: 2.2rem; font-weight: 800; color: #fff; letter-spacing: -0.04em; margin-bottom: 8px;">My Watchlist</h1>
+            <p style="color: var(--text-secondary); font-size: 0.95rem;">Monitor your starred equities and AI verdicts in real-time.</p>
+        </div>
+    </div>
+
+    <!-- Workspace -->
+    <div class="wl-card">
+        <div class="wl-title-row">
+            <div class="section-label" style="margin: 0;">Starred Tickers Tracking</div>
+            <div class="wl-meta">
+                <span id="watchlist-count" class="wl-count">0 tickers</span>
+                <button class="btn-danger-outline" onclick="clearWatchlist()">Clear Watchlist</button>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="watchlist-empty" class="wl-empty" style="display: none;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            <div class="wl-empty-title">No Starred Tickers</div>
+            <div class="wl-empty-desc">
+                Go to the <a href="/">Stock Hub</a> and click the ☆ star icon next to any ticker in the catalog table to add it here.
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div id="watchlist-grid" class="wl-table-wrap" style="display: none;">
+            <table class="wl-table">
+                <thead>
+                    <tr>
+                        <th>Ticker</th>
+                        <th>Company</th>
+                        <th>Sector</th>
+                        <th>Verdict</th>
+                        <th>Confidence</th>
+                        <th>Price</th>
+                        <th>Implied Return</th>
+                        <th>Piotroski F</th>
+                        <th>Altman Z</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="watchlist-body">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const WATCHLIST_KEY = 'stocker_watchlist';
+
+    function getWatchlist() {
+        try { return JSON.parse(localStorage.getItem(WATCHLIST_KEY)) || []; }
+        catch(e) { return []; }
+    }
+
+    function removeFromWatchlist(ticker) {
+        const wl = getWatchlist().filter(t => t !== ticker);
+        localStorage.setItem(WATCHLIST_KEY, JSON.stringify(wl));
+        renderPage();
+    }
+
+    function clearWatchlist() {
+        if (!confirm('Remove all tickers from your watchlist?')) return;
+        localStorage.setItem(WATCHLIST_KEY, JSON.stringify([]));
+        renderPage();
+    }
+
+    function getVerdictClass(verdict) {
+        const v = (verdict || '').toUpperCase();
+        if (v.includes('BUY')) return 'badge-buy';
+        if (v.includes('SELL')) return 'badge-sell';
+        return 'badge-hold';
+    }
+
+    function getZoneClass(label) {
+        const l = (label || '').toLowerCase();
+        if (l.includes('safe')) return 'badge-safe';
+        if (l.includes('grey') || l.includes('gray')) return 'badge-grey';
+        return 'badge-distress';
+    }
+
+    function fmtPiotroski(val) {
+        if (val === undefined || val === null || val === 'N/A') return 'N/A';
+        const n = parseInt(val);
+        const color = n >= 7 ? 'var(--emerald)' : n >= 4 ? 'var(--gold)' : 'var(--ruby)';
+        return `<span style="font-family:var(--font-mono); font-weight:700; color:${color};">${n}/9</span>`;
+    }
+
+    async function renderPage() {
+        const wl = getWatchlist();
+        const countEl  = document.getElementById('watchlist-count');
+        const emptyEl  = document.getElementById('watchlist-empty');
+        const gridEl   = document.getElementById('watchlist-grid');
+        const tbody    = document.getElementById('watchlist-body');
+
+        if (countEl) countEl.innerText = `${wl.length} ticker${wl.length !== 1 ? 's' : ''}`;
+
+        if (wl.length === 0) {
+            emptyEl.style.display = 'block';
+            gridEl.style.display  = 'none';
+            return;
+        }
+
+        emptyEl.style.display = 'none';
+        gridEl.style.display  = 'block';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:40px; color:var(--text-muted);">Loading watchlist data…</td></tr>';
+
+        try {
+            const res  = await fetch('/api/stocks');
+            const data = await res.json();
+            const allStocks = data.stocks || [];
+            const watchedStocks = allStocks.filter(s => wl.includes(s.ticker));
+
+            if (watchedStocks.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:40px; color:var(--text-muted); font-style:italic;">
+                    None of your watchlist tickers (${wl.join(', ')}) have been analyzed yet.<br>
+                    Run the analysis pipeline from the hub first.
+                </td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = watchedStocks.map(s => {
+                const upVal    = (s.upside || 0) * 100;
+                const upColor  = upVal >= 0 ? 'var(--emerald)' : 'var(--ruby)';
+                const upText   = `${upVal >= 0 ? '+' : ''}${upVal.toFixed(1)}%`;
+                const zVal     = parseFloat(s.altman_z || 0);
+                const zLabel   = s.altman_z_label || 'N/A';
+                const confText = (s.confidence !== 'N/A' && s.confidence !== undefined) ? `${s.confidence}%` : 'N/A';
+
+                return `
+                    <tr>
+                        <td class="wl-ticker-cell">${s.ticker}</td>
+                        <td style="font-weight: 600;">${s.company_name}</td>
+                        <td style="font-size:0.85rem; color:var(--text-secondary);">${s.sector}</td>
+                        <td><span class="wl-badge ${getVerdictClass(s.verdict)}">${s.verdict}</span></td>
+                        <td style="font-family:var(--font-mono); font-size:0.85rem;">${confText}</td>
+                        <td style="font-family:var(--font-mono); font-weight:700; font-size: 1.05rem;">$${(s.current_price || 0).toFixed(2)}</td>
+                        <td style="font-weight:800; color:${upColor}; font-family:var(--font-mono); font-size: 1.05rem;">${upText}</td>
+                        <td>${fmtPiotroski(s.piotroski_f)}</td>
+                        <td>
+                            <span class="wl-badge ${getZoneClass(zLabel)}" style="font-size:0.7rem; padding: 4px 8px;">
+                                ${isNaN(zVal) ? 'N/A' : zVal.toFixed(2)} — ${zLabel}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="wl-action-cell">
+                                <a href="/dashboard/${s.ticker}" class="wl-btn-sm wl-btn-open">Terminal</a>
+                                <button class="wl-btn-sm wl-btn-remove" onclick="removeFromWatchlist('${s.ticker}')">Remove</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:40px; color:var(--ruby);">
+                Failed to load watchlist data: ${err.message}
+            </td></tr>`;
+        }
+    }
+
+    // Initial render
+    document.addEventListener('DOMContentLoaded', renderPage);
+</script>
+{% endblock %}

@@ -241,104 +241,117 @@ def analyze(ticker_symbol):
     ticker = ticker_symbol.strip().upper()
     if not ticker:
         print("❌ No ticker provided.")
-        return
+        return None
 
     # Create output directory
     ticker_dir = OUTPUT_DIR / ticker
     ticker_dir.mkdir(parents=True, exist_ok=True)
 
     start_time = time.time()
-
-    # Step 1: Fetch data
-    print(f"\n[1/5] 📡 Fetching data from Yahoo Finance...")
-    try:
-        stock_data = fetch_stock_data(ticker, raw_output_dir=ticker_dir / "raw")
-    except Exception as e:
-        print(f"❌ Failed to fetch data for '{ticker}': {e}")
-        print("   Make sure the ticker symbol is valid (e.g., AAPL, TSLA, MSFT)")
-        return
-
-    if stock_data["history_1y"].empty:
-        print(f"❌ No price data found for '{ticker}'. Is this a valid ticker?")
-        return
-
-    # Step 1b: Fetch Notion data if integration is configured
-    try:
-        from notion_integrator import fetch_notion_data
-        notion_data = fetch_notion_data(ticker)
-        if notion_data:
-            stock_data["notion_data"] = notion_data
-            print(f"  ✅ Linked to Notion company hub page: '{notion_data['company_title']}'")
-        else:
-            stock_data["notion_data"] = None
-    except Exception as ne:
-        print(f"  ⚠️ Warning: Failed to query Notion integration: {ne}")
-        stock_data["notion_data"] = None
-
-    # Step 2: AI Analysis
-    print(f"\n[2/5] 🤖 Generating AI analysis via Groq...")
-    analysis = generate_analysis(stock_data)
-    stock_data["analysis"] = analysis
-    print(f"  ✅ AI Verdict: {analysis.get('verdict', 'N/A')} (Confidence: {analysis.get('verdict_confidence', 'N/A')}%)")
-
-    # Step 2b: Print terminal quantitative briefing
-    try:
-        print_terminal_quant_briefing(stock_data, analysis)
-    except Exception as qe:
-        print(f"  ⚠️ Warning: Failed to render terminal quant briefing: {qe}")
-
-    # Step 3: PDF Report (Skipped for efficiency)
-    print(f"\n[3/5] 📈 Skipping Matplotlib charts & PDF report generation (optimized)...")
-    pdf_success = False
-
-    # Step 4: HTML dashboard (main deliverable)
-    print(f"\n[4/5] 🌐 Generating full interactive dashboard...")
-    html_path = ticker_dir / f"{ticker}_dashboard.html"
+    stock_data = {}
+    analysis = {}
     html_success = False
-    try:
-        generate_dashboard(stock_data, analysis, html_path)
-        print(f"  ✅ Saved: {html_path}")
-        html_success = True
-    except PermissionError:
-        print(f"  ❌ Permission Denied: Could not write HTML. Please close '{html_path.name}' if it is open in a browser and try again.")
-    except Exception as e:
-        print(f"  ❌ Failed to generate HTML Dashboard: {e}")
-
-    # Step 5: Excel Model (Re-enabled with dynamic formulas)
-    print(f"\n[5/5] 📊 Generating dynamic Excel Financial Model...")
+    pdf_success = False
     excel_success = False
+    elapsed = 0
+
     try:
-        generate_excel_model(ticker, stock_data, ticker_dir, analysis)
-        excel_success = True
-        print(f"  ✅ Saved: {ticker_dir / f'{ticker}_Financial_Model.xlsx'}")
-    except PermissionError:
-        print(f"  ❌ Permission Denied: Could not write Excel file. Please close it if it is open in Excel.")
+        # Step 1: Fetch data
+        print(f"\n[1/5] 📡 Fetching data from Yahoo Finance...")
+        try:
+            stock_data = fetch_stock_data(ticker, raw_output_dir=ticker_dir / "raw")
+        except Exception as e:
+            print(f"❌ Failed to fetch data for '{ticker}': {e}")
+            print("   Make sure the ticker symbol is valid (e.g., AAPL, TSLA, MSFT)")
+            return None
+
+        if not stock_data or stock_data.get("history_1y") is None or stock_data["history_1y"].empty:
+            print(f"❌ No price data found for '{ticker}'. Is this a valid ticker?")
+            return None
+
+        # Step 1b: Fetch Notion data if integration is configured
+        try:
+            from notion_integrator import fetch_notion_data
+            notion_data = fetch_notion_data(ticker)
+            if notion_data:
+                stock_data["notion_data"] = notion_data
+                print(f"  ✅ Linked to Notion company hub page: '{notion_data['company_title']}'")
+            else:
+                stock_data["notion_data"] = None
+        except Exception as ne:
+            print(f"  ⚠️ Warning: Failed to query Notion integration: {ne}")
+            stock_data["notion_data"] = None
+
+        # Step 2: AI Analysis
+        print(f"\n[2/5] 🤖 Generating AI analysis via Groq...")
+        analysis = generate_analysis(stock_data)
+        stock_data["analysis"] = analysis
+        print(f"  ✅ AI Verdict: {analysis.get('verdict', 'N/A')} (Confidence: {analysis.get('verdict_confidence', 'N/A')}%)")
+
+        # Step 2b: Print terminal quantitative briefing
+        try:
+            print_terminal_quant_briefing(stock_data, analysis)
+        except Exception as qe:
+            print(f"  ⚠️ Warning: Failed to render terminal quant briefing: {qe}")
+
+        # Step 3: PDF Report (Skipped for efficiency)
+        print(f"\n[3/5] 📈 Skipping Matplotlib charts & PDF report generation (optimized)...")
+        pdf_success = False
+
+        # Step 4: HTML dashboard (main deliverable)
+        print(f"\n[4/5] 🌐 Generating full interactive dashboard...")
+        html_path = ticker_dir / f"{ticker}_dashboard.html"
+        html_success = False
+        try:
+            generate_dashboard(stock_data, analysis, html_path)
+            print(f"  ✅ Saved: {html_path}")
+            html_success = True
+        except PermissionError:
+            print(f"  ❌ Permission Denied: Could not write HTML. Please close '{html_path.name}' if it is open in a browser and try again.")
+        except Exception as e:
+            print(f"  ❌ Failed to generate HTML Dashboard: {e}")
+
+        # Step 5: Excel Model (Re-enabled with dynamic formulas)
+        print(f"\n[5/5] 📊 Generating dynamic Excel Financial Model...")
+        excel_success = False
+        try:
+            generate_excel_model(ticker, stock_data, ticker_dir, analysis)
+            excel_success = True
+            print(f"  ✅ Saved: {ticker_dir / f'{ticker}_Financial_Model.xlsx'}")
+        except PermissionError:
+            print(f"  ❌ Permission Denied: Could not write Excel file. Please close it if it is open in Excel.")
+        except Exception as e:
+            print(f"  ❌ Failed to generate Excel Model: {e}")
+
     except Exception as e:
-        print(f"  ❌ Failed to generate Excel Model: {e}")
+        print(f"\n❌ Unhandled error during analysis pipeline for {ticker}: {e}")
+        import traceback
+        traceback.print_exc()
 
-    # Step 6: Database Serialization (Local JSON Database)
-    print(f"\n[6/6] 🗄️ Saving consolidated records to local database...")
-    db_dir = OUTPUT_DIR / "database"
-    db_dir.mkdir(parents=True, exist_ok=True)
-    db_path = db_dir / f"{ticker}.json"
-    
-    import json
-    try:
-        serialized = serialize_stock_data(stock_data, analysis)
-        with open(db_path, "w", encoding="utf-8") as f:
-            json.dump(serialized, f, indent=2, ensure_ascii=False)
-        print(f"  ✅ Saved database record: {db_path}")
-    except Exception as e:
-        print(f"  ❌ Failed to save database record: {e}")
+    finally:
+        elapsed = time.time() - start_time
+        # Step 6: Database Serialization (Local JSON Database)
+        if stock_data:
+            print(f"\n[6/6] 🗄️ Saving consolidated records to local database...")
+            db_dir = OUTPUT_DIR / "database"
+            db_dir.mkdir(parents=True, exist_ok=True)
+            db_path = db_dir / f"{ticker}.json"
+            
+            import json
+            try:
+                serialized = serialize_stock_data(stock_data, analysis)
+                with open(db_path, "w", encoding="utf-8") as f:
+                    json.dump(serialized, f, indent=2, ensure_ascii=False)
+                print(f"  ✅ Saved database record: {db_path}")
+            except Exception as e:
+                print(f"  ❌ Failed to save database record: {e}")
 
-    elapsed = time.time() - start_time
-
-    print(f"""
+        print(f"""
 ╔══════════════════════════════════════════════════════════════╗
 ║                    ✅ ANALYSIS COMPLETE                      ║
 ╠══════════════════════════════════════════════════════════════╣
 ║  Ticker:     {ticker:<47}║
-║  Company:    {stock_data['company_name'][:47]:<47}║
+║  Company:    {stock_data.get('company_name', 'N/A')[:47]:<47}║
 ║  Verdict:    {analysis.get('verdict','N/A'):<47}║
 ║  Time:       {elapsed:.1f}s{' ' * (45 - len(f'{elapsed:.1f}s'))}║
 ╠══════════════════════════════════════════════════════════════╣

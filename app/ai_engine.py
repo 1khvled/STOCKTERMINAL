@@ -5,8 +5,12 @@ Technical analysis is intentionally minimized to ~1% weight.
 import json
 import time
 import requests
+import logging
+from datetime import datetime
+import pandas as pd
 from config import GROQ_API_KEY, GROQ_BASE_URL, GROQ_MODEL, GROQ_MAX_TOKENS, GROQ_TEMPERATURE, GROQ_API_KEYS
 
+logger = logging.getLogger(__name__)
 
 def _fmt_num(v):
     if v is None: return "N/A"
@@ -20,9 +24,6 @@ def _fmt_num(v):
 def _fmt_pct(v):
     if v is None or (isinstance(v, float) and pd.isna(v)): return "N/A"
     return f"{v*100:.2f}%"
-
-
-import pandas as pd
 
 def _num_or_none(v):
     try:
@@ -228,102 +229,91 @@ _COOLDOWN_LOCK = threading.Lock()
 
 def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_prompt=None):
     """
-    Unified LLM caller that routes to Anthropic (Claude), OpenRouter (Qwen/Claude),
-    or Groq (Llama) depending on which API key is configured in the environment.
+    Unified LLM caller that routes to OpenCode (North Mini Code Free) first,
+    then Anthropic (Claude), OpenRouter, or Groq as fallbacks.
     """
-    from config import ANTHROPIC_API_KEY, OPENROUTER_API_KEY, GROQ_MODEL, GROQ_MAX_TOKENS, GROQ_TEMPERATURE
+    from config import ANTHROPIC_API_KEY, OPENROUTER_API_KEY, GROQ_MODEL, GROQ_MAX_TOKENS, GROQ_TEMPERATURE, OPENCODE_API_KEY, OPENCODE_BASE_URL, OPENCODE_MODEL
     import re
-    
-    # 1. Anthropic API (Claude) Route
-    if ANTHROPIC_API_KEY:
-        m_model = model or "claude-3-5-sonnet-20241022"
-        # Map Groq models to Claude
-        if "llama" in str(m_model).lower() or "mixtral" in str(m_model).lower():
-            m_model = "claude-3-5-sonnet-20241022"
+
+    # Helper to parse JSON and log tokens
+    def _process_response(resp, provider):
+        data = resp.json()
+        
+        # Log token usage
+        if "usage" in data:
+            usage = data["usage"]
+            logger.info(f"  [{provider}] Token usage - Prompt: {usage.get('prompt_tokens', 0)}, Completion: {usage.get('completion_tokens', 0)}, Total: {usage.get('total_tokens', 0)}")
             
-        logger.info(f"  > [Anthropic Upgrade] Directing query to Claude ({m_model})...")
+        content = data["choices"][0]["message"]["content"]
+        match = re.search(r'(\{.*\})', content, re.DOTALL)
+        if match:
+            content = match.group(1)
+        content = content.replace("```json", "").replace("```", "").strip()
         
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError as e:
+            logger.error(f"  [{provider}] Malformed JSON received: {e}. Content preview: {content[:100]}...")
+            raise ValueError(f"Malformed JSON: {e}")
+
+    # 0. OpenCode API (North Mini Code Free) — Primary Route
+    if OPENCODE_API_KEY:
+        m_model = OPENCODE_MODEL
+        logger.info(f"  > [OpenCode] Calling {m_model}...")
         headers = {
-            "x-api-key": ANTHROPIC_API_KEY,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json"
+            "Authorization": f"Bearer {OPENCODE_API_KEY}",
+            "Content-Type": "application/json",
         }
-        
-        # Split system prompt and messages
-        system_text = system_prompt or ""
-        user_messages = []
-        for msg in messages:
-            if msg.get("role") == "system":
-                system_text = (system_text + "\n" + msg.get("content", "")).strip()
-            else:
-                user_messages.append({"role": msg.get("role"), "content": msg.get("content", "")})
-                
         payload = {
             "model": m_model,
-            "max_tokens": max_tokens or 2048,
-            "messages": user_messages,
-            "temperature": 0.3
+            "messages": messages,
+            "max_tokens": max_tokens or 6000,
+            "temperature": 0.25,
         }
-        if system_text:
-            payload["system"] = system_text
-            
-        try:
-            resp = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=45)
-            resp.raise_for_status()
-            content = resp.json()["content"][0]["text"]
-            
-            # Extract JSON out of text
-            match = re.search(r'(\{.*\})', content, re.DOTALL)
-            if match:
-                content = match.group(1)
-            # Aggressively strip rogue Llama markdown wrapping that might corrupt json.loads
-            content = content.replace("```json", "").replace("```", "").strip()
-            return json.loads(content)
-        except Exception as e:
-            logger.info(f"  [!] Anthropic API call failed: {e}")
-            return None
+        for attempt in range(max_retries):
+            try:
+                resp = requests.post(OPENCODE_BASE_URL, headers=headers, json=payload, timeout=90)
+                resp.raise_for_status()
+                return _process_response(resp, "OpenCode")
+            except Exception as e:
+                logger.info(f"  [!] OpenCode API call failed on attempt {attempt+1}: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                else:
+                    logger.info("  [!] OpenCode failed permanently — falling back...")
 
-    # 2. OpenRouter API (Qwen/Claude) Route
-    elif OPENROUTER_API_KEY:
-        m_model = model or "qwen/qwen-2.5-72b-instruct"
-        # Map Groq models to Qwen/Claude on OpenRouter
-        if "llama" in str(m_model).lower() or "mixtral" in str(m_model).lower():
-            m_model = "qwen/qwen-2.5-72b-instruct"
-            
-        logger.info(f"  > [OpenRouter Upgrade] Directing query to {m_model}...")
-        
+
+    # 1. OpenRouter Fallback (Nemotron Ultra)
+    if OPENROUTER_API_KEY:
+        m_model = "nvidia/nemotron-ultra-253b-v1:free"
+        logger.info(f"  > [OpenRouter Fallback] Calling Nemotron ({m_model})...")
+
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
             "Content-Type": "application/json",
             "HTTP-Referer": "http://localhost:5000",
             "X-Title": "StockerAI Workstation"
         }
-        
         payload = {
             "model": m_model,
             "messages": messages,
-            "max_tokens": max_tokens or 2048,
-            "temperature": 0.3,
-            "response_format": {"type": "json_object"}
+            "max_tokens": max_tokens or 6000,
+            "temperature": 0.25,
         }
-        
-        try:
-            resp = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=45)
-            resp.raise_for_status()
-            content = resp.json()["choices"][0]["message"]["content"]
-            
-            # Extract JSON out of text
-            match = re.search(r'(\{.*\})', content, re.DOTALL)
-            if match:
-                content = match.group(1)
-            content = content.replace("```json", "").replace("```", "").strip()
-            return json.loads(content)
-        except Exception as e:
-            logger.info(f"  [!] OpenRouter API call failed: {e}")
-            return None
+        for attempt in range(max_retries):
+            try:
+                resp = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=90)
+                resp.raise_for_status()
+                return _process_response(resp, "OpenRouter")
+            except Exception as e:
+                logger.info(f"  [!] OpenRouter Nemotron fallback failed on attempt {attempt+1}: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                else:
+                    logger.info("  [!] OpenRouter failed permanently — falling back to Groq...")
 
-    # 3. Default Groq API Route
-    else:
+    # 2. Groq Last Resort
+
         now = time.time()
         keys = GROQ_API_KEYS if GROQ_API_KEYS else ([GROQ_API_KEY] if GROQ_API_KEY else [])
         if not keys:
@@ -365,12 +355,8 @@ def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_promp
                             _RATE_LIMITED_KEYS[current_key] = time.time() + 300
                         rotated = True
                         break
-                    content = resp.json()["choices"][0]["message"]["content"]
-                    match = re.search(r'(\{.*\})', content, re.DOTALL)
-                    if match:
-                        content = match.group(1)
-                    content = content.replace("```json", "").replace("```", "").strip()
-                    return json.loads(content)
+                    
+                    return _process_response(resp, "Groq")
                 except Exception as e:
                     logger.info(f"  [!] API failed for key {key_idx+1} on attempt {attempt+1}: {e}")
                     if attempt < max_retries - 1:
@@ -380,9 +366,9 @@ def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_promp
                         with _COOLDOWN_LOCK:
                             _RATE_LIMITED_KEYS[current_key] = time.time() + 300
                         rotated = True
-                        break
-            if rotated:
-                continue
+            
+            if not rotated:
+                return None
         return None
 
 def _call_groq(messages, model=None, max_tokens=None, max_retries=1):
@@ -396,9 +382,6 @@ def _call_groq(messages, model=None, max_tokens=None, max_retries=1):
     return _call_llm(messages, model=model, max_tokens=max_tokens, max_retries=max_retries, system_prompt=system_prompt)
 
 
-from datetime import datetime
-import logging
-logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_1 = """You are a ruthless, highly quantitative, 20-year veteran hedge fund portfolio manager. You despise fluff, retail sentiment, and generic summaries. Your analysis is strictly FUNDAMENTALS-FIRST, purely mathematical, and entirely objective. You evaluate companies strictly on unit economics, capital allocation efficiency, return on invested capital (ROIC), and extreme valuation mismatches.
 

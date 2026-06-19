@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard_new.css') }}">
+<style>
+    .vault-wrapper {
+        padding: 32px;
+        max-width: 1400px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+    }
+    
+    .stat-card {
+        background: rgba(32, 32, 32, 0.6);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        box-shadow: var(--shadow-md);
+        backdrop-filter: blur(10px);
+    }
+    
+    .stat-title {
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+    
+    .stat-value {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: #fff;
+        font-family: var(--font-mono);
+    }
+
+    .search-vault-bar {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+
+    #vault-search {
+        flex: 1;
+        background: rgba(20, 20, 20, 0.8);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-lg);
+        padding: 16px 24px;
+        color: var(--text-primary);
+        font-size: 1.1rem;
+        font-family: inherit;
+        transition: border-color var(--ease-fast);
+    }
+
+    #vault-search:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 15px rgba(10, 132, 255, 0.2);
+    }
+
+    .cards-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+        gap: 24px;
+    }
+
+    .vault-card {
+        background: rgba(20, 20, 20, 0.6);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        transition: all var(--ease-fast);
+        position: relative;
+    }
+
+    .vault-card:hover {
+        border-color: var(--border-highlight);
+        background: rgba(30, 30, 30, 0.8);
+        transform: translateY(-2px);
+    }
+
+    .vault-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+
+    .company-info {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-width: 75%;
+    }
+
+    .ticker-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .ticker-lbl {
+        font-family: var(--font-mono);
+        font-size: 1.3rem;
+        font-weight: 800;
+        color: #fff;
+    }
+
+    .company-lbl {
+        font-size: 0.95rem;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .verdict-badge {
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        padding: 4px 10px;
+        border-radius: var(--radius-sm);
+        text-transform: uppercase;
+    }
+
+    .verdict-BUY, .verdict-STRONG-BUY {
+        background: rgba(16, 185, 129, 0.15);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        color: var(--emerald);
+    }
+
+    .verdict-SELL, .verdict-STRONG-SELL {
+        background: rgba(244, 63, 94, 0.15);
+        border: 1px solid rgba(244, 63, 94, 0.3);
+        color: var(--ruby);
+    }
+
+    .verdict-HOLD {
+        background: rgba(245, 158, 11, 0.15);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        color: var(--gold);
+    }
+
+    .file-sizes-section {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        border-top: 1px solid var(--border-subtle);
+        border-bottom: 1px solid var(--border-subtle);
+        padding: 16px 0;
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+    }
+
+    .file-size-row {
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .file-size-row span:first-child {
+        color: var(--text-muted);
+    }
+
+    .file-size-row span:last-child {
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+
+    .card-actions {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-top: 8px;
+    }
+
+    .time-label {
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        text-align: right;
+    }
+
+    .vault-hero {
+        background: linear-gradient(135deg, rgba(20, 20, 20, 0.9), rgba(15, 15, 15, 0.95));
+        border: 1px solid var(--border-highlight);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 0 40px rgba(10, 132, 255, 0.05);
+        padding: 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 16px;
+    }
+
+    .vault-hero::after {
+        content: '';
+        position: absolute;
+        top: 0; right: 0; width: 40%; height: 100%;
+        background: radial-gradient(circle at top right, rgba(10, 132, 255, 0.15), transparent 60%);
+        pointer-events: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="vault-wrapper">
+    <!-- Hero Banner -->
+    <div class="vault-hero">
+        <div>
+            <h1 style="font-size: 2.2rem; font-weight: 800; color: #fff; letter-spacing: -0.04em; margin-bottom: 8px;">Model Vault</h1>
+            <p style="color: var(--text-secondary); font-size: 0.95rem;">Manage generated valuation matrices, Excel spreadsheets, and raw financial model databases.</p>
+        </div>
+        <button class="btn btn-primary" onclick="loadReports()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            Refresh Vault
+        </button>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="stat-title">Total Entities</span>
+            <span class="stat-value" id="stats-total">0</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-title">Excel Models Built</span>
+            <span class="stat-value" id="stats-excel">0</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-title">Database Cache Size</span>
+            <span class="stat-value" id="stats-size">0 KB</span>
+        </div>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="search-vault-bar">
+        <input type="text" id="vault-search" placeholder="Filter models by ticker symbol or company name..." autocomplete="off">
+    </div>
+
+    <!-- Cards Container -->
+    <div class="cards-list" id="cards-container">
+        <div style="padding: 60px; text-align: center; color: var(--text-muted); grid-column: 1 / -1; border: 1px dashed var(--border-strong); border-radius: var(--radius-lg);">
+            Querying model registries...
+        </div>
+    </div>
+</div>
+
+<script>
+    let reportsData = [];
+
+    async function loadReports() {
+        const container = document.getElementById('cards-container');
+        container.innerHTML = '<div style="padding: 60px; text-align: center; color: var(--text-muted); grid-column: 1 / -1; border: 1px dashed var(--border-strong); border-radius: var(--radius-lg);">Querying model registries...</div>';
+        
+        try {
+            const res = await fetch('/api/reports');
+            const data = await res.json();
+            reportsData = data.reports || [];
+            
+            updateStats();
+            renderCards(reportsData);
+            
+        } catch (e) {
+            console.error(e);
+            container.innerHTML = `<div style="padding: 60px; text-align: center; color: var(--ruby); grid-column: 1 / -1; border: 1px dashed rgba(244, 63, 94, 0.4); border-radius: var(--radius-lg);">Failed to load models: ${e.message}</div>`;
+        }
+    }
+
+    function updateStats() {
+        const total = reportsData.length;
+        const excels = reportsData.filter(r => r.excel_exists).length;
+        
+        let totalBytes = 0;
+        reportsData.forEach(r => {
+            totalBytes += (r.db_size_kb * 1024);
+            if (r.excel_exists) {
+                totalBytes += (r.excel_size_kb * 1024);
+            }
+        });
+        
+        const sizeStr = totalBytes < 1024 * 1024 
+            ? `${(totalBytes / 1024).toFixed(1)} KB` 
+            : `${(totalBytes / (1024 * 1024)).toFixed(2)} MB`;
+            
+        document.getElementById('stats-total').innerText = `${total}`;
+        document.getElementById('stats-excel').innerText = `${excels}`;
+        document.getElementById('stats-size').innerText = sizeStr;
+    }
+
+    function renderCards(reports) {
+        const container = document.getElementById('cards-container');
+        container.innerHTML = '';
+        
+        if (reports.length === 0) {
+            container.innerHTML = '<div style="padding: 60px; text-align: center; color: var(--text-muted); grid-column: 1 / -1; border: 1px dashed var(--border-strong); border-radius: var(--radius-lg);">No matching models found.</div>';
+            return;
+        }
+        
+        reports.forEach(report => {
+            const card = document.createElement('div');
+            card.className = 'vault-card';
+            
+            // Format time
+            let timeStr = 'N/A';
+            if (report.generated_at) {
+                timeStr = new Date(report.generated_at).toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+            
+            const verdictNormal = report.verdict.replace(' ', '-');
+            
+            card.innerHTML = `
+                <div class="vault-card-header">
+                    <div class="company-info">
+                        <div class="ticker-row">
+                            <span class="ticker-lbl">${report.ticker}</span>
+                            <span class="verdict-badge verdict-${verdictNormal}">${report.verdict}</span>
+                        </div>
+                        <span class="company-lbl" title="${report.company_name}">${report.company_name}</span>
+                    </div>
+                </div>
+                
+                <div class="file-sizes-section">
+                    <div class="file-size-row">
+                        <span>JSON Structure</span>
+                        <span>${report.db_size_kb} KB</span>
+                    </div>
+                    <div class="file-size-row">
+                        <span>Excel Spreadsheet</span>
+                        <span style="${!report.excel_exists ? 'color: var(--text-muted);' : ''}">${report.excel_exists ? `${report.excel_size_kb} KB` : 'NOT GENERATED'}</span>
+                    </div>
+                </div>
+                
+                <div class="card-actions">
+                    <a href="/dashboard/${report.ticker}" class="btn btn-sm btn-ghost" style="grid-column: 1 / -1; justify-content: center; background: rgba(255,255,255,0.05);">
+                        Open Terminal
+                    </a>
+                    <a href="/json/${report.ticker}" class="btn btn-sm" style="font-family: var(--font-mono); justify-content: center;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> JSON
+                    </a>
+                    <a href="/excel/${report.ticker}" class="btn btn-sm ${report.excel_exists ? 'btn-primary' : ''}" ${!report.excel_exists ? 'disabled style="opacity: 0.3; pointer-events: none;"' : ''} style="font-family: var(--font-mono); justify-content: center;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg> XLSX
+                    </a>
+                </div>
+                
+                <span class="time-label">MINTED: ${timeStr}</span>
+            `;
+            
+            container.appendChild(card);
+        });
+    }
+
+    // Filter cards by search
+    document.getElementById('vault-search').addEventListener('input', (e) => {
+        const val = e.target.value.toUpperCase();
+        const filtered = reportsData.filter(r => 
+            r.ticker.includes(val) || 
+            r.company_name.toUpperCase().includes(val)
+        );
+        renderCards(filtered);
+    });
+
+    // Load on start
+    document.addEventListener('DOMContentLoaded', loadReports);
+</script>
+{% endblock %}

@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard_new.css') }}">
+<style>
+    .lab-grid {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 20px;
+        margin-top: 20px;
+        max-width: 1400px;
+        margin-left: auto;
+        margin-right: auto;
+        padding: 0 20px;
+    }
+
+    .lab-hero {
+        grid-column: span 12;
+        background: linear-gradient(135deg, rgba(20, 20, 20, 0.9), rgba(15, 15, 15, 0.95));
+        border: 1px solid var(--border-highlight);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 0 40px rgba(10, 132, 255, 0.05);
+        padding: 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .lab-hero::after {
+        content: '';
+        position: absolute;
+        top: 0; right: 0; width: 40%; height: 100%;
+        background: url('data:image/svg+xml;utf8,<svg width="20" height="20" xmlns="http://www.w3.org/2000/svg"><path d="M0 20 L20 0 Z" stroke="rgba(255,255,255,0.03)" stroke-width="1"/></svg>');
+        mask-image: linear-gradient(to left, rgba(0,0,0,1), transparent);
+        -webkit-mask-image: linear-gradient(to left, rgba(0,0,0,1), transparent);
+    }
+
+    .hero-title-group h1 {
+        font-size: 2.2rem;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+    }
+
+    .hero-title-group p {
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+    }
+
+    .control-panel {
+        grid-column: span 4;
+        background: rgba(32, 32, 32, 0.6);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .results-panel {
+        grid-column: span 8;
+        background: rgba(32, 32, 32, 0.6);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+    }
+
+    .slider-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .slider-header {
+        display: flex;
+        justify-content: space-between;
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+
+    .slider-val {
+        color: var(--accent);
+        font-weight: 700;
+    }
+
+    input[type=range] {
+        -webkit-appearance: none;
+        width: 100%;
+        background: transparent;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 16px;
+        width: 16px;
+        border-radius: 50%;
+        background: var(--accent);
+        cursor: pointer;
+        margin-top: -6px;
+        box-shadow: 0 0 10px rgba(10, 132, 255, 0.5);
+    }
+
+    input[type=range]::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 4px;
+        cursor: pointer;
+        background: var(--border-strong);
+        border-radius: 2px;
+    }
+
+    .scenario-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .scenario-table th {
+        text-align: left;
+        padding: 12px 10px;
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        border-bottom: 1px solid var(--border-strong);
+    }
+
+    .scenario-table td {
+        padding: 16px 10px;
+        border-bottom: 1px solid var(--border-subtle);
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+
+    .scenario-table tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+    .price-impact {
+        font-family: var(--font-mono);
+        font-weight: 700;
+        font-size: 1.1rem;
+        transition: color 0.3s;
+    }
+
+    .impact-positive { color: var(--emerald); text-shadow: 0 0 10px rgba(16, 185, 129, 0.2); }
+    .impact-negative { color: var(--ruby); text-shadow: 0 0 10px rgba(244, 63, 94, 0.2); }
+
+    .baseline-price {
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        text-decoration: line-through;
+        margin-left: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="lab-grid">
+    <!-- Hero -->
+    <div class="lab-hero">
+        <div class="hero-title-group">
+            <h1>Interactive Scenario Lab</h1>
+            <p>Stress-test your portfolio's intrinsic valuations by shocking macro and micro variables in real-time.</p>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="control-panel">
+        <div class="section-label">Global Shocks</div>
+        
+        <div class="slider-group">
+            <div class="slider-header">
+                <span>Cost of Capital (WACC)</span>
+                <span class="slider-val" id="wacc-val">+0.0%</span>
+            </div>
+            <input type="range" id="wacc-slider" min="-3" max="5" step="0.5" value="0" oninput="updateScenarios()">
+        </div>
+
+        <div class="slider-group">
+            <div class="slider-header">
+                <span>Terminal Growth Rate</span>
+                <span class="slider-val" id="tgr-val">+0.0%</span>
+            </div>
+            <input type="range" id="tgr-slider" min="-2" max="2" step="0.25" value="0" oninput="updateScenarios()">
+        </div>
+
+        <div class="slider-group">
+            <div class="slider-header">
+                <span>EBITDA Margin Compression</span>
+                <span class="slider-val" id="margin-val">-0.0%</span>
+            </div>
+            <input type="range" id="margin-slider" min="0" max="10" step="1" value="0" oninput="updateScenarios()">
+            <span style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">Simulates inflation impact on operating margins.</span>
+        </div>
+
+        <button class="btn btn-primary" style="margin-top: auto;" onclick="resetScenarios()">Reset to Baseline</button>
+    </div>
+
+    <!-- Results -->
+    <div class="results-panel">
+        <div class="section-label" style="margin-bottom: 20px;">Shocked DCF Valuations</div>
+        <table class="scenario-table">
+            <thead>
+                <tr>
+                    <th>Ticker</th>
+                    <th>Company</th>
+                    <th>Baseline Fair Value</th>
+                    <th>Simulated Fair Value</th>
+                    <th>Implied Upside/Downside</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stock in stocks %}
+                {% set dcf = stock.dcf %}
+                {% set base_price = dcf.get('implied_price', stock.price) %}
+                <tr class="stock-row" data-base-price="{{ base_price }}" data-current-price="{{ stock.price }}" data-wacc="{{ dcf.get('wacc', 0.10) * 100 }}">
+                    <td style="font-family: var(--font-mono); font-weight: 700; color: var(--text-primary);">{{ stock.ticker }}</td>
+                    <td>{{ stock.company }}</td>
+                    <td style="font-family: var(--font-mono);">${{ "%.2f"|format(base_price) }}</td>
+                    <td>
+                        <span class="price-impact" id="sim-price-{{ stock.ticker }}">${{ "%.2f"|format(base_price) }}</span>
+                    </td>
+                    <td>
+                        <span class="price-impact" id="sim-upside-{{ stock.ticker }}">--%</span>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not stocks %}
+                <tr>
+                    <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 40px;">No analyzed stocks found in local database. Run an analysis first.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function updateScenarios() {
+        const waccShift = parseFloat(document.getElementById('wacc-slider').value);
+        const tgrShift = parseFloat(document.getElementById('tgr-slider').value);
+        const marginShift = parseFloat(document.getElementById('margin-slider').value);
+
+        document.getElementById('wacc-val').innerText = (waccShift > 0 ? '+' : '') + waccShift.toFixed(1) + '%';
+        document.getElementById('tgr-val').innerText = (tgrShift > 0 ? '+' : '') + tgrShift.toFixed(2) + '%';
+        document.getElementById('margin-val').innerText = '-' + marginShift.toFixed(1) + '%';
+
+        const rows = document.querySelectorAll('.stock-row');
+        rows.forEach(row => {
+            const basePrice = parseFloat(row.getAttribute('data-base-price'));
+            const currentPrice = parseFloat(row.getAttribute('data-current-price'));
+            if (!basePrice) return;
+
+            // Simple proxy math for demo:
+            // +1% WACC = ~ -15% value
+            // +1% TGR = ~ +12% value
+            // -1% Margin = ~ -5% value
+            const waccImpact = waccShift * -0.15;
+            const tgrImpact = tgrShift * 0.12;
+            const marginImpact = marginShift * -0.05;
+
+            const totalMultiplier = 1 + waccImpact + tgrImpact + marginImpact;
+            const simPrice = Math.max(0.01, basePrice * totalMultiplier);
+
+            const upside = ((simPrice - currentPrice) / currentPrice) * 100;
+
+            const priceEl = row.querySelector('[id^="sim-price-"]');
+            const upsideEl = row.querySelector('[id^="sim-upside-"]');
+
+            priceEl.innerText = '$' + simPrice.toFixed(2);
+            upsideEl.innerText = (upside > 0 ? '+' : '') + upside.toFixed(1) + '%';
+
+            if (simPrice > basePrice) {
+                priceEl.className = 'price-impact impact-positive';
+            } else if (simPrice < basePrice) {
+                priceEl.className = 'price-impact impact-negative';
+            } else {
+                priceEl.className = 'price-impact';
+                priceEl.style.color = 'var(--text-primary)';
+            }
+
+            if (upside > 0) {
+                upsideEl.className = 'price-impact impact-positive';
+            } else {
+                upsideEl.className = 'price-impact impact-negative';
+            }
+        });
+    }
+
+    function resetScenarios() {
+        document.getElementById('wacc-slider').value = 0;
+        document.getElementById('tgr-slider').value = 0;
+        document.getElementById('margin-slider').value = 0;
+        updateScenarios();
+    }
+
+    // Initial run
+    document.addEventListener('DOMContentLoaded', () => {
+        updateScenarios();
+    });
+</script>
+{% endblock %}

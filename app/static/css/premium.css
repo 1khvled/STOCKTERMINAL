@@ -1,0 +1,117 @@
+/* Premium Reusable UI Components */
+
+/* Glow Elements */
+.glow-text {
+    text-shadow: 0 0 10px rgba(10, 132, 255, 0.5);
+}
+
+.glow-box {
+    box-shadow: 0 0 15px rgba(10, 132, 255, 0.2);
+    border: 1px solid rgba(10, 132, 255, 0.3);
+}
+
+/* Glassmorphism */
+.glass-panel {
+    background: rgba(20, 20, 20, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-lg);
+}
+
+/* Animations */
+@keyframes pulse-ring {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(10, 132, 255, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(10, 132, 255, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(10, 132, 255, 0); }
+}
+
+.pulse-indicator {
+    border-radius: 50%;
+    animation: pulse-ring 2s infinite;
+}
+
+/* Premium Sidebar */
+.premium-sidebar {
+    width: var(--sidebar-width, 260px);
+    background: linear-gradient(180deg, rgba(15,15,15,0.95) 0%, rgba(10,10,10,0.98) 100%);
+    border-right: 1px solid var(--border-strong);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+}
+
+.premium-sidebar-header {
+    padding: 24px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.premium-brand-title {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.03em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.premium-brand-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: rgba(10, 132, 255, 0.1);
+    border: 1px solid rgba(10, 132, 255, 0.2);
+    border-radius: var(--radius-sm);
+    color: var(--cyan);
+    font-size: 0.65rem;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 8px;
+}
+
+.premium-sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 16px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.premium-nav-item {
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.premium-nav-item:hover {
+    background: rgba(255,255,255,0.03);
+    color: #fff;
+}
+
+.premium-nav-item.active {
+    background: rgba(10, 132, 255, 0.1);
+    color: #fff;
+    border-left: 3px solid var(--accent);
+}
+
+.premium-sidebar-footer {
+    padding: 24px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    background: rgba(0,0,0,0.2);
+}
+
+.main-content-with-sidebar {
+    margin-left: var(--sidebar-width, 260px);
+    width: calc(100% - var(--sidebar-width, 260px));
+}

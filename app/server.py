@@ -6,9 +6,18 @@ import os
 import sys
 import re
 import io
+import time
 import subprocess
 import logging
+import json
+import glob
 from pathlib import Path
+
+SERVER_START_TIME = time.time()
+
+# ── Dynamic project root — resolves correctly on any machine ──────────────────
+PROJECT_ROOT = Path(__file__).parent.parent.resolve()
+OUTPUT_DIR   = PROJECT_ROOT / "output"
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +54,7 @@ def is_valid_ticker(ticker):
 def get_cache_size_str():
     """Calculate the total size of the output cached directories."""
     total = 0
-    output_dir = Path("C:\\Users\\Abdelli\\Desktop\\Projects\\STOCK_TERMINAL_ALONE\\output")
+    output_dir = OUTPUT_DIR
     if output_dir.exists():
         for p in output_dir.glob('**/*'):
             if p.is_file():
@@ -58,7 +67,7 @@ def get_cache_size_str():
 def get_recent_stocks():
     """Scan output folder to extract verdict and name of previously analyzed tickers."""
     recent_stocks = []
-    output_dir = Path("C:\\Users\\Abdelli\\Desktop\\Projects\\STOCK_TERMINAL_ALONE\\output")
+    output_dir = OUTPUT_DIR
     if output_dir.exists():
         for d in output_dir.iterdir():
             if d.is_dir() and d.name.upper() not in ["RAW"]:
@@ -89,9 +98,18 @@ def get_recent_stocks():
 
 # home route removed to fix duplicate
 
+STREAM_RATE_LIMITS = {}
+
 @app.route("/api/stream")
 def stream_logs():
     """Stream live terminal execution output using SSE (Server-Sent Events)."""
+    client_ip = request.remote_addr
+    now = time.time()
+    if client_ip in STREAM_RATE_LIMITS:
+        if now - STREAM_RATE_LIMITS[client_ip] < 3:
+            return Response("data: ❌ Rate limit exceeded. Wait 3s before retrying.\n\n", mimetype="text/event-stream")
+    STREAM_RATE_LIMITS[client_ip] = now
+
     ticker = request.args.get("ticker", "").strip().upper()
     if not ticker or not is_valid_ticker(ticker):
         return Response("data: ❌ Error: Invalid or no ticker provided.\n\n", mimetype="text/event-stream")
@@ -179,7 +197,7 @@ def get_stocks():
     """Scan output/database/ for analyzed stocks and return basic info for catalog."""
     import glob
     import json
-    db_dir = os.path.join("C:\\Users\\Abdelli\\Desktop\\Projects\\STOCK_TERMINAL_ALONE\\output", "database")
+    db_dir = os.path.join(OUTPUT_DIR, "database")
     if not os.path.exists(db_dir):
         return {"stocks": []}
     
@@ -239,7 +257,7 @@ def get_stock(ticker):
     ticker = ticker.upper().strip()
     if not is_valid_ticker(ticker):
         return {"error": "Invalid ticker format"}, 400
-    db_path = os.path.join("C:\\Users\\Abdelli\\Desktop\\Projects\\STOCK_TERMINAL_ALONE\\output", "database", f"{ticker}.json")
+    db_path = os.path.join(OUTPUT_DIR, "database", f"{ticker}.json")
     if not os.path.exists(db_path):
         return {"error": f"Ticker {ticker} not found in local database"}, 404
         
@@ -257,7 +275,7 @@ def recalculate_stock(ticker):
     ticker = ticker.upper().strip()
     if not is_valid_ticker(ticker):
         return {"error": "Invalid ticker format"}, 400
-    db_path = os.path.join("C:\\Users\\Abdelli\\Desktop\\Projects\\STOCK_TERMINAL_ALONE\\output", "database", f"{ticker}.json")
+    db_path = os.path.join(OUTPUT_DIR, "database", f"{ticker}.json")
     if not os.path.exists(db_path):
         return {"error": f"Ticker {ticker} not found in database"}, 404
         
@@ -475,7 +493,38 @@ def stocks_terminal():
         tape_data=tape_data
     )
 
+from flask import jsonify
 
+@app.route("/api/portfolio")
+def api_portfolio():
+    """Stub for portfolio tracking API."""
+    return jsonify({"status": "success", "holdings": [], "value": 0.0})
+
+@app.route("/api/news/aggregate")
+def api_news_aggregate():
+    """Stub for aggregated news API."""
+    return jsonify({"status": "success", "articles": []})
+
+@app.route("/api/stock/<ticker>/refresh-price")
+def api_refresh_price(ticker):
+    """Stub for refreshing live price."""
+    import yfinance as yf
+    try:
+        t = yf.Ticker(ticker.upper().strip())
+        p = t.info.get("currentPrice") or t.info.get("regularMarketPrice")
+        return jsonify({"status": "success", "ticker": ticker, "price": p})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/health")
+def api_health():
+    """Healthcheck endpoint."""
+    return jsonify({"status": "ok", "uptime": time.time() - SERVER_START_TIME})
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    logger.error(f"Global unhandled error: {e}")
+    return jsonify({"error": str(e), "status": "error"}), 500
 
 
 @app.errorhandler(404)
