@@ -591,6 +591,8 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
             const svg = document.getElementById('price-chart-svg');
             const tracker = document.getElementById('chart-close-tracker');
             
+            if (!svg || !tracker) return;
+
             if (!history || Object.keys(history).length === 0) {
                 svg.innerHTML = `<text x="50%" y="50%" fill="var(--text-secondary)" text-anchor="middle" font-size="12">No price history available in database.</text>`;
                 return;
@@ -921,8 +923,10 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
                 
                 // Show notification badge
                 const notify = document.getElementById('notification');
-                notify.classList.add('show');
-                setTimeout(() => notify.classList.remove('show'), 3000);
+                if (notify) {
+                    notify.classList.add('show');
+                    setTimeout(() => notify.classList.remove('show'), 3000);
+                }
 
             } catch (err) {
                 alert(`Error saving recalculations: ${err.message}`);

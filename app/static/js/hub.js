@@ -314,7 +314,13 @@
         let SORT_ASC = true;
         let selectedTicker = null;
         
-        let WATCHLIST = JSON.parse(localStorage.getItem('stocker_watchlist')) || [];
+        let WATCHLIST = [];
+        try {
+            WATCHLIST = JSON.parse(localStorage.getItem('stocker_watchlist') || '[]');
+            if (!Array.isArray(WATCHLIST)) WATCHLIST = [];
+        } catch (e) {
+            WATCHLIST = [];
+        }
         let SHOW_WATCHLIST_ONLY = false;
 
         function toggleWatchlistFilter() {

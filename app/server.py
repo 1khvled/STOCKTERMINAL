@@ -9,8 +9,6 @@ import io
 import time
 import subprocess
 import logging
-import json
-import glob
 from pathlib import Path
 
 SERVER_START_TIME = time.time()
@@ -30,12 +28,12 @@ if sys.platform == "win32":
 
 # Automatic check and installation of Flask
 try:
-    from flask import Flask, render_template, request, Response, send_file, redirect
+    from flask import Flask, render_template, request, Response, send_file
 except ImportError:
     logger.info("[*] Flask dependency is missing. Attempting automatic installation...")
     try:
         subprocess.check_call([sys.executable, "-m", "pip", "install", "flask"])
-        from flask import Flask, render_template, request, Response, send_file, redirect
+        from flask import Flask, render_template, request, Response, send_file
         logger.info("[+] Flask successfully installed!")
     except Exception as e:
         logger.info(f"[-] Failed to automatically install Flask: {e}")
@@ -74,24 +72,24 @@ def get_recent_stocks():
                 ticker = d.name.upper()
                 html_file = d / f"{ticker}_dashboard.html"
                 if html_file.exists():
-                     try:
-                         # Rapid regex parse to find verdict & name without loading whole file
-                         with open(html_file, "r", encoding="utf-8") as f:
-                             content = f.read(128000) # Read first 128KB
-                         
-                         verdict_match = re.search(r'"verdict":\s*"([^"]+)"', content)
-                         name_match = re.search(r'"company_name":\s*"([^"]+)"', content)
-                         
-                         verdict = verdict_match.group(1) if verdict_match else "HOLD"
-                         name = name_match.group(1) if name_match else f"{ticker} Corp"
-                         
-                         recent_stocks.append({
-                             "ticker": ticker,
-                             "name": name,
-                             "verdict": verdict
-                         })
-                     except Exception as e:
-                         logger.info(f"Error parsing cache for {ticker}: {e}")
+                    try:
+                        # Rapid regex parse to find verdict & name without loading whole file
+                        with open(html_file, "r", encoding="utf-8") as f:
+                            content = f.read(128000) # Read first 128KB
+                        
+                        verdict_match = re.search(r'"verdict":\s*"([^"]+)"', content)
+                        name_match = re.search(r'"company_name":\s*"([^"]+)"', content)
+                        
+                        verdict = verdict_match.group(1) if verdict_match else "HOLD"
+                        name = name_match.group(1) if name_match else f"{ticker} Corp"
+                        
+                        recent_stocks.append({
+                            "ticker": ticker,
+                            "name": name,
+                            "verdict": verdict
+                        })
+                    except Exception as e:
+                        logger.info(f"Error parsing cache for {ticker}: {e}")
     # Sort alphabetically
     recent_stocks.sort(key=lambda x: x["ticker"])
     return recent_stocks

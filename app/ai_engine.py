@@ -8,7 +8,7 @@ import requests
 import logging
 from datetime import datetime
 import pandas as pd
-from config import GROQ_API_KEY, GROQ_BASE_URL, GROQ_MODEL, GROQ_MAX_TOKENS, GROQ_TEMPERATURE, GROQ_API_KEYS
+from config import GROQ_API_KEY, GROQ_BASE_URL, GROQ_API_KEYS
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +203,7 @@ def _build_summary(sd):
     lines.append("")
     lines.append("## STOCK PERFORMANCE")
     for k, l in [("return_1w","1-Week"), ("return_1m","1-Month"), ("return_3m","3-Month"),
-                  ("return_6m","6-Month"), ("return_1y","1-Year")]:
+                 ("return_6m","6-Month"), ("return_1y","1-Year")]:
         if k in m:
             lines.append(f"{l}: {m[k]:+.2f}%")
 
@@ -232,7 +232,7 @@ def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_promp
     Unified LLM caller that routes to OpenCode (North Mini Code Free) first,
     then Anthropic (Claude), OpenRouter, or Groq as fallbacks.
     """
-    from config import ANTHROPIC_API_KEY, OPENROUTER_API_KEY, GROQ_MODEL, GROQ_MAX_TOKENS, GROQ_TEMPERATURE, OPENCODE_API_KEY, OPENCODE_BASE_URL, OPENCODE_MODEL
+    from config import OPENROUTER_API_KEY, GROQ_MODEL, GROQ_MAX_TOKENS, GROQ_TEMPERATURE, OPENCODE_API_KEY, OPENCODE_BASE_URL, OPENCODE_MODEL
     import re
 
     # Helper to parse JSON and log tokens
@@ -556,7 +556,6 @@ def generate_analysis(stock_data):
         {"role": "user", "content": f"Produce the Macro, Sentiment, Risks and Catalysts analysis for ticker '{stock_data['ticker']}' based strictly on the latest retrieved Yahoo Finance dataset.\n\nAnalysis Date: {curr_date}\n\nDataset Summary:\n{summary}"},
     ]
 
-    from concurrent.futures import ThreadPoolExecutor
     from config import GROQ_MODEL
 
     def run_part_1():
@@ -626,8 +625,8 @@ def generate_analysis(stock_data):
 
     # Validate required top-level fields and apply fallback if missing/N/A
     required = ["executive_summary", "fundamental_analysis", "macro_analysis",
-                 "sentiment_analysis", "valuation_assessment", "risk_assessment",
-                 "verdict", "verdict_confidence", "verdict_reasoning", "guidance_and_expectations"]
+                "sentiment_analysis", "valuation_assessment", "risk_assessment",
+                "verdict", "verdict_confidence", "verdict_reasoning", "guidance_and_expectations"]
     for f in required:
         val = result.get(f)
         is_empty_or_na = not val or str(val).strip().upper() in ["N/A", "N/A.", "NONE", "NULL", ""]
@@ -655,15 +654,15 @@ def generate_analysis(stock_data):
     # Ensure nested structures have defaults
     if not isinstance(result.get("fundamental_analysis"), dict):
         result["fundamental_analysis"] = {"revenue_quality": str(result.get("fundamental_analysis", "N/A")),
-                                           "profitability": "N/A", "earnings_power": "N/A",
-                                           "balance_sheet": "N/A", "competitive_moat": "N/A",
-                                           "management_score": 5, "moat_rating": "NARROW"}
+                                          "profitability": "N/A", "earnings_power": "N/A",
+                                          "balance_sheet": "N/A", "competitive_moat": "N/A",
+                                          "management_score": 5, "moat_rating": "NARROW"}
     
     if not isinstance(result.get("macro_analysis"), dict):
         result["macro_analysis"] = {"macro_environment": str(result.get("macro_analysis", "N/A")),
-                                     "sector_outlook": "N/A",
-                                     "tailwinds": fallback_data["macro_analysis"]["tailwinds"],
-                                     "headwinds": fallback_data["macro_analysis"]["headwinds"]}
+                                    "sector_outlook": "N/A",
+                                    "tailwinds": fallback_data["macro_analysis"]["tailwinds"],
+                                    "headwinds": fallback_data["macro_analysis"]["headwinds"]}
     else:
         ma = result["macro_analysis"]
         if not isinstance(ma.get("tailwinds"), list) or not ma["tailwinds"]:
@@ -673,18 +672,18 @@ def generate_analysis(stock_data):
 
     if not isinstance(result.get("sentiment_analysis"), dict):
         result["sentiment_analysis"] = {"analyst_sentiment": str(result.get("sentiment_analysis", "N/A")),
-                                         "institutional_positioning": "N/A", "news_sentiment": "N/A",
-                                         "sentiment_score": 5, "sentiment_label": "NEUTRAL"}
+                                        "institutional_positioning": "N/A", "news_sentiment": "N/A",
+                                        "sentiment_score": 5, "sentiment_label": "NEUTRAL"}
     if not isinstance(result.get("valuation_assessment"), dict):
         result["valuation_assessment"] = {"current_valuation": str(result.get("valuation_assessment", "N/A")),
-                                           "intrinsic_value_estimate": "N/A", "margin_of_safety": "N/A",
-                                           "valuation_grade": "FAIRLY VALUED",
-                                           "fair_value_low": 0, "fair_value_mid": 0, "fair_value_high": 0}
+                                          "intrinsic_value_estimate": "N/A", "margin_of_safety": "N/A",
+                                          "valuation_grade": "FAIRLY VALUED",
+                                          "fair_value_low": 0, "fair_value_mid": 0, "fair_value_high": 0}
     
     if not isinstance(result.get("risk_assessment"), dict):
         result["risk_assessment"] = {"risk_factors": fallback_data["risk_assessment"]["risk_factors"],
-                                      "worst_case_scenario": "N/A",
-                                      "risk_reward_ratio": "NEUTRAL"}
+                                     "worst_case_scenario": "N/A",
+                                     "risk_reward_ratio": "NEUTRAL"}
     else:
         ra = result["risk_assessment"]
         if not isinstance(ra.get("risk_factors"), list) or not ra["risk_factors"]:

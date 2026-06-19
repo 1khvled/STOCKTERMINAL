@@ -64,7 +64,9 @@
         renderStats(stocks);
 
         if (page === "watchlist") {
-            const watch = JSON.parse(localStorage.getItem("stocker_watchlist") || "[]");
+            let watch = [];
+            try { watch = JSON.parse(localStorage.getItem("stocker_watchlist") || "[]"); } catch (e) {}
+            if (!Array.isArray(watch)) watch = [];
             renderTable("pro-primary-table", stocks.filter(s => watch.includes(s.ticker)));
             renderTable("pro-secondary-table", stocks.slice().sort((a, b) => Number(b.upside || 0) - Number(a.upside || 0)).slice(0, 8));
         }
