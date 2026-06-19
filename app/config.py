@@ -136,31 +136,9 @@ HISTORY_PERIOD_SHORT = "1y"
 HISTORY_PERIOD_LONG = "5y"
 SMA_WINDOWS = [20, 50, 200]
 
-raw_gemini_key = os.getenv("GEMINI_API_KEY", "")
-GEMINI_API_KEYS = []
-if raw_gemini_key:
-    GEMINI_API_KEYS.extend([k.strip() for k in raw_gemini_key.split(",") if k.strip()])
-
-# Check for additional key environment variables GEMINI_API_KEY_2, GEMINI_API_KEY_3...
-idx = 2
-while True:
-    extra_key = os.getenv(f"GEMINI_API_KEY_{idx}", "")
-    if not extra_key:
-        extra_key = os.getenv(f"GEMINI_API_KEY{idx}", "")
-    if not extra_key:
-        break
-    GEMINI_API_KEYS.append(extra_key.strip())
-    idx += 1
-
-if GEMINI_API_KEYS:
-    GEMINI_API_KEY = GEMINI_API_KEYS[0]
-else:
-    GEMINI_API_KEY = ""
-
-# ─── Free Financial APIs ────────────────────────────────────────────
-FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "")
-FMP_API_KEY = os.getenv("FMP_API_KEY", "")
-TIINGO_API_KEY = os.getenv("TIINGO_API_KEY", "")
+# ─── Database Configuration ──────────────────────────────────────────
+MONGODB_URI = os.getenv("MONGODB_URI", "")
+MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "stocker_ai")
 
 # ─── OPENCODE ZEN API CONFIG ───────────────────────────────────────
 OPENCODE_API_KEY = os.getenv("OPENCODE_API_KEY", "")

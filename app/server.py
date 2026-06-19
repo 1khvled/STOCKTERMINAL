@@ -63,36 +63,9 @@ def get_cache_size_str():
     return f"{total} B"
 
 def get_recent_stocks():
-    """Scan output folder to extract verdict and name of previously analyzed tickers."""
-    recent_stocks = []
-    output_dir = OUTPUT_DIR
-    if output_dir.exists():
-        for d in output_dir.iterdir():
-            if d.is_dir() and d.name.upper() not in ["RAW"]:
-                ticker = d.name.upper()
-                html_file = d / f"{ticker}_dashboard.html"
-                if html_file.exists():
-                    try:
-                        # Rapid regex parse to find verdict & name without loading whole file
-                        with open(html_file, "r", encoding="utf-8") as f:
-                            content = f.read(128000) # Read first 128KB
-                        
-                        verdict_match = re.search(r'"verdict":\s*"([^"]+)"', content)
-                        name_match = re.search(r'"company_name":\s*"([^"]+)"', content)
-                        
-                        verdict = verdict_match.group(1) if verdict_match else "HOLD"
-                        name = name_match.group(1) if name_match else f"{ticker} Corp"
-                        
-                        recent_stocks.append({
-                            "ticker": ticker,
-                            "name": name,
-                            "verdict": verdict
-                        })
-                    except Exception as e:
-                        logger.info(f"Error parsing cache for {ticker}: {e}")
-    # Sort alphabetically
-    recent_stocks.sort(key=lambda x: x["ticker"])
-    return recent_stocks
+    """Scan database to extract verdict and name of previously analyzed tickers."""
+    from db import get_recent_stocks_summary
+    return get_recent_stocks_summary()
 
 # home route removed to fix duplicate
 
@@ -249,22 +222,18 @@ def get_stocks():
     return {"stocks": stocks}
 
 @app.route("/api/stock/<ticker>")
-def get_stock(ticker):
-    """Retrieve detailed qualitative and quantitative JSON record for a ticker."""
-    import json
+def stock_data(ticker):
+    """Return JSON analysis data for the given ticker."""
     ticker = ticker.upper().strip()
     if not is_valid_ticker(ticker):
-        return {"error": "Invalid ticker format"}, 400
-    db_path = os.path.join(OUTPUT_DIR, "database", f"{ticker}.json")
-    if not os.path.exists(db_path):
-        return {"error": f"Ticker {ticker} not found in local database"}, 404
-        
-    try:
-        with open(db_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return data
-    except Exception as e:
-        return {"error": f"Failed to read database: {str(e)}"}, 500
+        return jsonify({"error": "Invalid ticker format"}), 400
+
+    from db import get_stock
+    data = get_stock(ticker)
+    if data:
+        return jsonify(data)
+    
+    return jsonify({"error": "Data not found. Try analyzing first."}), 404
 
 @app.route("/api/stock/<ticker>/recalculate", methods=["POST"])
 def recalculate_stock(ticker):
@@ -273,8 +242,10 @@ def recalculate_stock(ticker):
     ticker = ticker.upper().strip()
     if not is_valid_ticker(ticker):
         return {"error": "Invalid ticker format"}, 400
-    db_path = os.path.join(OUTPUT_DIR, "database", f"{ticker}.json")
-    if not os.path.exists(db_path):
+    
+    from db import get_stock
+    data = get_stock(ticker)
+    if not data:
         return {"error": f"Ticker {ticker} not found in database"}, 404
         
     try:
@@ -286,10 +257,6 @@ def recalculate_stock(ticker):
         growth_6_10 = float(req_data.get("growth_6_10", 10.0)) / 100.0
         terminal_growth = float(req_data.get("terminal_growth", 2.5)) / 100.0
         
-        # Load database file
-        with open(db_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            
         metrics = data.get("key_metrics", {})
         dcf_data = data.get("dcf_data", {})
         
@@ -342,9 +309,9 @@ def recalculate_stock(ticker):
         data["analysis"] = _enforce_valuation_coherence(data["analysis"], data)
         
         # Save back to database
-        with open(db_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-            
+        from db import save_stock
+        save_stock(ticker, data)
+        
         # Re-generate Excel file dynamically
         from excel_generator import generate_excel_model
         from pathlib import Path
@@ -352,7 +319,7 @@ def recalculate_stock(ticker):
         generate_excel_model(ticker, data, ticker_dir, data["analysis"])
         
         logger.info(f"  [+] Recalculated DCF and refreshed Excel Model for {ticker}.")
-        return data
+        return jsonify({"status": "success", "message": "Changes saved successfully"})
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -364,8 +331,10 @@ def serve_dashboard(ticker):
     ticker = ticker.upper().strip()
     if not is_valid_ticker(ticker):
         return "Invalid ticker format", 400
-    db_path = os.path.join("C:\\Users\\Abdelli\\Desktop\\Projects\\STOCK_TERMINAL_ALONE\\output", "database", f"{ticker}.json")
-    if os.path.exists(db_path):
+    
+    from db import get_stock
+    data = get_stock(ticker)
+    if data:
         return render_template("dashboard.html", ticker=ticker)
     return f"Database record for {ticker} not found. Try running a new analysis first.", 404
 
@@ -385,12 +354,20 @@ def download_excel(ticker):
 
 @app.route("/json/<ticker>")
 def download_json(ticker):
-    """Download the raw JSON database record of a ticker."""
+    """Allow user to download the raw JSON output."""
     ticker = ticker.upper().strip()
-    path = os.path.join("C:\\Users\\Abdelli\\Desktop\\Projects\\STOCK_TERMINAL_ALONE\\output", "database", f"{ticker}.json")
-    if os.path.exists(path):
-        return send_file(path, as_attachment=True, download_name=f"{ticker}_Raw_Data.json")
-    return f"JSON record for {ticker} not found.", 404
+    from db import get_stock
+    data = get_stock(ticker)
+    if data:
+        import io, json
+        json_str = json.dumps(data, indent=2, ensure_ascii=False)
+        return send_file(
+            io.BytesIO(json_str.encode('utf-8')),
+            mimetype='application/json',
+            as_attachment=True,
+            download_name=f"{ticker}_Raw_Data.json"
+        )
+    return "Not Found", 404
 
 @app.route("/api/notion/sync/<ticker>", methods=["POST"])
 def sync_notion(ticker):

@@ -337,9 +337,9 @@ def analyze(ticker_symbol):
             import json
             try:
                 serialized = serialize_stock_data(stock_data, analysis)
-                with open(db_path, "w", encoding="utf-8") as f:
-                    json.dump(serialized, f, indent=2, ensure_ascii=False)
-                print(f"  ✅ Saved database record: {db_path}")
+                from db import save_stock
+                save_stock(ticker, serialized)
+                print(f"  ✅ Saved database record to MongoDB (or local fallback)")
             except Exception as e:
                 print(f"  ❌ Failed to save database record: {e}")
 
