@@ -7,7 +7,6 @@ import sys
 import os
 import time
 import io
-from pathlib import Path
 
 # Fix Windows encoding issues
 if sys.platform == "win32":
@@ -20,8 +19,6 @@ from data_fetcher import fetch_stock_data
 from ai_engine import generate_analysis
 from dashboard_generator import generate_dashboard, _df_to_json_ready
 from excel_generator import generate_excel_model
-from chart_generator import generate_all_charts
-from pdf_generator import generate_pdf
 
 
 BANNER = r"""

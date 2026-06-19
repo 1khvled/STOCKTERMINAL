@@ -31,7 +31,7 @@ def generate_price_chart(history, ticker, output_path):
     """Generate price chart with SMAs and volume."""
     _setup_style()
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(CS["fig_width"], CS["fig_height"] + 2),
-                                     gridspec_kw={"height_ratios": [3, 1]}, sharex=True)
+                                   gridspec_kw={"height_ratios": [3, 1]}, sharex=True)
     fig.subplots_adjust(hspace=0.05)
 
     dates = history.index

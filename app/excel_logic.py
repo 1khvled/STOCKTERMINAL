@@ -1,5 +1,4 @@
 import random
-from cot_scraper import get_all_cot_data
 
 def get_assets_data():
     """

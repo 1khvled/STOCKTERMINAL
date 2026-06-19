@@ -1,6 +1,5 @@
-﻿import json
+import json
 import os
-import re
 import yfinance as yf
 from datetime import datetime
 
@@ -176,7 +175,7 @@ def process_command(raw_command):
         if action == "DCF":
             dcf = stock_data.get('dcf_data', {})
             if not dcf:
-                 return {"html": f"<span class=\"bbg-text-red\">No DCF data available for {ticker}.</span>"}
+                return {"html": f"<span class=\"bbg-text-red\">No DCF data available for {ticker}.</span>"}
             
             implied = dcf.get('implied_price', 0)
             curr = metrics.get('current_price', 1)

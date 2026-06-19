@@ -3,7 +3,6 @@ Notion Integrator -- Fetches, parses, and formats company qualitative research n
 from the user's Notion board to embed into the Quant Terminal HTML Dashboard.
 """
 import requests
-import json
 import logging
 from config import NOTION_TOKEN, NOTION_PAGE_ID
 
@@ -337,7 +336,6 @@ def auto_generate_notion_page(ticker):
     then automatically create and populate pages in the user's Notion board.
     """
     import yfinance as yf
-    import re
     from ai_engine import _call_llm
     
     print(f"\n[!] Notion page for '{ticker}' not found. Automatically drafting qualitative research via AI...")
