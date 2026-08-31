@@ -280,6 +280,31 @@ def _sec_request_with_retry(url, headers, timeout, retries=3, backoff=2.0):
     raise requests.exceptions.RequestException("Request failed after retries")
 
 
+def _yf_with_retry(fn, retries=3, backoff=1.5, label="yfinance"):
+    """Retry yfinance call with exponential backoff on 429/connection errors."""
+    last_exc = None
+    for attempt in range(retries):
+        try:
+            return fn()
+        except Exception as e:
+            last_exc = e
+            msg = str(e).lower()
+            is_rate = "429" in str(e) or "too many requests" in msg or "rate limit" in msg
+            if is_rate:
+                wait = backoff * (attempt + 1) * 2
+                logger.info(f"  [!] {label} rate limited (429). Retry {attempt+1}/{retries} in {wait:.1f}s...")
+                time.sleep(wait)
+            elif attempt < retries - 1:
+                wait = backoff * (2 ** attempt)
+                logger.info(f"  [!] {label} failed: {e}. Retry {attempt+1}/{retries} in {wait:.1f}s...")
+                time.sleep(wait)
+            else:
+                logger.info(f"  [!] {label} failed after {retries} retries: {e}")
+    if last_exc:
+        raise last_exc
+    return None
+
+
 def fetch_macro_yields():
     """Fetch 10-Year (^TNX) and 13-Week (^IRX) yields to assess macro environment curve."""
     yields = {"10y": 0.042, "short": 0.040, "curve_inverted": False}
@@ -1736,9 +1761,9 @@ def fetch_stock_data(ticker_symbol, raw_output_dir=None):
 
     logger.info("   Launching concurrent data fetchers...")
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        f_info = executor.submit(lambda: ticker.info)
-        f_history_1y = executor.submit(lambda: ticker.history(period=HISTORY_PERIOD_SHORT))
-        f_history_5y = executor.submit(lambda: ticker.history(period=HISTORY_PERIOD_LONG))
+        f_info = executor.submit(lambda: _yf_with_retry(lambda: ticker.info, label=f"info {ticker_upper}"))
+        f_history_1y = executor.submit(lambda: _yf_with_retry(lambda: ticker.history(period=HISTORY_PERIOD_SHORT), label=f"history_1y {ticker_upper}"))
+        f_history_5y = executor.submit(lambda: _yf_with_retry(lambda: ticker.history(period=HISTORY_PERIOD_LONG), label=f"history_5y {ticker_upper}"))
         f_financials = None if "financials" in statement_cache else executor.submit(lambda: ticker.financials)
         f_balance_sheet = None if "balance_sheet" in statement_cache else executor.submit(lambda: ticker.balance_sheet)
         f_cashflow = None if "cashflow" in statement_cache else executor.submit(lambda: ticker.cashflow)

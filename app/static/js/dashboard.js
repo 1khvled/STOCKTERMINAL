@@ -1,6 +1,7 @@
         const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpperCase();
         let STOCK_DATA = null;
 
+        function safeDisplay(v, fallback="N/A"){ return (v===null||v===undefined||v===""||v==="undefined"||String(v).toLowerCase()==="nan")?fallback:String(v); }
         function setText(id, value) {
             const el = document.getElementById(id);
             if (el) el.innerText = value;

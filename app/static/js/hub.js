@@ -2,7 +2,18 @@
         window._hubIntervals = window._hubIntervals || [];
         window._hubIntervals.forEach(clearInterval);
         window._hubIntervals = [];
-        function safeSetInterval(fn, t) {
+        // Personal terminal: no auth, auto-retry fetch for transient 429
+window._fetchWithRetry = async (url, opts={}, retries=2) => {
+  for(let i=0;i<=retries;i++){
+    try{
+      const r = await fetch(url, opts);
+      if(r.status===429 && i<retries){ await new Promise(res=>setTimeout(res, 800*(i+1))); continue; }
+      return r;
+    }catch(e){ if(i===retries) throw e; await new Promise(res=>setTimeout(res, 400*(i+1))); }
+  }
+};
+
+function safeSetInterval(fn, t) {
             let id = setInterval(fn, t);
             window._hubIntervals.push(id);
             return id;

@@ -364,14 +364,22 @@ def stream_logs():
 @app.route("/api/stocks")
 def get_stocks():
     """Scan output/database/ for analyzed stocks and return basic info for catalog."""
-    return {"stocks": _catalog_rows()}
+    try:
+        return {"stocks": _catalog_rows()}
+    except Exception as e:
+        logger.exception(f"/api/stocks failed: {e}")
+        return {"stocks": [], "error": str(e)}, 500
 
 
 @app.route("/api/screener/filter")
 def screener_filter():
     """Apply traditional filter criteria against the stocks catalog."""
-    criteria = _normalize_criteria(request.args.to_dict())
-    return {"stocks": _filter_catalog(criteria), "criteria": criteria}
+    try:
+        criteria = _normalize_criteria(request.args.to_dict())
+        return {"stocks": _filter_catalog(criteria), "criteria": criteria}
+    except Exception as e:
+        logger.exception(f"/api/screener/filter failed: {e}")
+        return {"stocks": [], "criteria": {}, "error": str(e)}, 500
 
 
 @app.route("/api/screener/ai", methods=["POST"])
@@ -1043,7 +1051,23 @@ def stocks_terminal():
 
 @app.errorhandler(404)
 def page_not_found(e):
+    # Return JSON for API routes, HTML for pages
+    if request.path.startswith("/api/"):
+        return {"error": "Not found", "path": request.path}, 404
     return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(e):
+    logger.exception(f"Internal server error on {request.path}: {e}")
+    if request.path.startswith("/api/"):
+        return {"error": "Internal server error", "detail": str(e)}, 500
+    return render_template('404.html'), 500
+
+@app.errorhandler(429)
+def rate_limited(e):
+    if request.path.startswith("/api/"):
+        return {"error": "Rate limited, retry later"}, 429
+    return "Rate limited", 429
 
 def run_server(port=5001):
     """Start the local web server."""
