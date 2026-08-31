@@ -443,6 +443,7 @@
                 loadStatement('income');
 
                 fetchAndRenderNews();
+                try{ fetchLiveQuote(TICKER); setInterval(()=> fetchLiveQuote(TICKER), 30000); }catch(e){}
 
             } catch (err) {
 
@@ -2246,11 +2247,11 @@ async function fetchLiveQuote(ticker) {
 
         if (data.status === 'success') {
 
-            const price = data.price.toFixed(2);
+            const price = Number(data.price).toFixed(2);
 
-            const change = data.change.toFixed(2);
+            const change = Number(data.change||0).toFixed(2);
 
-            const pct = data.change_pct.toFixed(2);
+            const pct = Number(data.pct||0).toFixed(2);
 
             const sign = change >= 0 ? '+' : '';
 
@@ -2267,6 +2268,7 @@ async function fetchLiveQuote(ticker) {
             if (hPrice) {
 
                 hPrice.innerText = `$${price}`;
+            if (hChange) { hChange.innerText = `${Number(change)>=0?'+':''}${pct}% today`; hChange.style.color = Number(change)>=0 ? 'var(--emerald)' : 'var(--ruby)'; }
 
                 hPrice.style.textShadow = change >= 0 ? '0 0 10px rgba(30,215,96,0.8)' : '0 0 10px rgba(255,75,75,0.8)';
 

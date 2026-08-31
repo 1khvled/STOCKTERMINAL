@@ -59,33 +59,63 @@ a{color:inherit;text-decoration:none}
     <div id="log" class="log"></div>
     <div class="small" style="margin-top:10px">Tip: Separate multiple tickers with comma for comparison. Uses local cache (15m) + free Groq/OpenRouter.</div>
   </div>
-  <div class="h2">RECENTLY ANALYZED - LOCAL DATABASE</div>
+  <div class="h2" style="display:flex;align-items:center;gap:10px">RECENTLY ANALYZED - LOCAL DATABASE <span id="live-dot" style="width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);display:inline-block"></span> <span id="live-label" class="small">Live • auto 30s</span> <button id="refresh" class="btn btn-ghost" style="margin-left:auto;padding:6px 10px;font-size:11px">REFRESH PRICES</button> <button id="auto-update" class="btn btn-ghost" style="padding:6px 10px;font-size:11px">AUTO-UPDATE: CHECK</button></div>
   <div id="grid" class="grid"></div>
   <div id="empty" class="small" style="display:none">No stocks yet. Analyze AAPL to start.</div>
+  <div id="auto-status" class="small" style="margin-top:10px;display:none"></div>
   <div class="bar"></div>
   <div class="small">Models: DCF - Monte Carlo (500) - CCA peers - DDM - Historical regression - Altman Z / Piotroski F / Beneish M / DuPont - Verdict coherence enforced to spot price.</div>
 </div>
 <script>
 const $ = id => document.getElementById(id);
 const tickerIn = $("ticker"), btn = $("analyze"), logEl = $("log"), grid = $("grid"), empty = $("empty");
+let liveData = {};
 function pillClass(v){ v=(v||"").toUpperCase(); if(v.includes("BUY")) return "pill buy"; if(v.includes("SELL")) return "pill sell"; return "pill hold"; }
 async function loadStocks(){
   try{
     const r = await fetch("/api/stocks"); const j = await r.json();
     const rows = (j.stocks||[]).sort((a,b)=> (b.upside||0)-(a.upside||0));
     if(!rows.length){ empty.style.display="block"; return; }
-    grid.innerHTML = rows.slice(0,30).map(s=>`
+    grid.innerHTML = rows.slice(0,30).map(s=>{
+      const live = liveData[s.ticker];
+      const price = live ? live.price : s.current_price;
+      const chg = live ? live.change : 0;
+      const liveBadge = live ? `<span style="color:${chg>=0?"var(--green)":"var(--red)"};font-size:10px">${chg>=0?"+":""}${chg.toFixed(2)} live</span>` : "";
+      return `
       <a class="card" href="/dashboard/${s.ticker}">
         <div style="display:flex;justify-content:space-between;align-items:center"><span class="tk">${s.ticker}</span><span class="${pillClass(s.verdict)}">${s.verdict||"HOLD"}</span></div>
         <div class="name">${s.company_name||""}</div>
         <div class="meta"><span class="pill">${s.sector||"N/A"}</span><span class="pill">${s.industry||"N/A"}</span></div>
-        <div class="kpi">Price <b>$${(s.current_price||0).toFixed(2)}</b> - Fair <b>$${(s.fair_value_mid||0).toFixed(2)}</b> - Upside <b style="color:${(s.upside||0)>=0?"var(--green)":"var(--red)"}">${((s.upside||0)*100).toFixed(1)}%</b></div>
+        <div class="kpi">Price <b>$${(price||0).toFixed(2)}</b> ${liveBadge} - Fair <b>$${(s.fair_value_mid||0).toFixed(2)}</b> - Upside <b style="color:${(s.upside||0)>=0?"var(--green)":"var(--red)"}">${((s.upside||0)*100).toFixed(1)}%</b></div>
         <div class="kpi">P/E <b>${(s.pe_ratio||0).toFixed(1)}</b> - Altman <b>${s.altman_z||"N/A"}</b> - F-Score <b>${s.piotroski_f??"N/A"}/9</b></div>
       </a>
-    `).join("");
+    `}).join("");
   }catch(e){ console.log(e); }
 }
-loadStocks();
+async function refreshLive(){
+  try{
+    const r = await fetch("/api/stocks/live-quotes"); const j = await r.json();
+    liveData = {}; (j.quotes||[]).forEach(q=> liveData[q.ticker]=q);
+    await loadStocks();
+    document.getElementById("live-label").textContent = "Live • " + new Date().toLocaleTimeString();
+  }catch(e){}
+}
+loadStocks(); refreshLive(); setInterval(refreshLive, 30000);
+document.getElementById("refresh").onclick = refreshLive;
+async function checkAuto(){
+  try{
+    const r = await fetch("/api/system/auto-update/status"); const j = await r.json();
+    const el = document.getElementById("auto-status");
+    el.style.display="block";
+    el.textContent = `Auto-update: last ${j.last_run||"never"} • running=${j.running} • tracked ${j.total_tracked} • queue [${(j.queue||[]).join(",")}] • ${j.log?j.log.slice(-1)[0]:""}`;
+  }catch(e){}
+}
+checkAuto(); setInterval(checkAuto, 60000);
+document.getElementById("auto-update").onclick = async ()=>{
+  const el = document.getElementById("auto-status"); el.textContent="Triggering quarterly refresh...";
+  await fetch("/api/system/auto-update/trigger",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({})});
+  setTimeout(checkAuto, 2000);
+};
 function logLine(t){ logEl.style.display="block"; logEl.textContent += t+"\n"; logEl.scrollTop=logEl.scrollHeight; }
 btn.onclick = run;
 tickerIn.addEventListener("keydown", e=>{ if(e.key==="Enter") run(); });

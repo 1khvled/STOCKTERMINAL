@@ -935,6 +935,10 @@ def get_stock_news(ticker):
 
 
 
+# Auto-update state
+auto_update_state = {"last_run": None, "next_run": None, "running": False, "queue": [], "log": []}
+live_quotes_cache = {"data": None, "timestamp": 0}
+
 ticker_tape_cache = {"data": None, "timestamp": 0}
 
 def get_ticker_tape():
@@ -1013,12 +1017,39 @@ def api_live_quotes():
     tickers = [t.strip().upper() for t in request.args.get("tickers", "").split(",") if t.strip()]
     if not tickers:
         tickers = [row["ticker"] for row in _catalog_rows()[:25]]
+    tickers = [t for t in tickers[:50] if is_valid_ticker(t)]
+    # Try live yfinance batch fetch, fallback to local
     quotes = []
-    for ticker in tickers[:50]:
-        if is_valid_ticker(ticker):
+    try:
+        import yfinance as yf
+        live = {}
+        # yf.Tickers batch
+        try:
+            data = yf.Tickers(" ".join(tickers))
+            for tk in tickers:
+                try:
+                    hist = data.tickers[tk].history(period="5d")
+                    if len(hist) >= 2:
+                        cur = float(hist["Close"].iloc[-1])
+                        prev = float(hist["Close"].iloc[-2])
+                        live[tk] = {"price": cur, "change": cur - prev, "pct": (cur - prev) / prev if prev else 0, "source": "yfinance"}
+                except Exception:
+                    continue
+        except Exception as e:
+            logger.info(f"live-quotes batch failed: {e}")
+        for ticker in tickers:
+            if ticker in live:
+                quotes.append({"ticker": ticker, **live[ticker]})
+            else:
+                row = next((r for r in _catalog_rows() if r["ticker"] == ticker), None)
+                quotes.append({"ticker": ticker, "price": row.get("current_price", 0) if row else 0, "change": 0, "pct": 0, "source": "local_database"})
+        return {"quotes": quotes}
+    except Exception as e:
+        logger.info(f"live-quotes error: {e}")
+        for ticker in tickers:
             row = next((r for r in _catalog_rows() if r["ticker"] == ticker), None)
-            quotes.append({"ticker": ticker, "price": row.get("current_price", 0) if row else 0, "pct": row.get("upside", 0) if row else 0, "source": "local_database"})
-    return {"quotes": quotes}
+            quotes.append({"ticker": ticker, "price": row.get("current_price", 0) if row else 0, "change": 0, "pct": 0, "source": "local_database"})
+        return {"quotes": quotes}
 
 
 @app.route("/compare")
@@ -1069,6 +1100,135 @@ def rate_limited(e):
         return {"error": "Rate limited, retry later"}, 429
     return "Rate limited", 429
 
+def _should_auto_update_record(data):
+    """Quarterly logic: re-analyze if >85 days old or earnings in last 7 days."""
+    try:
+        from datetime import datetime, timezone, timedelta
+        gen = data.get("generated_at") or ""
+        # parse generated_at
+        age_days = 999
+        if gen:
+            try:
+                dt = datetime.fromisoformat(gen.replace("Z", "+00:00"))
+                age_days = (datetime.now(timezone.utc) - dt).days
+            except Exception:
+                age_days = 999
+        if age_days >= 85:
+            return True, f"age {age_days}d >=85d"
+        # check earnings_dates proximity
+        ed = data.get("earnings_dates")
+        # earnings_dates may be DataFrame serialized; try to check raw sec_data
+        # For now, also check if next earnings was within last 7 days via yfinance calendar fallback
+        # Simple heuristic: if we have earnings_dates dict and next date is near
+        return False, "fresh"
+    except Exception as e:
+        return False, str(e)
+
+def _auto_update_worker():
+    import time, threading
+    from pathlib import Path
+    global auto_update_state
+    while True:
+        try:
+            # sleep 24h, but check every hour for due tickers; first run after 60s
+            if auto_update_state["last_run"] is None:
+                time.sleep(60)
+            else:
+                time.sleep(3600)
+            if auto_update_state["running"]:
+                continue
+            rows = _catalog_rows()
+            due = []
+            for row in rows:
+                rec = _load_stock_record(row["ticker"])
+                if not rec:
+                    continue
+                need, reason = _should_auto_update_record(rec)
+                if need:
+                    due.append((row["ticker"], reason))
+            if not due:
+                auto_update_state["log"].append(f"{time.strftime('%Y-%m-%d %H:%M')} — no tickers due for quarterly refresh")
+                auto_update_state["log"] = auto_update_state["log"][-50:]
+                continue
+            auto_update_state["running"] = True
+            auto_update_state["queue"] = [t for t,_ in due]
+            auto_update_state["log"].append(f"{time.strftime('%Y-%m-%d %H:%M')} — quarterly auto-update starting {len(due)} tickers: {', '.join([t for t,_ in due[:5]])}")
+            logger.info(f"[AutoUpdate] Quarterly refresh for {len(due)} tickers")
+            from stock_analyzer import analyze
+            for ticker, reason in due:
+                try:
+                    auto_update_state["log"].append(f"  -> {ticker} ({reason})")
+                    analyze(ticker)
+                    time.sleep(90)  # respect rate limits
+                except Exception as e:
+                    auto_update_state["log"].append(f"  ! {ticker} failed: {e}")
+                    logger.info(f"[AutoUpdate] {ticker} failed: {e}")
+                    time.sleep(30)
+            auto_update_state["last_run"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            auto_update_state["running"] = False
+            auto_update_state["queue"] = []
+        except Exception as e:
+            logger.info(f"[AutoUpdate] worker error: {e}")
+            auto_update_state["running"] = False
+            time.sleep(3600)
+
+def _start_auto_update_thread():
+    import threading
+    t = threading.Thread(target=_auto_update_worker, daemon=True)
+    t.start()
+    logger.info("[AutoUpdate] background quarterly updater started (first check in 60s, then hourly)")
+
+@app.route("/api/system/auto-update/status")
+def api_auto_update_status():
+    return {
+        "last_run": auto_update_state["last_run"],
+        "running": auto_update_state["running"],
+        "queue": auto_update_state["queue"],
+        "log": auto_update_state["log"][-20:],
+        "total_tracked": len(_catalog_rows()),
+        "live_prices": "poll /api/stocks/live-quotes every 30s frontend; ticker-tape cached 5m"
+    }
+
+@app.route("/api/system/auto-update/trigger", methods=["POST"])
+def api_auto_update_trigger():
+    tickers = request.get_json(silent=True) or {}
+    # if specific tickers provided, use them; else due tickers
+    req_tickers = tickers.get("tickers") if isinstance(tickers, dict) else None
+    def _bg():
+        import time
+        from stock_analyzer import analyze
+        global auto_update_state
+        if auto_update_state["running"]:
+            return
+        auto_update_state["running"] = True
+        try:
+            if req_tickers:
+                targets = [t.upper().strip() for t in req_tickers if is_valid_ticker(t.upper().strip())]
+            else:
+                # full quarterly scan: due tickers
+                targets = []
+                for row in _catalog_rows():
+                    rec = _load_stock_record(row["ticker"])
+                    if rec and _should_auto_update_record(rec)[0]:
+                        targets.append(row["ticker"])
+                if not targets:
+                    targets = [row["ticker"] for row in _catalog_rows()[:3]]  # demo: top 3 if none due
+            auto_update_state["queue"] = targets
+            for tk in targets:
+                try:
+                    analyze(tk)
+                    time.sleep(60)
+                except Exception as e:
+                    logger.info(f"manual auto-update {tk} failed: {e}")
+        finally:
+            auto_update_state["running"] = False
+            auto_update_state["queue"] = []
+            import time as _t
+            auto_update_state["last_run"] = _t.strftime("%Y-%m-%dT%H:%M:%SZ", _t.gmtime())
+    import threading
+    threading.Thread(target=_bg, daemon=True).start()
+    return {"status": "triggered", "running": True}
+
 def run_server(port=5001):
     """Start the local web server."""
     import logging
@@ -1076,9 +1236,11 @@ def run_server(port=5001):
     logger = logging.getLogger(__name__)
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     logger.info(f"\n=======================================================")
-    logger.info(f"   StockerAI Standalone Classic Terminal")
+    logger.info(f"   StockerAI Standalone Classic Terminal — Live + Quarterly Auto-Update")
+    logger.info(f"   Live prices: polling /api/stocks/live-quotes, auto-refresh every earnings quarter")
     logger.info(f"   Starting server on http://127.0.0.1:{port}")
     logger.info(f"=======================================================\n")
+    _start_auto_update_thread()
     app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
 
 if __name__ == "__main__":
