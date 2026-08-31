@@ -410,15 +410,15 @@ def query_search():
         return {"results": []}
         
     type_list = [t.strip().upper() for t in types.split(",") if t.strip()]
-    
-    db_dir = os.path.join("C:\\Users\\Abdelli\\Desktop\\Projects\\STOCK_TERMINAL_ALONE\\output", "database")
-    if not os.path.exists(db_dir):
+
+    db_dir = DB_DIR
+    if not db_dir.exists():
         return {"results": []}
-        
+
     results = []
     search_words = q.split()
-    
-    for fpath in glob.glob(os.path.join(db_dir, "*.json")):
+
+    for fpath in db_dir.glob("*.json"):
         try:
             with open(fpath, "r", encoding="utf-8") as f:
                 data = json.load(f)
