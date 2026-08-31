@@ -1,261 +1,113 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>StockerAI Terminal // Market Command</title>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="/static/css/fiscal_theme.css" />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/static/js/fiscal_app.js"></script>
-    <script src="/static/js/dashboard_controller.js"></script>
-    <script src="/static/js/analysis_controller.js"></script>
-    <script src="/static/js/charting_controller.js"></script>
-    <script src="/static/js/screener_controller.js"></script>
-    <script src="/static/js/query_controller.js"></script>
-    <script src="/static/js/resources_controller.js"></script>
-  </head>
-  <body class="terminal-workstation">
-    <!-- Sidebar -->
-    <aside class="fiscal-sidebar">
-      <div class="fiscal-logo-area">
-        STOCKER<span>AI</span>
-        <span
-          style="
-            font-size: 0.65rem;
-            color: var(--fiscal-text-tertiary);
-            font-family: var(--font-mono);
-            margin-left: auto;
-          "
-          >v5.7.5</span
-        >
-      </div>
-      <nav class="fiscal-nav">
-        <a
-          href="#dashboard"
-          class="fiscal-nav-item active"
-          data-module="dashboard"
-        >
-          <svg viewBox="0 0 24 24">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-            <polyline points="9 22 9 12 15 12 15 22"></polyline>
-          </svg>
-          Monitor
-        </a>
-        <a
-          href="#analysis"
-          class="fiscal-nav-item"
-          data-module="analysis"
-        >
-          <svg viewBox="0 0 24 24">
-            <line x1="18" y1="20" x2="18" y2="10"></line>
-            <line x1="12" y1="20" x2="12" y2="4"></line>
-            <line x1="6" y1="20" x2="6" y2="14"></line>
-          </svg>
-          Equity Dossier
-        </a>
-        <a
-          href="#charting"
-          class="fiscal-nav-item"
-          data-module="charting"
-        >
-          <svg viewBox="0 0 24 24">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-          </svg>
-          Chart Desk
-        </a>
-        <a
-          href="#screener"
-          class="fiscal-nav-item"
-          data-module="screener"
-        >
-          <svg viewBox="0 0 24 24">
-            <polygon
-              points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"
-            ></polygon>
-          </svg>
-          Screener
-        </a>
-        <a
-          href="#query"
-          class="fiscal-nav-item"
-          data-module="query"
-        >
-          <svg viewBox="0 0 24 24">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          Query Tape
-        </a>
-        <a
-          href="#resources"
-          class="fiscal-nav-item"
-          data-module="resources"
-        >
-          <svg viewBox="0 0 24 24">
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-            <path
-              d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"
-            ></path>
-          </svg>
-          Resources
-        </a>
-      </nav>
-      <div class="fiscal-nav" style="flex: 0">
-        <a
-          href="#"
-          class="fiscal-nav-item"
-          id="theme-toggle"
-          onclick="window.App.toggleTheme(); return false;"
-        >
-          <svg viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="5"></circle>
-            <line x1="12" y1="1" x2="12" y2="3"></line>
-            <line x1="12" y1="21" x2="12" y2="23"></line>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-            <line x1="1" y1="12" x2="3" y2="12"></line>
-            <line x1="21" y1="12" x2="23" y2="12"></line>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-          </svg>
-          Contrast
-        </a>
-        <a
-          href="#settings"
-          class="fiscal-nav-item"
-          data-module="settings"
-        >
-          <svg viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path
-              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-            ></path>
-          </svg>
-          System
-        </a>
-      </div>
-    </aside>
-
-    <!-- Main Wrapper -->
-    <div class="fiscal-main-wrapper">
-      <!-- Topbar -->
-      <header class="fiscal-topbar">
-        <div class="fiscal-search-container" style="position: relative;">
-          <svg
-            class="fiscal-search-icon"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input
-            type="text"
-            class="fiscal-search-input"
-            placeholder='Command: RUN AAPL, SEC MSFT, LAB NVDA, PORT, REPORTS (Press /)'
-            id="global-search"
-            autocomplete="off"
-          />
-          <div id="search-autocomplete" class="glass-panel" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 1000; margin-top: 8px; max-height: 300px; overflow-y: auto; padding: 8px 0;"></div>
-        </div>
-
-        <div class="fiscal-topbar-actions">
-          <svg
-            class="fiscal-action-icon"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <circle cx="12" cy="12" r="10"></circle>
-            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-          </svg>
-          <div class="fiscal-user-profile">
-            <div class="fiscal-avatar">A</div>
-            <span style="font-size: 0.9rem; font-weight: 500">Abdelli</span>
-          </div>
-        </div>
-      </header>
-
-      <!-- Market Ticker Tape -->
-      <div class="fiscal-ticker-tape" id="ticker-tape">
-        <div class="fiscal-ticker-inner" id="ticker-inner">
-          <!-- Populated by JS -->
-        </div>
-      </div>
-
-      <!-- Content Area -->
-      <main class="fiscal-content" id="module-container">
-        <div
-          style="
-            display: flex;
-            height: 100%;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            gap: 16px;
-          "
-        >
-          <h1 style="font-size: 2rem">StockerAI Terminal</h1>
-          <p style="color: var(--fiscal-text-secondary)">
-            Run a ticker, open an intelligence page, or search the local database.
-          </p>
-        </div>
-      </main>
-
-      <!-- Bottom Tab Bar -->
-      <footer class="fiscal-bottombar" id="tab-container">
-        <!-- Managed by JS -->
-      </footer>
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>StockerAI - Free Stock Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0b;--panel:#111214;--border:#1e1f23;--text:#f2f2f2;--muted:#8a8d93;--green:#34c759;--red:#ff3b30;--orange:#ff9f0a;--blue:#0a84ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,sans-serif}
+a{color:inherit;text-decoration:none}
+.top{height:52px;display:flex;align-items:center;gap:16px;padding:0 20px;border-bottom:1px solid var(--border);background:#0f0f10;position:sticky;top:0;z-index:10}
+.logo{font-weight:800;letter-spacing:1.2px;font-size:15px}
+.logo span{color:var(--green)}
+.badge{font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted);border:1px solid var(--border);padding:3px 8px;border-radius:999px}
+.wrap{max-width:1100px;margin:0 auto;padding:28px 20px}
+.hero{border:1px solid var(--border);background:var(--panel);border-radius:14px;padding:22px}
+.hero h1{margin:0 0 6px;font-size:22px}
+.hero p{margin:0 0 16px;color:var(--muted);font-size:13px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.inp{flex:1;min-width:220px;background:#0a0a0b;border:1px solid var(--border);color:var(--text);padding:12px 14px;border-radius:10px;font-family:JetBrains Mono,monospace;font-size:14px;outline:none}
+.inp:focus{border-color:var(--green)}
+.btn{background:var(--green);color:#000;border:none;padding:12px 18px;border-radius:10px;font-weight:700;cursor:pointer}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+.log{margin-top:14px;background:#080809;border:1px solid var(--border);border-radius:10px;padding:12px;font-family:JetBrains Mono,monospace;font-size:12px;max-height:240px;overflow:auto;white-space:pre-wrap;display:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:18px}
+.card{border:1px solid var(--border);background:var(--panel);border-radius:12px;padding:14px}
+.card:hover{border-color:#2a2c31}
+.tk{font-family:JetBrains Mono,monospace;font-weight:700}
+.name{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:11px;font-family:JetBrains Mono,monospace}
+.pill{padding:3px 7px;border-radius:999px;border:1px solid var(--border)}
+.buy{color:var(--green);border-color:rgba(52,199,89,.3);background:rgba(52,199,89,.08)}
+.sell{color:var(--red);border-color:rgba(255,59,48,.3);background:rgba(255,59,48,.08)}
+.hold{color:var(--orange);border-color:rgba(255,159,10,.3);background:rgba(255,159,10,.08)}
+.kpi{font-size:11px;color:var(--muted);margin-top:6px}
+.kpi b{color:var(--text)}
+.bar{height:1px;background:var(--border);margin:16px 0}
+.h2{font-size:13px;letter-spacing:.8px;color:var(--muted);margin:18px 0 8px}
+.small{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="logo">STOCKER<span>AI</span></div>
+  <div class="badge">PERSONAL - FREE - LOCAL</div>
+  <div style="margin-left:auto" class="small">{{ CACHE_SIZE }} - {{ RECENT_COUNT }} stocks</div>
+</div>
+<div class="wrap">
+  <div class="hero">
+    <h1>Free Stock Analyzer - FCF, DCF & Price Prediction</h1>
+    <p>Pulls financials, analyst ratings, technicals, SEC filings - AI predicts future price. No login, no paywall, all local. Type a ticker and hit Analyze.</p>
+    <div class="row">
+      <input id="ticker" class="inp" placeholder="Ticker: AAPL, NVDA, MSFT, TSLA" autocomplete="off" spellcheck="false"/>
+      <button id="analyze" class="btn">ANALYZE</button>
+      <a href="/guide" class="btn btn-ghost">GUIDE</a>
     </div>
-
-    <script>
-      // Ticker tape
-      (function loadTicker() {
-        fetch("/api/ticker-tape")
-          .then((r) => r.json())
-          .then((data) => {
-            const inner = document.getElementById("ticker-inner");
-            if (!inner || !data.length) return;
-            const render = (items) =>
-              items
-                .map((d) => {
-                  const cls =
-                    typeof d.pct === "number"
-                      ? d.pct >= 0
-                        ? "pos"
-                        : "neg"
-                      : "";
-                  return (
-                    '<div class="fiscal-ticker-item"><span class="fiscal-ticker-label">' +
-                    d.label +
-                    '</span><span class="fiscal-ticker-val">' +
-                    d.val +
-                    '</span><span class="fiscal-ticker-pct ' +
-                    cls +
-                    '">' +
-                    (typeof d.pct === "number"
-                      ? (d.pct >= 0 ? "+" : "") + d.pct.toFixed(2) + "%"
-                      : "") +
-                    "</span></div>"
-                  );
-                })
-                .join("");
-            inner.innerHTML = render(data) + render(data); // double for scroll
-          })
-          .catch(() => {});
-      })();
-    </script>
-  </body>
+    <div id="log" class="log"></div>
+    <div class="small" style="margin-top:10px">Tip: Separate multiple tickers with comma for comparison. Uses local cache (15m) + free Groq/OpenRouter.</div>
+  </div>
+  <div class="h2">RECENTLY ANALYZED - LOCAL DATABASE</div>
+  <div id="grid" class="grid"></div>
+  <div id="empty" class="small" style="display:none">No stocks yet. Analyze AAPL to start.</div>
+  <div class="bar"></div>
+  <div class="small">Models: DCF - Monte Carlo (500) - CCA peers - DDM - Historical regression - Altman Z / Piotroski F / Beneish M / DuPont - Verdict coherence enforced to spot price.</div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const tickerIn = $("ticker"), btn = $("analyze"), logEl = $("log"), grid = $("grid"), empty = $("empty");
+function pillClass(v){ v=(v||"").toUpperCase(); if(v.includes("BUY")) return "pill buy"; if(v.includes("SELL")) return "pill sell"; return "pill hold"; }
+async function loadStocks(){
+  try{
+    const r = await fetch("/api/stocks"); const j = await r.json();
+    const rows = (j.stocks||[]).sort((a,b)=> (b.upside||0)-(a.upside||0));
+    if(!rows.length){ empty.style.display="block"; return; }
+    grid.innerHTML = rows.slice(0,30).map(s=>`
+      <a class="card" href="/dashboard/${s.ticker}">
+        <div style="display:flex;justify-content:space-between;align-items:center"><span class="tk">${s.ticker}</span><span class="${pillClass(s.verdict)}">${s.verdict||"HOLD"}</span></div>
+        <div class="name">${s.company_name||""}</div>
+        <div class="meta"><span class="pill">${s.sector||"N/A"}</span><span class="pill">${s.industry||"N/A"}</span></div>
+        <div class="kpi">Price <b>$${(s.current_price||0).toFixed(2)}</b> - Fair <b>$${(s.fair_value_mid||0).toFixed(2)}</b> - Upside <b style="color:${(s.upside||0)>=0?"var(--green)":"var(--red)"}">${((s.upside||0)*100).toFixed(1)}%</b></div>
+        <div class="kpi">P/E <b>${(s.pe_ratio||0).toFixed(1)}</b> - Altman <b>${s.altman_z||"N/A"}</b> - F-Score <b>${s.piotroski_f??"N/A"}/9</b></div>
+      </a>
+    `).join("");
+  }catch(e){ console.log(e); }
+}
+loadStocks();
+function logLine(t){ logEl.style.display="block"; logEl.textContent += t+"\n"; logEl.scrollTop=logEl.scrollHeight; }
+btn.onclick = run;
+tickerIn.addEventListener("keydown", e=>{ if(e.key==="Enter") run(); });
+function run(){
+  let raw = tickerIn.value.trim().toUpperCase();
+  if(!raw){ tickerIn.focus(); return; }
+  let tickers = raw.split(",").map(s=>s.trim()).filter(Boolean);
+  if(tickers.length===0) return;
+  if(tickers.length>1){ window.location.href = "/compare?tickers="+tickers.join(","); return; }
+  let t = tickers[0];
+  if(!/^[A-Z0-9.\^-]{1,10}$/.test(t)){ logLine("Invalid ticker: "+t); return; }
+  btn.disabled=true; logEl.textContent=""; logEl.style.display="block";
+  logLine("[*] Analyzing "+t+" ... streaming logs");
+  const es = new EventSource("/api/stream?ticker="+encodeURIComponent(t));
+  es.onmessage = e=>{
+    const d=e.data;
+    if(d.startsWith("REDIRECT:")){ es.close(); const url=d.split("REDIRECT:")[1].trim(); logLine("[*] Done -> "+url); setTimeout(()=> location.href=url, 600); }
+    else{ logLine(d); }
+  };
+  es.onerror = ()=>{ logLine("[!] Stream error - check server"); es.close(); btn.disabled=false; };
+}
+tickerIn.focus();
+</script>
+</body>
 </html>
