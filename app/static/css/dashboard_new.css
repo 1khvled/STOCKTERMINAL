@@ -501,6 +501,13 @@ nav {
 
 /* Tab Nav Bar */
 .tab-nav {
+    overflow-x: auto;
+    scrollbar-width: none;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg-surface);
+
     background: transparent;
     border-bottom: 1px solid var(--border);
     padding: 0 40px;
@@ -735,7 +742,7 @@ nav {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 20px;
-    padding: 28px;
+    padding: 20px;
     margin-bottom: 20px;
     box-shadow: 0 2px 12px rgba(0,0,0,0.06);
     transition: box-shadow 0.2s ease;
