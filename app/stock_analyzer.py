@@ -33,8 +33,8 @@ BANNER = r"""
                                                    /____/
   +---------------------------------------------------------------+
   |  AI-Powered Stock Analysis  |  Yahoo Finance + Groq (Free AI) |
-  |  Generates: Premium Dark-Themed Stock Terminal HTML Dashboard |
-  |  SaaS Web Server Portal:   Run with '--server' command flag   |
+  |  Generates: Dark-Themed Personal Stock Terminal HTML Dashboard |
+  |  Personal Local Server:    Run with '--server' command flag  |
   +---------------------------------------------------------------+
 """
 
@@ -93,9 +93,16 @@ def serialize_stock_data(stock_data, analysis):
         "notion_data": handle_val(stock_data.get("notion_data", {})),
         "advanced_models": handle_val(stock_data.get("advanced_models", {})),
         "price_history_compact": price_history,
+        "financials": _df_to_json_ready(stock_data.get("financials")),
+        "balance_sheet": _df_to_json_ready(stock_data.get("balance_sheet")),
+        "cashflow": _df_to_json_ready(stock_data.get("cashflow")),
         "q_financials": _df_to_json_ready(stock_data.get("quarterly_financials")),
         "q_balance_sheet": _df_to_json_ready(stock_data.get("quarterly_balance_sheet")),
         "q_cashflow": _df_to_json_ready(stock_data.get("quarterly_cashflow")),
+        "sec_data": handle_val(stock_data.get("sec_data", {})),
+        "options_sentiment": handle_val(stock_data.get("options_sentiment", {})),
+        "extended_hours": handle_val(stock_data.get("extended_hours", {})),
+        "peers_data": handle_val(stock_data.get("peers_data", [])),
         "analysis": analysis,
         "generated_at": pd.Timestamp.now().isoformat()
     }
@@ -316,18 +323,18 @@ def analyze(ticker_symbol):
     except Exception as e:
         print(f"  ❌ Failed to generate Excel Model: {e}")
 
-    # Step 6: Database Serialization (Local JSON Database)
-    print(f"\n[6/6] 🗄️ Saving consolidated records to local database...")
-    db_dir = OUTPUT_DIR / "database"
-    db_dir.mkdir(parents=True, exist_ok=True)
-    db_path = db_dir / f"{ticker}.json"
+    # Step 6: Database Serialization (Supabase / Local Fallback)
+    print(f"\n[6/6] 🗄️ Saving consolidated records to database...")
     
     import json
     try:
         serialized = serialize_stock_data(stock_data, analysis)
-        with open(db_path, "w", encoding="utf-8") as f:
-            json.dump(serialized, f, indent=2, ensure_ascii=False)
-        print(f"  ✅ Saved database record: {db_path}")
+        import supabase_db
+        saved = supabase_db.save_stock_record(ticker, serialized)
+        if saved:
+            print(f"  ✅ Saved database record for {ticker}")
+        else:
+            print(f"  ⚠️ Warning: Database save had fallback/issues.")
     except Exception as e:
         print(f"  ❌ Failed to save database record: {e}")
 

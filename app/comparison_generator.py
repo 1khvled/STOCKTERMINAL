@@ -9,7 +9,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <title>Quant Terminal — Multi-Ticker Comparison</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600;700&family=Geist:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-main: #030407;
@@ -43,7 +43,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         body {
             background-color: var(--bg-main);
             color: var(--text-primary);
-            font-family: 'Outfit', sans-serif;
+            font-family: 'Geist', 'Inter', sans-serif;
             font-size: 15px;
             line-height: 1.5;
             display: flex;

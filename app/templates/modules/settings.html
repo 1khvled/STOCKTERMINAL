@@ -1,0 +1,68 @@
+<div id="module-container">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <div>
+      <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 4px;">Settings & Preferences</h2>
+      <div style="color: var(--fiscal-text-secondary); font-size: 0.9rem;">
+        Configure your Fiscal AI experience.
+      </div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 250px 1fr; gap: 24px;">
+    <!-- Settings Nav -->
+    <div class="glass-panel" style="padding: 16px;">
+      <div style="font-size: 0.85rem; font-weight: 600; color: var(--fiscal-text-tertiary); margin-bottom: 12px; letter-spacing: 0.05em;">GENERAL</div>
+      <div class="settings-nav-item active">Account Profile</div>
+      <div class="settings-nav-item">Appearance & Theme</div>
+      <div class="settings-nav-item">Data Providers</div>
+      
+      <div style="font-size: 0.85rem; font-weight: 600; color: var(--fiscal-text-tertiary); margin-bottom: 12px; margin-top: 24px; letter-spacing: 0.05em;">ANALYSIS</div>
+      <div class="settings-nav-item">DCF Defaults</div>
+      <div class="settings-nav-item">Screener Presets</div>
+      <div class="settings-nav-item">AI Models</div>
+    </div>
+
+    <!-- Settings Content -->
+    <div class="glass-panel" style="padding: 32px;">
+      <h3 style="font-size: 1.2rem; margin-bottom: 24px; color: var(--fiscal-text-primary);">Account Profile</h3>
+      
+      <div style="display: flex; gap: 24px; align-items: flex-start; margin-bottom: 32px;">
+        <div style="width: 80px; height: 80px; border-radius: 50%; background: var(--fiscal-accent-primary); display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 600; color: white;">
+          US
+        </div>
+        <div style="flex: 1;">
+          <label style="display: block; font-size: 0.85rem; color: var(--fiscal-text-secondary); margin-bottom: 6px;">Name</label>
+          <input type="text" class="fiscal-input" value="User Admin" style="width: 100%; margin-bottom: 16px;">
+          
+          <label style="display: block; font-size: 0.85rem; color: var(--fiscal-text-secondary); margin-bottom: 6px;">Email Address</label>
+          <input type="email" class="fiscal-input" value="admin@fiscal.ai" style="width: 100%;">
+        </div>
+      </div>
+      
+      <div style="border-top: 1px solid var(--fiscal-border-light); padding-top: 24px;">
+        <button class="fiscal-btn-primary" onclick="window.Toast && window.Toast.show('Settings saved successfully', 'success')">Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .settings-nav-item {
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--fiscal-text-secondary);
+    margin-bottom: 4px;
+    transition: all 0.2s;
+  }
+  .settings-nav-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--fiscal-text-primary);
+  }
+  .settings-nav-item.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--fiscal-accent-primary);
+    font-weight: 500;
+  }
+</style>

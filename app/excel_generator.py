@@ -312,16 +312,7 @@ def generate_excel_model(ticker: str, stock_data: dict, output_dir: Path, analys
                 ai_worksheet.set_row(r, h)
                 ai_worksheet.write(r, 0, f"Risk {idx+1}", ai_label_bold_fmt)
                 ai_worksheet.write(r, 1, full_text, ai_text_wrap_fmt)
-    """
-    Generates a professional Excel financial model containing:
-    - Historical Financials (Income Statement, Balance Sheet, Cash Flow)
-    - Dynamic DCF Projections with LIVE Excel formulas
-    - Financial Health & Solvency Check (Altman Z-Score, Piotroski F-Score)
-    """
-    excel_path = output_dir / f"{ticker}_Financial_Model.xlsx"
-    
-    with pd.ExcelWriter(excel_path, engine='xlsxwriter') as writer:
-        workbook = writer.book
+
         
         # 1. Income Statement
         if not stock_data.get('quarterly_financials', pd.DataFrame()).empty:

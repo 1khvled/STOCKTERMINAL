@@ -1,0 +1,371 @@
+/* ═══════════════════════════════════════════════════════
+   macro.css — Macro Command Center Styles
+   Bloomberg/Godel terminal aesthetic. No neon. No glows.
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Page Header ── */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.page-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #e0e0e0;
+    letter-spacing: -0.02em;
+}
+.header-badges {
+    display: flex;
+    gap: 8px;
+}
+.header-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 4px 10px;
+    border: 1px solid #333;
+    color: #888;
+}
+.header-badge.live { color: #388e3c; border-color: #388e3c; }
+.header-badge.success { color: #388e3c; border-color: #388e3c; }
+
+/* ── Panels ── */
+.panel {
+    background: #0a0a0a;
+    border: 1px solid #222;
+    margin-bottom: 20px;
+}
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    border-bottom: 1px solid #222;
+}
+.panel-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #e0e0e0;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.panel-subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.panel-subtitle.live { color: #388e3c; }
+.panel-body {
+    padding: 18px;
+}
+
+/* ── Grid Layouts ── */
+.grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+@media (max-width: 900px) {
+    .grid-2col { grid-template-columns: 1fr; }
+}
+
+/* ── Loading ── */
+.loading-placeholder {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: #555;
+    text-align: center;
+    padding: 30px 0;
+}
+
+/* ── Scorecard Launcher ── */
+.scorecard-launcher {
+    border-color: #333;
+}
+.launcher-inner {
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.launcher-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+.launcher-form {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+    min-width: 250px;
+}
+.launcher-form input {
+    flex: 1;
+    background: #111;
+    border: 1px solid #333;
+    color: #e0e0e0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    padding: 8px 12px;
+    outline: none;
+}
+.launcher-form input:focus { border-color: #555; }
+.launcher-btn {
+    background: #1a1a1a;
+    border: 1px solid #444;
+    color: #e0e0e0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 8px 16px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.launcher-btn:hover { background: #222; border-color: #666; }
+.launcher-presets {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.launcher-presets button {
+    background: #111;
+    border: 1px solid #333;
+    color: #888;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    padding: 4px 10px;
+    cursor: pointer;
+}
+.launcher-presets button:hover { color: #e0e0e0; border-color: #555; }
+
+/* ── Heatmap Table ── */
+.heatmap-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+}
+.heatmap-table thead th {
+    background: #111;
+    color: #888;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #333;
+    text-align: center;
+    white-space: nowrap;
+}
+.heatmap-table thead th.indicator-col {
+    text-align: left;
+    min-width: 180px;
+}
+.heatmap-table tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #1a1a1a;
+    text-align: center;
+    font-weight: 600;
+    color: #ccc;
+}
+.heatmap-table tbody tr:hover { background: #0f0f0f; }
+.indicator-label {
+    text-align: left !important;
+    font-weight: 700 !important;
+    color: #e0e0e0 !important;
+    font-size: 0.75rem;
+}
+
+/* Heatmap cells */
+.cell-beat { color: #388e3c !important; background: rgba(56, 142, 60, 0.08); }
+.cell-miss { color: #c62828 !important; background: rgba(198, 40, 40, 0.08); }
+.cell-unchanged { color: #888 !important; }
+.cell-na { color: #444 !important; }
+.cell-error { color: #c62828; text-align: center; padding: 24px; }
+
+/* ── Currency Strength ── */
+.strength-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid #1a1a1a;
+}
+.strength-row:last-child { border-bottom: none; }
+.strength-ccy {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #e0e0e0;
+    min-width: 40px;
+}
+.strength-track {
+    flex: 1;
+    height: 8px;
+    background: #1a1a1a;
+    position: relative;
+}
+.strength-bar {
+    height: 100%;
+    transition: width 0.5s ease;
+}
+.strength-score {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    min-width: 30px;
+    text-align: right;
+}
+
+/* ── Top Setups ── */
+.setup-card {
+    background: #111;
+    border: 1px solid #222;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+.setup-pair {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #e0e0e0;
+    margin-bottom: 4px;
+}
+.setup-direction {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #388e3c;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+}
+.setup-detail {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    margin-bottom: 6px;
+}
+.setup-long { color: #388e3c; font-weight: 600; }
+.setup-vs { color: #555; }
+.setup-short { color: #c62828; font-weight: 600; }
+.setup-diff {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: #888;
+    margin-bottom: 10px;
+}
+.setup-link {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: #888;
+    text-decoration: none;
+    border-bottom: 1px solid #333;
+    padding-bottom: 1px;
+}
+.setup-link:hover { color: #e0e0e0; border-color: #888; }
+
+/* ── Geopolitics ── */
+.geo-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.geo-threat {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #f9a825;
+    margin-left: 8px;
+}
+.geo-summary {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: #ccc;
+    margin: 16px 0;
+}
+.geo-risks {
+    border: 1px solid #222;
+    padding: 14px;
+}
+.geo-risks-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0 0 10px 0;
+}
+.geo-risks-list {
+    padding-left: 16px;
+    margin: 0;
+    color: #999;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.8;
+}
+.geo-haven {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #222;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+}
+.geo-haven strong { color: #f9a825; }
+.geo-haven span { color: #999; }
+
+/* ── News ── */
+.news-item {
+    display: block;
+    text-decoration: none;
+    padding: 10px 0;
+    border-bottom: 1px solid #1a1a1a;
+    transition: background 0.15s;
+}
+.news-item:hover { background: #0f0f0f; }
+.news-item:last-child { border-bottom: none; }
+.news-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+.news-source {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.news-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: #388e3c;
+}
+.news-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #ccc;
+    line-height: 1.4;
+}

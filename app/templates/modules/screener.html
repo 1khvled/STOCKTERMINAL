@@ -1,0 +1,201 @@
+<div
+  class="module-animated"
+  style="height: 100%; display: flex; flex-direction: column"
+>
+  <div style="margin-bottom: 20px; flex-shrink: 0">
+    <h2 style="font-size: 1.5rem">AI-Powered Stock Screener</h2>
+    <p
+      style="
+        color: var(--fiscal-text-secondary);
+        font-size: 0.85rem;
+        margin-top: 4px;
+      "
+    >
+      Screen the local terminal database with AI parsing or deterministic factor
+      filters.
+    </p>
+  </div>
+
+  <!-- AI Natural Language Input -->
+  <div
+    class="glass-panel"
+    style="padding: 16px 20px; margin-bottom: 16px; flex-shrink: 0"
+  >
+    <div style="display: flex; gap: 10px">
+      <input
+        type="text"
+        id="screener-ai-query"
+        class="fiscal-search-input"
+        placeholder='e.g. "Tech BUY names with PE under 30 and upside over 15%"'
+        style="flex: 1; padding: 12px 16px; font-size: 0.95rem"
+      />
+      <button
+        class="fiscal-btn-primary"
+        onclick="runAIScreen()"
+        style="padding: 12px 24px"
+      >
+        Search AI
+      </button>
+    </div>
+  </div>
+
+  <!-- Traditional Filters -->
+  <div
+    style="
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    "
+  >
+    <select
+      id="screener-country"
+      class="fiscal-select"
+      style="min-width: 150px"
+    >
+      <option value="">Max P/E</option>
+      <option value="15">P/E < 15</option>
+      <option value="25">P/E < 25</option>
+      <option value="40">P/E < 40</option>
+    </select>
+    <select
+      id="screener-industry"
+      class="fiscal-select"
+      style="min-width: 180px"
+    >
+      <option value="">All Industries</option>
+      <option value="Technology">Technology</option>
+      <option value="Healthcare">Healthcare</option>
+      <option value="Financials">Financials</option>
+      <option value="Consumer">Consumer Cyclical</option>
+      <option value="Energy">Energy</option>
+      <option value="Industrials">Industrials</option>
+      <option value="Real Estate">Real Estate</option>
+      <option value="Materials">Materials</option>
+      <option value="Utilities">Utilities</option>
+    </select>
+    <select
+      id="screener-exchange"
+      class="fiscal-select"
+      style="min-width: 150px"
+    >
+      <option value="">Min Upside</option>
+      <option value="0.10">Upside > 10%</option>
+      <option value="0.20">Upside > 20%</option>
+      <option value="0.35">Upside > 35%</option>
+    </select>
+    <select
+      id="screener-verdict"
+      class="fiscal-select"
+      style="min-width: 140px"
+    >
+      <option value="">Any Verdict</option>
+      <option value="BUY">BUY</option>
+      <option value="HOLD">HOLD</option>
+      <option value="SELL">SELL</option>
+    </select>
+    <select
+      id="screener-roe"
+      class="fiscal-select"
+      style="min-width: 140px"
+    >
+      <option value="">Min ROE</option>
+      <option value="0.10">ROE > 10%</option>
+      <option value="0.20">ROE > 20%</option>
+      <option value="0.30">ROE > 30%</option>
+    </select>
+    <select
+      id="screener-debt"
+      class="fiscal-select"
+      style="min-width: 160px"
+    >
+      <option value="">Max Debt/Equity</option>
+      <option value="50">D/E < 50</option>
+      <option value="100">D/E < 100</option>
+      <option value="200">D/E < 200</option>
+    </select>
+    <select
+      id="screener-piotroski"
+      class="fiscal-select"
+      style="min-width: 150px"
+    >
+      <option value="">Min Piotroski</option>
+      <option value="5">F-Score >= 5</option>
+      <option value="7">F-Score >= 7</option>
+      <option value="8">F-Score >= 8</option>
+    </select>
+    <button
+      class="fiscal-btn-secondary"
+      onclick="runFilterScreen()"
+      style="padding: 8px 20px"
+    >
+      Apply Filters
+    </button>
+  </div>
+
+  <!-- Results -->
+  <div
+    class="glass-panel"
+    style="padding: 0; flex: 1; overflow-y: auto; min-height: 200px"
+  >
+    <table class="fiscal-table" id="screener-results-table">
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>Company</th>
+          <th>Sector</th>
+          <th>Price</th>
+          <th>Fair Value</th>
+          <th>Upside</th>
+          <th>P/E</th>
+          <th>Verdict</th>
+        </tr>
+      </thead>
+      <tbody id="screener-results-body">
+        <tr>
+          <td
+            colspan="8"
+            style="
+              text-align: center;
+              padding: 60px 20px;
+              color: var(--fiscal-text-tertiary);
+            "
+          >
+            Use the filters above or AI search to discover stocks
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Results count -->
+  <div
+    style="
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 4px;
+      flex-shrink: 0;
+    "
+  >
+    <span
+      style="color: var(--fiscal-text-tertiary); font-size: 0.8rem"
+      id="screener-count"
+      >0 results</span
+    >
+    <button
+      class="fiscal-btn-secondary"
+      style="padding: 6px 14px; font-size: 0.78rem"
+      onclick="exportScreenerCSV()"
+    >
+      Export CSV
+    </button>
+  </div>
+</div>
+
+<script>
+  setTimeout(() => {
+    if (window.ScreenerController) window.ScreenerController.init(window.App);
+  }, 200);
+</script>

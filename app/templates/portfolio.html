@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="glow-text">{{ page_name }}</h1>
+    <p class="text-muted">Command center for aggregating and analyzing your analyzed local stocks.</p>
+</div>
+
+<div class="dashboard-grid">
+    <div class="card premium-panel full-width">
+        <div class="card-header">
+            <h3>Aggregate Portfolio Metrics</h3>
+        </div>
+        <div class="card-body">
+            <p>Select stocks to include in your mock portfolio.</p>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Include</th>
+                        <th>Ticker</th>
+                        <th>Company</th>
+                        <th>Price</th>
+                        <th>WACC</th>
+                        <th>Verdict</th>
+                        <th>Grade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stock in stocks %}
+                    <tr>
+                        <td><input type="checkbox" checked /></td>
+                        <td class="glow-text">{{ stock.ticker }}</td>
+                        <td>{{ stock.company }}</td>
+                        <td>${{ "%.2f"|format(stock.price) }}</td>
+                        <td>{{ "%.2f"|format(stock.wacc * 100) }}%</td>
+                        <td class="verdict-{{ stock.verdict|lower|replace(' ', '-') }}">{{ stock.verdict }}</td>
+                        <td>{{ stock.grade }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not stocks %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">No analyzed stocks found in local database. Run an analysis first.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

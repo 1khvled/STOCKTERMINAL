@@ -30,3 +30,22 @@ output/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# local noise
+NUL
+final_*.txt
+test_*.txt
+test_*.py
+fix_*.py
+patch_*.py
+scratch/
+.mavis/
+.agents/
+.opencode/
+.codex/
+node_modules/
+package-lock.json
+pytest.ini
+requirements-dev.txt
+data/
+

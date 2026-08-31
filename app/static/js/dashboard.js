@@ -1,16 +1,210 @@
-const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpperCase();
+        const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpperCase();
         let STOCK_DATA = null;
 
-        // Dynamic window resize listener to ensure price chart scales perfectly
-        let resizeTimer;
-        window.addEventListener('resize', () => {
-            clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(() => {
-                if (STOCK_DATA && STOCK_DATA.price_history_compact) {
-                    drawWeeklyPriceChart();
+        function setText(id, value) {
+            const el = document.getElementById(id);
+            if (el) el.innerText = value;
+        }
+
+        function cleanText(value, fallback = '--') {
+            if (value === null || value === undefined) return fallback;
+            const text = String(value).trim();
+            if (!text) return fallback;
+            return text
+                .replace(/â€”/g, '-')
+                .replace(/â–²/g, 'Up')
+                .replace(/â–¼/g, 'Down')
+                .replace(/â€¢/g, '-')
+                .replace(/âŒ/g, 'Error')
+                .replace(/ðŸ“ˆ/g, 'Chart');
+        }
+
+        function summarizeRisk(an) {
+            const risk = an.risk_assessment || {};
+            const flaw = cleanText(an.fatal_flaw_probability || risk.risk_reward_ratio || 'Balanced', 'Balanced');
+            if (flaw.includes('HIGH') || flaw.includes('UNFAVORABLE')) return 'High';
+            if (flaw.includes('LOW') || flaw.includes('FAVORABLE')) return 'Low';
+            return 'Balanced';
+        }
+
+        function populateHero(currPrice, weightedFair, priceChange1d, analystCount, an) {
+            const company = STOCK_DATA.company_name || TICKER;
+            const verdict = cleanText(an.verdict || 'HOLD', 'HOLD');
+            const confidence = parseFloat(an.verdict_confidence || 0);
+            const upsidePct = currPrice > 0 && weightedFair > 0 ? ((weightedFair - currPrice) / currPrice) * 100 : 0;
+            const riskLevel = summarizeRisk(an);
+            const executive = cleanText(an.executive_summary || 'Snapshot loading.', 'Snapshot loading.');
+            const shortSummary = executive.split('.').slice(0, 2).join('.').trim();
+
+            setText('hero-company', company);
+            setText('hero-summary', shortSummary || 'Pulling together the headline story, current valuation, and biggest watch-outs.');
+            setText('hero-verdict', verdict);
+            setText('hero-confidence', `${Number.isFinite(confidence) ? confidence : 0}%`);
+            setText('hero-target-gap', `${upsidePct >= 0 ? '+' : ''}${upsidePct.toFixed(1)}%`);
+            setText('hero-price', Number.isFinite(currPrice) ? `$${currPrice.toFixed(2)}` : '--');
+            setText('hero-fair', Number.isFinite(weightedFair) ? `$${weightedFair.toFixed(2)}` : '--');
+            setText('hero-risk', riskLevel);
+            setText('hero-fair-note', analystCount ? `${analystCount} analyst views in the mix` : 'Model midpoint');
+            setText('hero-price-move', Number.isFinite(priceChange1d) ? `${priceChange1d >= 0 ? '+' : ''}${priceChange1d.toFixed(2)}% on the day` : 'Daily move not available');
+            setText('hero-risk-note', riskLevel === 'High' ? 'More caution needed here' : riskLevel === 'Low' ? 'Risk profile looks calmer' : 'Mixed picture right now');
+        }
+
+        function num(value) {
+            const n = parseFloat(value);
+            return Number.isFinite(n) ? n : null;
+        }
+
+        function pct(value) {
+            const n = num(value);
+            if (n === null) return '--';
+            const v = Math.abs(n) <= 1 ? n * 100 : n;
+            return `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
+        }
+
+        function money(value) {
+            const n = num(value);
+            return n === null ? '--' : `$${n.toFixed(2)}`;
+        }
+
+        function firstRisk(an) {
+            const risks = (((an || {}).risk_assessment || {}).risk_factors || []);
+            if (Array.isArray(risks) && risks.length) {
+                const r = risks[0];
+                return cleanText(typeof r === 'string' ? r : (r.risk || r.impact || 'Risk captured'));
+            }
+            return cleanText(an.red_team_audit || 'No major red flag captured yet.');
+        }
+
+        function buildDiagnosis(m, an, currPrice, fairValue) {
+            const verdict = cleanText(an.verdict || 'HOLD', 'HOLD').toUpperCase();
+            const growth = num(m.revenueGrowth_pct ?? m.revenueGrowth);
+            const debt = num(m.totalDebt);
+            const cash = num(m.totalCash);
+            const fcf = num(m.freeCashflow);
+            const upside = currPrice && fairValue ? ((fairValue - currPrice) / currPrice) * 100 : 0;
+            let title = 'Balanced stock under review';
+            let severity = summarizeRisk(an);
+            let symptom = 'Mixed valuation and quality signals';
+            let followup = 'Recheck after the next earnings update';
+
+            if (verdict.includes('SELL') || upside < -15) {
+                title = 'Overvalued or weakening setup';
+                severity = severity === 'Low' ? 'Moderate' : severity;
+                symptom = `Price sits ${Math.abs(upside).toFixed(1)}% above fair value`;
+            } else if (verdict.includes('BUY') || upside > 15) {
+                title = 'Possible undervalued opportunity';
+                symptom = `Fair value suggests ${upside.toFixed(1)}% upside`;
+            }
+
+            if (growth !== null && growth < 0) symptom = `Revenue growth is negative (${pct(growth)})`;
+            if (debt && cash !== null && debt > cash * 2) severity = 'High';
+            if (fcf !== null && fcf < 0) severity = 'High';
+
+            return { title, severity, symptom, redflag: firstRisk(an), followup };
+        }
+
+        function buildWhyList(m, an, currPrice, fairValue) {
+            const items = [];
+            const upside = currPrice && fairValue ? ((fairValue - currPrice) / currPrice) * 100 : null;
+            if (upside !== null) items.push(`Price is ${money(currPrice)} versus fair value around ${money(fairValue)} (${upside >= 0 ? '+' : ''}${upside.toFixed(1)}%).`);
+            if (m.revenueGrowth_pct !== undefined || m.revenueGrowth !== undefined) items.push(`Revenue growth signal: ${pct(m.revenueGrowth_pct ?? m.revenueGrowth)}.`);
+            if (m.totalDebt || m.totalCash) items.push(`Balance sheet: debt ${m.totalDebt ? money(m.totalDebt) : '--'} versus cash ${m.totalCash ? money(m.totalCash) : '--'}.`);
+            if (m.freeCashflow !== undefined) items.push(`Free cash flow: ${money(m.freeCashflow)}.`);
+            items.push(`AI call: ${cleanText(an.verdict || 'HOLD')} with ${cleanText(an.verdict_confidence || '--')}% confidence.`);
+            return items.slice(0, 5);
+        }
+
+        function dataQualityGrade(data) {
+            const availability = (((data || {}).source_metadata || {}).availability || {});
+            let score = 0;
+            ['annual_financials', 'quarterly_financials', 'quarterly_balance_sheet', 'quarterly_cashflow', 'history_1y_rows', 'news_items', 'peer_count'].forEach(k => {
+                if (availability[k]) score += 1;
+            });
+            if (score >= 6) return 'High';
+            if (score >= 3) return 'Medium';
+            return 'Low';
+        }
+
+        function earningsWatchText(data, an) {
+            const m = data.key_metrics || {};
+            const dates = ((((data.source_metadata || {}).freshness || {}).quarterly_income_statement_dates) || []);
+            const needs = [];
+            if (m.revenueGrowth_pct !== undefined || m.revenueGrowth !== undefined) needs.push(`revenue growth staying better than ${pct(m.revenueGrowth_pct ?? m.revenueGrowth)}`);
+            if (m.operatingMargins_pct !== undefined || m.operatingMargins !== undefined) needs.push(`operating margin holding near ${pct(m.operatingMargins_pct ?? m.operatingMargins)}`);
+            if (m.freeCashflow !== undefined) needs.push(`free cash flow not deteriorating from ${money(m.freeCashflow)}`);
+            if (!needs.length) needs.push('revenue, margin, guidance, and free cash flow');
+            const last = dates[0] ? `Last statement seen: ${dates[0]}. ` : '';
+            return `${last}Next check: ${needs.slice(0, 3).join(', ')}.`;
+        }
+
+        function buildMemory(data, currPrice, fairValue, an) {
+            const key = `stocker_memory_${TICKER}`;
+            const previous = JSON.parse(localStorage.getItem(key) || 'null');
+            const current = {
+                date: new Date().toISOString(),
+                price: currPrice,
+                fair: fairValue,
+                verdict: an.verdict || 'HOLD'
+            };
+            localStorage.setItem(key, JSON.stringify(current));
+            if (!previous) return 'First snapshot saved. Next visit, I will compare what changed.';
+            const priceMove = previous.price && currPrice ? ((currPrice - previous.price) / previous.price) * 100 : 0;
+            const verdictChanged = previous.verdict !== current.verdict ? ` Verdict changed from ${previous.verdict} to ${current.verdict}.` : ' Verdict unchanged.';
+            return `Last snapshot: ${new Date(previous.date).toLocaleDateString()}. Price moved ${priceMove >= 0 ? '+' : ''}${priceMove.toFixed(1)}%. ${verdictChanged}`;
+        }
+
+        function setupPortfolioMode(currPrice, an) {
+            const key = `stocker_portfolio_${TICKER}`;
+            const sharesEl = document.getElementById('portfolio-shares');
+            const entryEl = document.getElementById('portfolio-entry');
+            const saveBtn = document.getElementById('portfolio-save');
+            const note = document.getElementById('portfolio-note');
+            const saved = JSON.parse(localStorage.getItem(key) || '{}');
+            if (sharesEl && saved.shares) sharesEl.value = saved.shares;
+            if (entryEl && saved.entry) entryEl.value = saved.entry;
+
+            const render = () => {
+                const shares = num(sharesEl && sharesEl.value);
+                const entry = num(entryEl && entryEl.value);
+                if (!shares || !entry || !currPrice) {
+                    if (note) note.innerText = 'Add your position to see simple risk notes.';
+                    return;
                 }
-            }, 150);
-        });
+                const pnl = (currPrice - entry) * shares;
+                const pnlPct = ((currPrice - entry) / entry) * 100;
+                const risk = summarizeRisk(an);
+                if (note) note.innerText = `${shares} shares. P/L: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%). Risk read: ${risk}.`;
+            };
+            if (saveBtn) saveBtn.onclick = () => {
+                localStorage.setItem(key, JSON.stringify({ shares: sharesEl.value, entry: entryEl.value }));
+                render();
+            };
+            render();
+        }
+
+        function populateDecisionCockpit(currPrice, fairValue, an) {
+            const m = STOCK_DATA.key_metrics || {};
+            const diagnosis = buildDiagnosis(m, an, currPrice, fairValue);
+            setText('dx-title', diagnosis.title);
+            setText('dx-summary', cleanText(an.executive_summary || 'A compact diagnosis from valuation, quality, and risk signals.'));
+            setText('dx-severity', diagnosis.severity);
+            setText('dx-symptom', diagnosis.symptom);
+            setText('dx-redflag', diagnosis.redflag);
+            setText('dx-followup', diagnosis.followup);
+
+            const why = document.getElementById('why-list');
+            if (why) why.innerHTML = buildWhyList(m, an, currPrice, fairValue).map(item => `<li>${formatNarrativeText(item)}</li>`).join('');
+
+            setText('grade-data', dataQualityGrade(STOCK_DATA));
+            setText('grade-ai', `${cleanText(an.verdict_confidence || '--')}%`);
+            setText('grade-risk', summarizeRisk(an));
+            setText('earnings-watch', earningsWatchText(STOCK_DATA, an));
+            setText('debate-bull', cleanText(an.bull_case_narrative || an.investment_thesis || 'Bull case not captured.'));
+            setText('debate-bear', cleanText(an.bear_case_narrative || firstRisk(an)));
+            setText('debate-judge', `Judge: ${cleanText(an.verdict || 'HOLD')} because ${cleanText(an.verdict_reasoning || 'the evidence is mixed.').split('.').slice(0, 1).join('.')}.`);
+            setText('memory-note', buildMemory(STOCK_DATA, currPrice, fairValue, an));
+            setupPortfolioMode(currPrice, an);
+        }
 
         // Fetch stock data from local JSON database
         async function fetchStockData() {
@@ -25,10 +219,11 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
                 initNotionHub();
                 initCAPMSliders();
                 initDuPontScore();
+                initPiotroskiScore();
                 initAltmanTable();
                 initPeersTable();
-                drawWeeklyPriceChart();
                 loadStatement('income');
+                fetchAndRenderNews();
             } catch (err) {
                 console.error("Failed to load stock database record:", err);
                 document.body.innerHTML = `<div style="padding: 100px; text-align: center;"><h1>❌ Error Loading Terminal</h1><p>${err.message}</p><a href="/" style="color: #fff; margin-top: 20px; display: inline-block;">Back to Stock Hub</a></div>`;
@@ -43,33 +238,49 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
             const valAssess = an.valuation_assessment || {};
 
             // Nav & Header
-            document.getElementById('stock-name').innerText = STOCK_DATA.company_name || TICKER;
-            document.getElementById('stock-ticker-header').innerText = `${TICKER} // ${STOCK_DATA.company_name || 'Personal Ingestion'}`;
-            document.getElementById('stock-sector').innerText = m.sector || "N/A";
+            const el_stock_name = document.getElementById('stock-name'); if(el_stock_name) el_stock_name.innerText = STOCK_DATA.company_name || TICKER;
+            const el_stock_ticker_header = document.getElementById('stock-ticker-header'); if(el_stock_ticker_header) el_stock_ticker_header.innerText = `${TICKER} // ${STOCK_DATA.company_name || 'Personal Ingestion'}`;
+            const el_stock_sector = document.getElementById('stock-sector'); if(el_stock_sector) el_stock_sector.innerText = m.sector || "—";
             
             // Verdict Badge
             const verd = (an.verdict || "HOLD").toUpperCase();
             const verdBadge = document.getElementById('stock-verdict');
-            verdBadge.innerText = verd;
-            verdBadge.className = 'badge-verdict';
-            if (verd.includes("BUY")) verdBadge.classList.add('badge-buy');
-            else if (verd.includes("SELL")) verdBadge.classList.add('badge-sell');
-            else verdBadge.classList.add('badge-hold');
+            if (verdBadge) {
+                verdBadge.innerText = verd;
+                verdBadge.className = 'badge-verdict';
+                if (verd.includes("BUY")) verdBadge.classList.add('badge-buy');
+                else if (verd.includes("SELL")) verdBadge.classList.add('badge-sell');
+                else verdBadge.classList.add('badge-hold');
+            }
+
+            // Thematic Verdict Badge
+            const tv = (an.thematic_verdict || "HOLD").toUpperCase();
+            const tvBadge = document.getElementById('thematic-verdict');
+            if (tvBadge) {
+                tvBadge.innerText = tv;
+                tvBadge.className = 'badge-verdict';
+                if (tv.includes("BUY")) tvBadge.classList.add('badge-buy');
+                else if (tv.includes("SELL")) tvBadge.classList.add('badge-sell');
+                else tvBadge.classList.add('badge-hold');
+                tvBadge.style.color = tv.includes("BUY") ? "var(--green)" : tv.includes("SELL") ? "var(--red)" : "var(--yellow)";
+            }
 
             // Confidence Badge
-            const conf = an.verdict_confidence || "N/A";
+            const conf = an.verdict_confidence || "—";
             const confEl = document.getElementById('stock-confidence');
             if (confEl) {
-                confEl.innerText = conf !== "N/A" ? `${conf}%` : "N/A";
+                confEl.innerText = conf !== "—" ? `${conf}%` : "—";
             }
             const confContainer = document.getElementById('stock-confidence-container');
-            const confBar = document.getElementById('stock-confidence-bar');
+            const confRing = document.getElementById('stock-confidence-ring');
+            const numConf = parseFloat(conf);
+            if (confRing && !isNaN(numConf)) {
+                confRing.style.strokeDashoffset = 100 - numConf;
+                const color = numConf >= 75 ? 'var(--emerald)' : numConf >= 50 ? 'var(--gold)' : 'var(--ruby)';
+                confRing.style.stroke = color;
+            }
             if (confContainer) {
-                confContainer.className = 'verdict-banner-dynamic';
-                const numConf = parseFloat(conf);
-                if (confBar) {
-                    confBar.style.width = !isNaN(numConf) ? `${numConf}%` : "0%";
-                }
+                confContainer.className = 'narrative-card verdict-banner-dynamic';
                 if (!isNaN(numConf)) {
                     if (numConf >= 80) {
                         confContainer.style.borderColor = 'rgba(16, 185, 129, 0.4)';
@@ -92,28 +303,59 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
             }
 
             // Strip Stats & Header Quotes
-            const currPrice = parseFloat(m.current_price || m.currentPrice || 0);
+            const currPrice = parseFloat(m.current_price || m.currentPrice || NaN);
             const targetMean = parseFloat(m.targetMeanPrice || currPrice);
-            const priceChange1d = parseFloat(m.price_change_1d || 0);
+            const priceChange1d = parseFloat(m.price_change_1d || NaN);
             const analystCount = m.numberOfAnalystOpinions || "?";
+            let weightedFair = parseFloat(valAssess.fair_value_mid || dcf.implied_price || currPrice);
 
-            document.getElementById('price-val').innerText = `$${currPrice.toFixed(2)}`;
-            document.getElementById('header-price').innerText = `$${currPrice.toFixed(2)}`;
+            const el_price_val = document.getElementById('price-val'); if(el_price_val) el_price_val.innerText = !isNaN(currPrice) ? `$${currPrice.toFixed(2)}` : '—';
+            const el_header_price = document.getElementById('header-price'); if(el_header_price) el_header_price.innerText = !isNaN(currPrice) ? `$${currPrice.toFixed(2)}` : '—';
             
             const priceChangeEl = document.getElementById('header-price-change');
             if (priceChangeEl) {
-                priceChangeEl.innerText = `${priceChange1d >= 0 ? '+' : ''}${priceChange1d.toFixed(2)}% today`;
-                priceChangeEl.style.color = priceChange1d >= 0 ? 'var(--emerald)' : 'var(--ruby)';
+                if (!isNaN(priceChange1d)) {
+                    priceChangeEl.innerText = `${priceChange1d >= 0 ? '+' : ''}${priceChange1d.toFixed(2)}% today`;
+                    priceChangeEl.style.color = priceChange1d >= 0 ? 'var(--emerald)' : 'var(--ruby)';
+                } else {
+                    priceChangeEl.innerText = 'N/A today';
+                    priceChangeEl.style.color = 'var(--text-secondary)';
+                }
             }
             
-            document.getElementById('header-target').innerText = `$${targetMean.toFixed(2)}`;
-            document.getElementById('header-analyst-count').innerText = `${analystCount} Analyst consensus`;
+            const el_header_target = document.getElementById('header-target'); if(el_header_target) el_header_target.innerText = !isNaN(targetMean) ? `$${targetMean.toFixed(2)}` : '—';
+            const el_header_analyst_count = document.getElementById('header-analyst-count'); if(el_header_analyst_count) el_header_analyst_count.innerText = `${analystCount} Analyst consensus`;
             
-            const weightedFair = parseFloat(valAssess.fair_value_mid || dcf.implied_price || currPrice);
-            document.getElementById('fair-val').innerText = `$${weightedFair.toFixed(2)}`;
+            weightedFair = parseFloat(valAssess.fair_value_mid || dcf.implied_price || currPrice);
+            populateHero(currPrice, weightedFair, priceChange1d, analystCount, an);
+            populateDecisionCockpit(currPrice, weightedFair, an);
+            const el_fair_val = document.getElementById('fair-val'); if(el_fair_val) el_fair_val.innerText = !isNaN(weightedFair) ? `$${weightedFair.toFixed(2)}` : '—';
             
-            document.getElementById('pe-val').innerText = `${m.trailingPE || 'N/A'} / ${m.forwardPE || 'N/A'}`;
-            document.getElementById('eps-val').innerText = `$${(m.trailingEps || 0).toFixed(2)} / $${(m.forwardEps || 0).toFixed(2)}`;
+            // Color code fair value card based on upside/downside
+            const fairValNode = document.getElementById('stat-fair-val');
+            const upsideSub = document.getElementById('upside-sub');
+            if (currPrice > 0 && weightedFair > 0) {
+                const upsidePct = ((weightedFair - currPrice) / currPrice * 100);
+                const isUpside = upsidePct >= 0;
+                if (el_fair_val) el_fair_val.classList.add(isUpside ? 'val-positive' : 'val-negative');
+                if (fairValNode) fairValNode.classList.add(isUpside ? 'accent-positive' : 'accent-negative');
+                if (upsideSub) {
+                    upsideSub.innerText = `${isUpside ? '▲' : '▼'} ${Math.abs(upsidePct).toFixed(1)}% ${isUpside ? 'upside' : 'downside'}`;
+                    upsideSub.style.color = isUpside ? 'var(--signal-positive)' : 'var(--signal-negative)';
+                }
+            }
+
+            // Price change sub-label with color arrow
+            const priceChangeSub = document.getElementById('price-change-sub');
+            if (priceChangeSub && priceChange1d !== 0) {
+                const arrow = priceChange1d >= 0 ? '▲' : '▼';
+                priceChangeSub.innerText = `${arrow} ${Math.abs(priceChange1d).toFixed(2)}% today`;
+                priceChangeSub.style.color = priceChange1d >= 0 ? 'var(--signal-positive)' : 'var(--signal-negative)';
+            }
+            
+            const fmtPE = (v) => (v !== undefined && v !== '—') ? Number(v).toFixed(2) : '—';
+            const el_pe_val = document.getElementById('pe-val'); if(el_pe_val) el_pe_val.innerHTML = `${fmtPE(m.trailingPE)} <span style=\"color:#c7c7cc;\">/</span> ${fmtPE(m.forwardPE)}`;
+            const el_eps_val = document.getElementById('eps-val'); if(el_eps_val) el_eps_val.innerText = `$${(m.trailingEps || 0).toFixed(2)} / $${(m.forwardEps || 0).toFixed(2)}`;
 
             // Solvency Summary
             const altman = parseFloat(sc.altman_z || 0);
@@ -123,13 +365,44 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
             if (piotroskiEl) piotroskiEl.innerText = `${sc.piotroski_f || 0}/9`;
             
             // Sub-valuation grids
-            document.getElementById('rel-dcf-target').innerText = `$${(dcf.implied_price || currPrice).toFixed(2)}`;
-            document.getElementById('rel-analyst-target').innerText = `$${(m.targetMeanPrice || currPrice).toFixed(2)}`;
-            document.getElementById('rel-reconciled-target').innerText = `$${weightedFair.toFixed(2)}`;
+            const el_rel_dcf_target = document.getElementById('rel-dcf-target'); if(el_rel_dcf_target) el_rel_dcf_target.innerText = `$${(dcf.implied_price || currPrice).toFixed(2)}`;
+            const el_rel_analyst_target = document.getElementById('rel-analyst-target'); if(el_rel_analyst_target) el_rel_analyst_target.innerText = `$${(m.targetMeanPrice || currPrice).toFixed(2)}`;
+            const el_rel_reconciled_target = document.getElementById('rel-reconciled-target'); if(el_rel_reconciled_target) el_rel_reconciled_target.innerText = `$${weightedFair.toFixed(2)}`;
+
+            // Microstructure
+            const el_micro_insider = document.getElementById('micro-insider'); 
+            if(el_micro_insider) el_micro_insider.innerText = m.heldPercentInsiders ? (m.heldPercentInsiders * 100).toFixed(2) + '%' : '--';
+            const el_micro_inst = document.getElementById('micro-inst'); 
+            if(el_micro_inst) el_micro_inst.innerText = m.heldPercentInstitutions ? (m.heldPercentInstitutions * 100).toFixed(2) + '%' : '--';
+            const el_micro_short = document.getElementById('micro-short'); 
+            if(el_micro_short) el_micro_short.innerText = m.shortPercentOfFloat ? (m.shortPercentOfFloat * 100).toFixed(2) + '%' : '--';
+            const el_micro_short_ratio = document.getElementById('micro-short-ratio'); 
+            if(el_micro_short_ratio) el_micro_short_ratio.innerText = m.shortRatio ? m.shortRatio.toFixed(2) : '--';
+            const el_micro_iv = document.getElementById('micro-iv'); 
+            if(el_micro_iv) el_micro_iv.innerText = m.impliedVolatility ? (m.impliedVolatility * 100).toFixed(2) + '%' : '--';
+
+            // Historical Multiples
+            const hm = (STOCK_DATA.advanced_models && STOCK_DATA.advanced_models.historical_multiples) || {};
+            const el_val_curr_pe = document.getElementById('val-curr-pe');
+            if(el_val_curr_pe) el_val_curr_pe.innerText = m.trailingPE ? m.trailingPE.toFixed(2) + 'x' : '--';
+            const el_val_avg_pe = document.getElementById('val-avg-pe');
+            if(el_val_avg_pe) el_val_avg_pe.innerText = hm.avg_pe_5y ? hm.avg_pe_5y.toFixed(2) + 'x' : '--';
+            const el_val_med_pe = document.getElementById('val-med-pe');
+            if(el_val_med_pe) el_val_med_pe.innerText = hm.median_pe_5y ? hm.median_pe_5y.toFixed(2) + 'x' : '--';
+            const el_val_pe_premium = document.getElementById('val-pe-premium');
+            if(el_val_pe_premium) {
+                if (hm.pe_premium_discount_pct !== undefined) {
+                    const isPrem = hm.pe_premium_discount_pct > 0;
+                    el_val_pe_premium.innerText = (isPrem ? '+' : '') + hm.pe_premium_discount_pct.toFixed(2) + '%';
+                    el_val_pe_premium.style.color = isPrem ? 'var(--signal-negative)' : 'var(--signal-positive)';
+                } else {
+                    el_val_pe_premium.innerText = '--';
+                }
+            }
         }
 
         function formatNarrativeText(text) {
-            if (!text || text === "N/A") return "N/A";
+            if (!text || text === "—") return "—";
             
             // Basic sanitization/escape to prevent raw HTML execution
             let sanitized = text
@@ -181,6 +454,17 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
             return resultHtml;
         }
 
+        function safeNarrative(id, text, placeholder = "No data captured in this analysis run.") {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.classList.remove('skeleton');
+            if (!text || text === "—" || text.trim() === "") {
+                el.innerHTML = `<p style="color:var(--text-muted); font-style:italic;">${placeholder}</p>`;
+            } else {
+                el.innerHTML = formatNarrativeText(text);
+            }
+        }
+
         function populateNarratives() {
             const an = STOCK_DATA.analysis || {};
             const fund = an.fundamental_analysis || {};
@@ -188,54 +472,151 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
             const sent = an.sentiment_analysis || {};
             
             // Step 1: Verdict & Thesis
-            document.getElementById('executive-summary').innerHTML = formatNarrativeText(an.executive_summary);
-            document.getElementById('verdict-reasoning').innerHTML = formatNarrativeText(an.verdict_reasoning);
-            document.getElementById('sizing-strategy').innerHTML = formatNarrativeText(an.position_sizing);
+            safeNarrative('executive-summary', an.executive_summary, 'No executive summary generated.');
+            safeNarrative('verdict-reasoning', an.verdict_reasoning, 'No verdict reasoning generated.');
+            safeNarrative('sizing-strategy', an.position_sizing, 'No position sizing strategy generated.');
+
+            // Step 2: SWOT Analysis
+            const swot = an.swot_analysis || {};
+            const populateList = (id, items) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (!items || items.length === 0) {
+                    el.innerHTML = '<li style="color: var(--text-muted); list-style: none;">No data points identified.</li>';
+                } else {
+                    el.innerHTML = items.map(item => `<li style="margin-bottom: 6px;">${item}</li>`).join('');
+                }
+            };
+            populateList('swot-strengths', swot.strengths);
+            populateList('swot-weaknesses', swot.weaknesses);
+            populateList('swot-opportunities', swot.opportunities);
+            populateList('swot-threats', swot.threats);
 
             // Step 3: Fundamentals
-            document.getElementById('f-revenue').innerHTML = formatNarrativeText(fund.revenue_quality);
-            document.getElementById('f-profit').innerHTML = formatNarrativeText(fund.profitability);
-            document.getElementById('f-earnings').innerHTML = formatNarrativeText(fund.earnings_power);
-            document.getElementById('f-balance').innerHTML = formatNarrativeText(fund.balance_sheet);
-            document.getElementById('f-moat').innerHTML = formatNarrativeText(fund.competitive_moat);
+            safeNarrative('f-revenue', fund.revenue_quality, 'No revenue quality analysis captured.');
+            safeNarrative('f-profit', fund.profitability, 'No profitability analysis captured.');
+            safeNarrative('f-earnings', fund.earnings_power, 'No earnings power analysis captured.');
+            safeNarrative('f-balance', fund.balance_sheet, 'No balance sheet health analysis captured.');
+            safeNarrative('f-moat', fund.competitive_moat, 'No moat/competitive analysis captured.');
 
             // Step 4: Macro & Sentiment
-            document.getElementById('m-macro').innerHTML = formatNarrativeText(mac.macro_environment);
-            document.getElementById('m-sector').innerHTML = formatNarrativeText(mac.sector_outlook);
-            document.getElementById('s-analysts').innerHTML = formatNarrativeText(sent.analyst_sentiment);
-            document.getElementById('s-institution').innerHTML = formatNarrativeText(sent.institutional_positioning);
-            document.getElementById('s-news').innerHTML = formatNarrativeText(sent.news_sentiment);
+            safeNarrative('m-macro', mac.macro_environment, 'No macro environment data captured in this analysis run.');
+            safeNarrative('m-sector', mac.sector_outlook, 'No sector outlook data captured in this analysis run.');
+            safeNarrative('s-analysts', sent.analyst_sentiment, 'No analyst sentiment captured in this analysis run.');
+            safeNarrative('s-institution', sent.institutional_positioning, 'No institutional positioning captured in this analysis run.');
+            safeNarrative('s-news', sent.news_sentiment, 'No recent news sentiment captured in this analysis run.');
 
-            // Section 5: Catalysts & Risks list
+            // Section 5: Catalysts & Risks list (Intelligence Alerts) and CRO risk assessments
             const catList = document.getElementById('catalysts-list');
-            catList.innerHTML = "";
-            (an.catalysts || []).forEach(cat => {
-                catList.innerHTML += `
-                    <div class="flex-item">
-                        <div class="flex-item-header">
-                            <span class="flex-item-title">${cat.catalyst}</span>
-                            <span class="flex-item-badge badge-medium">${cat.timeline}</span>
+            if (catList) {
+                catList.innerHTML = "";
+                (an.catalysts || []).forEach(cat => {
+                    const impact = cat.impact || "UNKNOWN";
+                    const impactClass = impact.toUpperCase().includes('POS') ? 'badge-bull' : impact.toUpperCase().includes('NEG') ? 'badge-bear' : 'badge-cat';
+                    catList.innerHTML += `
+                        <div class="intel-alert alert-catalyst">
+                            <div class="intel-header">
+                                <span class="intel-title">${cat.catalyst || '—'}</span>
+                                <span class="intel-badge badge-cat">${cat.timeline || '—'}</span>
+                            </div>
+                            <div class="intel-body">
+                                <span class="intel-desc">Projected Impact Vector</span>
+                                <span class="intel-badge ${impactClass}">${impact}</span>
+                            </div>
                         </div>
-                        <div class="flex-item-desc">Expected Impact: ${cat.impact}</div>
-                    </div>
-                `;
-            });
+                    `;
+                });
+            }
 
             const rkList = document.getElementById('risks-list');
-            rkList.innerHTML = "";
             const riskObj = an.risk_assessment || {};
-            (riskObj.risk_factors || []).forEach(rk => {
-                const sevBadge = rk.severity === 'HIGH' ? 'badge-high' : rk.severity === 'MEDIUM' ? 'badge-medium' : 'badge-low';
-                rkList.innerHTML += `
-                    <div class="flex-item">
-                        <div class="flex-item-header">
-                            <span class="flex-item-title">${rk.risk}</span>
-                            <span class="flex-item-badge ${sevBadge}">${rk.severity} Severity</span>
+            if (rkList) {
+                rkList.innerHTML = "";
+                (riskObj.risk_factors || []).forEach(rk => {
+                    const severity = rk.severity || "LOW";
+                    const alertClass = severity === 'HIGH' ? 'alert-high' : severity === 'MEDIUM' ? 'alert-medium' : 'alert-low';
+                    const badgeClass = severity === 'HIGH' ? 'badge-severe' : severity === 'MEDIUM' ? 'badge-warn' : 'badge-low';
+                    
+                    rkList.innerHTML += `
+                        <div class="intel-alert ${alertClass}">
+                            <div class="intel-header">
+                                <span class="intel-title">${rk.risk || '—'}</span>
+                                <span class="intel-badge ${badgeClass}">${severity} Threat</span>
+                            </div>
+                            <div class="intel-body">
+                                <span class="intel-desc">${rk.impact || '—'}</span>
+                                <span class="intel-prob">Prob: ${rk.probability || '—'}</span>
+                            </div>
                         </div>
-                        <div class="flex-item-desc">Probability: ${rk.probability} | ${rk.impact}</div>
-                    </div>
-                `;
-            });
+                    `;
+                });
+            }
+
+            // Populate CRO Vitals Strip and additional outlook text
+            const el_rr_profile = document.getElementById('risks-rr-profile');
+            if (el_rr_profile) {
+                el_rr_profile.innerText = riskObj.risk_reward_ratio || '—';
+                el_rr_profile.style.color = (riskObj.risk_reward_ratio || '').toUpperCase().includes('UNFAVOR') ? 'var(--signal-red)' : '#ffffff';
+            }
+
+            const el_flaw_prob = document.getElementById('risks-flaw-prob');
+            if (el_flaw_prob) {
+                const prob = an.fatal_flaw_probability || 'LOW';
+                el_flaw_prob.innerText = prob;
+                const flawCard = document.getElementById('risks-flaw-card');
+                if (flawCard) {
+                    if (prob.toUpperCase() === 'HIGH') {
+                        flawCard.style.borderLeft = '2px solid var(--signal-red)';
+                        el_flaw_prob.style.color = 'var(--signal-red)';
+                    } else {
+                        flawCard.style.borderLeft = '2px solid var(--border-strong)';
+                        el_flaw_prob.style.color = '#ffffff';
+                    }
+                }
+            }
+
+            const el_cro_verdict = document.getElementById('risks-cro-verdict');
+            if (el_cro_verdict) {
+                const croVer = an.adjusted_verdict || 'MAINTAIN';
+                el_cro_verdict.innerText = croVer;
+                const croCard = document.getElementById('risks-cro-card');
+                if (croCard) {
+                    if (croVer.toUpperCase().includes('DOWNGRADE') || croVer.toUpperCase().includes('SELL')) {
+                        croCard.style.borderLeft = '2px solid var(--signal-red)';
+                        el_cro_verdict.style.color = 'var(--signal-red)';
+                    } else {
+                        croCard.style.borderLeft = '2px solid var(--border-strong)';
+                        el_cro_verdict.style.color = '#ffffff';
+                    }
+                }
+            }
+
+            const el_short_term = document.getElementById('risks-short-term-outlook');
+            if (el_short_term) el_short_term.innerHTML = formatNarrativeText(an.short_term_outlook || 'No short-term tactical directional outlook generated by PM.');
+
+            const el_long_term = document.getElementById('risks-long-term-outlook');
+            if (el_long_term) el_long_term.innerHTML = formatNarrativeText(an.long_term_outlook || 'No long-term secular growth/threat thesis generated by PM.');
+
+            const el_red_team = document.getElementById('risks-red-team-audit');
+            if (el_red_team) {
+                const audit = an.red_team_audit || '—';
+                el_red_team.innerHTML = formatNarrativeText(audit);
+                const redTeamCard = document.getElementById('risks-red-team-card');
+                if (redTeamCard) {
+                    if (audit !== '—' && audit.toUpperCase() !== 'NONE') {
+                        redTeamCard.style.borderLeft = '2px solid var(--signal-red)';
+                    } else {
+                        redTeamCard.style.borderLeft = '1px solid var(--border)';
+                    }
+                }
+            }
+
+            const el_worst_case = document.getElementById('risks-worst-case');
+            if (el_worst_case) {
+                const scenario = riskObj.worst_case_scenario || 'No worst-case multiple contraction scenario modeled.';
+                const bearTarget = an.bear_case_target ? `$${an.bear_case_target}` : '—';
+                el_worst_case.innerHTML = `${formatNarrativeText(scenario)}<br><br><strong style="font-family:var(--font-mono); color:var(--signal-red);">Projected Bear Target: ${bearTarget}</strong>`;
+            }
         }
 
         function initTabs() {
@@ -248,7 +629,14 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
                     tabPanels.forEach(p => p.classList.remove('active'));
 
                     btn.classList.add('active');
-                    document.getElementById(btn.getAttribute('data-tab')).classList.add('active');
+                    const targetId = btn.getAttribute('data-tab');
+                    if (targetId) {
+                        const targetPanel = document.getElementById(targetId);
+                        if (targetPanel) targetPanel.classList.add('active');
+                        if (targetId === 'tab-charts') {
+                            loadChartsTab();
+                        }
+                    }
                 });
             });
         }
@@ -260,9 +648,14 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
             const notionNavBtn = document.getElementById('notion-nav-btn');
 
             if (!notionData || !notionData.subpages || Object.keys(notionData.subpages).length === 0) {
-                notionNavBtn.style.display = "none";
+                if (notionNavBtn) notionNavBtn.style.display = "none";
+                const notConfigured = document.getElementById('notion-not-configured');
+                if (notConfigured) notConfigured.style.display = 'block';
                 return;
             }
+            
+            const notConfigured = document.getElementById('notion-not-configured');
+            if (notConfigured) notConfigured.style.display = 'none';
 
             notionNavBtn.style.display = "block";
             subNav.innerHTML = "";
@@ -309,6 +702,8 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
             const growth15Val = document.getElementById('growth15-val');
             const growth610Val = document.getElementById('growth610-val');
             const terminalVal = document.getElementById('terminal-val');
+
+            if (!rfSlider || !betaSlider || !erpSlider || !growth15Slider || !growth610Slider || !terminalSlider) return;
 
             // Default Values from yfinance key_metrics
             betaSlider.value = parseFloat(m.beta || 1.10);
@@ -377,9 +772,15 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
             const m = STOCK_DATA.key_metrics || {};
             const dcf = STOCK_DATA.dcf_data || {};
 
-            const growth_1_5 = parseFloat(document.getElementById('growth15-slider').value) / 100.0;
-            const growth_6_10 = parseFloat(document.getElementById('growth610-slider').value) / 100.0;
-            const terminal_growth = parseFloat(document.getElementById('terminal-slider').value) / 100.0;
+            const growth15Slider = document.getElementById('growth15-slider');
+            const growth610Slider = document.getElementById('growth610-slider');
+            const terminalSlider = document.getElementById('terminal-slider');
+
+            if (!growth15Slider || !growth610Slider || !terminalSlider) return;
+
+            const growth_1_5 = parseFloat(growth15Slider.value) / 100.0;
+            const growth_6_10 = parseFloat(growth610Slider.value) / 100.0;
+            const terminal_growth = parseFloat(terminalSlider.value) / 100.0;
 
             const fcf_base = parseFloat(dcf.fcf_base || m.freeCashflow || 0);
             const total_cash = parseFloat(m.totalCash || 0);
@@ -413,25 +814,27 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
 
             // Update Widgets
             const impliedEl = document.getElementById('implied-dcf-val');
-            impliedEl.innerText = `$${implied_price.toFixed(2)}`;
+            if (impliedEl) impliedEl.innerText = `$${implied_price.toFixed(2)}`;
 
             const currPrice = parseFloat(m.current_price || m.currentPrice || 1.0);
             const returnPct = ((implied_price - currPrice) / currPrice) * 100.0;
             
             const returnEl = document.getElementById('implied-return-val');
-            returnEl.innerText = `${returnPct >= 0 ? '▲ +' : '▼ '}${returnPct.toFixed(1)}%`;
-            returnEl.className = 'widget-return';
+            if (returnEl) {
+                returnEl.innerText = `${returnPct >= 0 ? '▲ +' : '▼ '}${returnPct.toFixed(1)}%`;
+                returnEl.className = 'widget-return';
+                if (returnPct >= 0) returnEl.classList.add('return-positive');
+                else returnEl.classList.add('return-negative');
+            }
             
             const dcfWidget = document.querySelector('.dcf-widget');
             if (returnPct >= 0) {
-                returnEl.classList.add('return-positive');
                 if (dcfWidget) {
                     dcfWidget.style.borderColor = 'rgba(16,185,129,0.3)';
                     dcfWidget.style.boxShadow = '0 0 24px rgba(16,185,129,0.08)';
                     dcfWidget.style.background = 'linear-gradient(180deg, var(--s1) 0%, rgba(16,185,129,0.02) 100%)';
                 }
             } else {
-                returnEl.classList.add('return-negative');
                 if (dcfWidget) {
                     dcfWidget.style.borderColor = 'rgba(239,68,68,0.3)';
                     dcfWidget.style.boxShadow = '0 0 24px rgba(239,68,68,0.08)';
@@ -440,7 +843,7 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
             }
 
             // Update relative valuation sync
-            document.getElementById('rel-dcf-target').innerText = `$${implied_price.toFixed(2)}`;
+            const el_rel_dcf_target = document.getElementById('rel-dcf-target'); if(el_rel_dcf_target) el_rel_dcf_target.innerText = `$${implied_price.toFixed(2)}`;
         }
 
         // Solvency DuPont ROE
@@ -454,14 +857,14 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
             };
 
             if (Object.keys(dp).length === 0) {
-                updateText('dp-margin', "N/A");
-                updateText('dp-margin-rail', "N/A");
-                updateText('dp-turnover', "N/A");
-                updateText('dp-turnover-rail', "N/A");
-                updateText('dp-leverage', "N/A");
-                updateText('dp-leverage-rail', "N/A");
-                updateText('dp-roe', "N/A");
-                updateText('dp-roe-rail', "N/A");
+                updateText('dp-margin', "—");
+                updateText('dp-margin-rail', "—");
+                updateText('dp-turnover', "—");
+                updateText('dp-turnover-rail', "—");
+                updateText('dp-leverage', "—");
+                updateText('dp-leverage-rail', "—");
+                updateText('dp-roe', "—");
+                updateText('dp-roe-rail', "—");
                 return;
             }
 
@@ -480,42 +883,121 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
             updateText('dp-roe-rail', roeVal);
         }
 
+        function initPiotroskiScore() {
+            const sc = STOCK_DATA.financial_scores || {};
+            const fScore = sc.piotroski_f;
+            const el = document.getElementById('piotroski-val');
+            const labelEl = document.getElementById('piotroski-label');
+            if (!el) return;
+            
+            if (fScore === undefined || fScore === null) {
+                el.innerText = '—';
+                return;
+            }
+            const score = parseInt(fScore);
+            el.innerText = `${score}/9`;
+            
+            if (labelEl) {
+                if (score >= 7) {
+                    labelEl.innerText = 'STRONG';
+                    labelEl.className = 'solvency-zone-label zone-safe';
+                } else if (score >= 4) {
+                    labelEl.innerText = 'NEUTRAL';
+                    labelEl.className = 'solvency-zone-label zone-grey';
+                } else {
+                    labelEl.innerText = 'WEAK';
+                    labelEl.className = 'solvency-zone-label zone-distress';
+                }
+            }
+            
+            // Color-code the score element itself
+            if (score >= 7) el.style.color = 'var(--signal-positive, #10b981)';
+            else if (score >= 4) el.style.color = 'var(--signal-caution, #f59e0b)';
+            else el.style.color = 'var(--signal-negative, #ef4444)';
+        }
+
+        async function fetchAndRenderNews() {
+            const container = document.getElementById('news-feed-container');
+            if (!container) return;
+            try {
+                const res = await fetch(`/api/news/stock/${TICKER}`);
+                if (!res.ok) throw new Error("News fetch failed");
+                const data = await res.json();
+                const newsItems = data.news || [];
+                
+                if (newsItems.length === 0) {
+                    container.innerHTML = `<div style="color: var(--text-muted); font-style: italic; font-size: 0.85rem; text-align: center; padding: 20px;">No recent news found for ${TICKER}.</div>`;
+                    return;
+                }
+                
+                container.innerHTML = newsItems.map(item => {
+                    const pubDate = item.pubDate ? new Date(item.pubDate).toLocaleDateString('en-US', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '';
+                    return `
+                        <a href="${item.link}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: block; padding: 12px 14px; background: var(--bg-header, #0d0e12); border: 1px solid var(--border); border-radius: 4px; transition: border-color 0.15s ease; cursor: pointer;" onmouseover="this.style.borderColor='var(--emerald)'" onmouseout="this.style.borderColor='var(--border)'">
+                            <div style="font-size: 0.87rem; font-weight: 600; color: var(--text-primary); line-height: 1.4; margin-bottom: 6px;">${item.title}</div>
+                            <div style="display: flex; gap: 12px; align-items: center;">
+                                <span style="font-size: 0.72rem; font-family: var(--font-mono, monospace); color: var(--text-muted); background: rgba(255,255,255,0.04); padding: 2px 6px; border-radius: 3px;">${item.publisher}</span>
+                                ${pubDate ? `<span style="font-size: 0.72rem; color: var(--text-muted);">${pubDate}</span>` : ''}
+                            </div>
+                        </a>
+                    `;
+                }).join('');
+            } catch (err) {
+                if (container) container.innerHTML = `<div style="color: var(--text-muted); font-style: italic; font-size: 0.85rem; text-align: center; padding: 20px;">Could not load news at this time.</div>`;
+            }
+        }
+
         // Altman Z deconstruction factors
         function initAltmanTable() {
             const sc = STOCK_DATA.financial_scores || {};
-            const altman = parseFloat(sc.altman_z || 0);
+            const parseNum = (val, def) => {
+                const parsed = parseFloat(val);
+                return isNaN(parsed) ? def : parsed;
+            };
+            const altmanStr = sc.altman_z !== undefined ? sc.altman_z : 0;
+            const altman = parseNum(altmanStr, 0);
 
             // Use true backend weights instead of simulated splits
-            const x1 = sc.altman_x1 !== undefined ? sc.altman_x1 : (altman * 0.15);
-            const x2 = sc.altman_x2 !== undefined ? sc.altman_x2 : (altman * 0.10);
-            const x3 = sc.altman_x3 !== undefined ? sc.altman_x3 : (altman * 0.40);
-            const x4 = sc.altman_x4 !== undefined ? sc.altman_x4 : (altman * 0.20);
-            const x5 = sc.altman_x5 !== undefined ? sc.altman_x5 : (altman * 0.15);
+            const x1 = parseNum(sc.altman_x1, altman * 0.15);
+            const x2 = parseNum(sc.altman_x2, altman * 0.10);
+            const x3 = parseNum(sc.altman_x3, altman * 0.40);
+            const x4 = parseNum(sc.altman_x4, altman * 0.20);
+            const x5 = parseNum(sc.altman_x5, altman * 0.15);
 
-            document.getElementById('altman-x1').innerText = (x1 / 1.2).toFixed(3);
+            const el_altman_x1 = document.getElementById('altman-x1'); if(el_altman_x1) el_altman_x1.innerText = (x1 / 1.2).toFixed(3);
             const wx1El = document.getElementById('altman-wx1');
-            wx1El.innerText = x1.toFixed(3);
-            wx1El.style.color = x1 >= 0 ? 'var(--emerald)' : 'var(--ruby)';
+            if(wx1El) {
+                wx1El.innerText = x1.toFixed(3);
+                wx1El.style.color = x1 >= 0 ? 'var(--emerald)' : 'var(--ruby)';
+            }
 
-            document.getElementById('altman-x2').innerText = (x2 / 1.4).toFixed(3);
+            const el_altman_x2 = document.getElementById('altman-x2'); if(el_altman_x2) el_altman_x2.innerText = (x2 / 1.4).toFixed(3);
             const wx2El = document.getElementById('altman-wx2');
-            wx2El.innerText = x2.toFixed(3);
-            wx2El.style.color = x2 >= 0 ? 'var(--emerald)' : 'var(--ruby)';
+            if(wx2El) {
+                wx2El.innerText = x2.toFixed(3);
+                wx2El.style.color = x2 >= 0 ? 'var(--emerald)' : 'var(--ruby)';
+            }
 
-            document.getElementById('altman-x3').innerText = (x3 / 3.3).toFixed(3);
+            const el_altman_x3 = document.getElementById('altman-x3'); if(el_altman_x3) el_altman_x3.innerText = (x3 / 3.3).toFixed(3);
             const wx3El = document.getElementById('altman-wx3');
-            wx3El.innerText = x3.toFixed(3);
-            wx3El.style.color = x3 >= 0 ? 'var(--emerald)' : 'var(--ruby)';
+            if(wx3El) {
+                wx3El.innerText = x3.toFixed(3);
+                wx3El.style.color = x3 >= 0 ? 'var(--emerald)' : 'var(--ruby)';
+            }
 
-            document.getElementById('altman-x4').innerText = (x4 / 0.6).toFixed(3);
+            const el_altman_x4 = document.getElementById('altman-x4'); if(el_altman_x4) el_altman_x4.innerText = (x4 / 0.6).toFixed(3);
             const wx4El = document.getElementById('altman-wx4');
-            wx4El.innerText = x4.toFixed(3);
-            wx4El.style.color = x4 >= 0 ? 'var(--emerald)' : 'var(--ruby)';
+            if(wx4El) {
+                wx4El.innerText = x4.toFixed(3);
+                wx4El.style.color = x4 >= 0 ? 'var(--emerald)' : 'var(--ruby)';
+            }
 
-            document.getElementById('altman-x5').innerText = (x5 / 0.999).toFixed(3);
+            const el_altman_x5 = document.getElementById('altman-x5'); if(el_altman_x5) el_altman_x5.innerText = (x5 / 0.999).toFixed(3);
             const wx5El = document.getElementById('altman-wx5');
-            wx5El.innerText = x5.toFixed(3);
-            wx5El.style.color = x5 >= 0 ? 'var(--emerald)' : 'var(--ruby)';
+            if(wx5El) {
+                wx5El.innerText = x5.toFixed(3);
+                wx5El.style.color = x5 >= 0 ? 'var(--emerald)' : 'var(--ruby)';
+            }
 
             const totalScoreEl = document.getElementById('altman-total-score');
             const railScoreEl = document.getElementById('altman-rail-score');
@@ -547,179 +1029,138 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
 
         // Relative Valuation multiples grid
         function initPeersTable() {
-            const adv = STOCK_DATA.advanced_models || {};
-            const cca = adv.get_val ? adv.get_val("cca") : adv.cca || {};
             const tbody = document.getElementById('peers-table-body');
             const m = STOCK_DATA.key_metrics || {};
+            const peers = STOCK_DATA.peers_data || [];
 
-            if (Object.keys(cca).length === 0 || !cca.multiples || cca.multiples.length === 0) {
+            if (peers.length === 0) {
                 // Show no data instead of hallucinating peers
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="5" style="text-align: center; color: var(--text-secondary); font-style: italic;">No comparable peer data available in database.</td>
                     </tr>
                 `;
-                document.getElementById('rel-multiple-target').innerText = `N/A`;
+                const el_rel_multiple_target = document.getElementById('rel-multiple-target'); if(el_rel_multiple_target) el_rel_multiple_target.innerText = `N/A`;
                 return;
             }
 
-            // Clean render from database CCA data
+            // Clean render from database peers_data
             tbody.innerHTML = "";
             let sumPE = 0, count = 0;
-            cca.multiples.forEach(p => {
-                tbody.innerHTML += `
-                    <tr>
-                        <td style="font-weight: 700; color: #fff;">${p.ticker}</td>
-                        <td>${p.pe ? p.pe.toFixed(1) + 'x' : 'N/A'}</td>
-                        <td>${p.ps ? p.ps.toFixed(2) + 'x' : 'N/A'}</td>
-                        <td>${p.pb ? p.pb.toFixed(2) + 'x' : 'N/A'}</td>
-                        <td>${p.ev_ebitda ? p.ev_ebitda.toFixed(1) + 'x' : 'N/A'}</td>
-                    </tr>
-                `;
-                if (p.pe) { sumPE += p.pe; count++; }
+            
+            // Calculate averages first for heatmapping
+            peers.forEach(p => { 
+                let peVal = parseFloat(p.pe);
+                if (!isNaN(peVal) && peVal > 0) { 
+                    sumPE += peVal; 
+                    count++; 
+                } 
             });
-
             const avgPE = count > 0 ? (sumPE / count) : 25.0;
-            const currPrice = parseFloat(m.current_price || m.currentPrice || 1.0);
-            const impliedPEVal = (m.trailingEps || 2.0) * avgPE;
-            document.getElementById('rel-multiple-target').innerText = `$${(impliedPEVal || currPrice * 1.05).toFixed(2)}`;
-        }
 
-        // Premium dependency-free SVG 1-Year Price Line Chart with gradients and draw animation
-        function drawWeeklyPriceChart() {
-            const history = STOCK_DATA.price_history_compact;
-            const svg = document.getElementById('price-chart-svg');
-            const tracker = document.getElementById('chart-close-tracker');
+            // Render Target Company Row first
+            const targetPE = m.trailingPE || null;
+            const targetFwdPE = m.forwardPE || null;
+            const targetPS = m.priceToSalesTrailing12Months || null;
+            const targetPB = m.priceToBook || null;
             
-            if (!history || Object.keys(history).length === 0) {
-                svg.innerHTML = `<text x="50%" y="50%" fill="var(--text-secondary)" text-anchor="middle" font-size="12">No price history available in database.</text>`;
-                return;
-            }
-
-            // Convert to sorted array
-            const points = Object.entries(history)
-                .map(([date, val]) => ({ date, val: parseFloat(val) }))
-                .sort((a, b) => a.date.localeCompare(b.date));
-
-            const container = document.getElementById('chart-container-root');
-            const width = container.clientWidth;
-            const height = 220;
-            
-            svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-            
-            const vals = points.map(p => p.val);
-            const minVal = Math.min(...vals) * 0.98;
-            const maxVal = Math.max(...vals) * 1.02;
-            const range = maxVal - minVal;
-
-            // Generate path coordinates
-            const pathCoords = points.map((p, idx) => {
-                const x = (idx / (points.length - 1)) * (width - 40) + 20;
-                const y = height - ((p.val - minVal) / range) * (height - 40) - 20;
-                return { x, y, date: p.date, val: p.val };
-            });
-
-            const pathStr = pathCoords.map((pt, idx) => `${idx === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`).join(" ");
-            
-            // Build the closed area polygon path that fills the chart
-            const minX = pathCoords[0].x;
-            const maxX = pathCoords[pathCoords.length - 1].x;
-            const areaPathStr = `${pathStr} L ${maxX} ${height - 20} L ${minX} ${height - 20} Z`;
-
-            // Renders clean grid paths
-            let gridHTML = "";
-            for (let i = 0; i <= 4; i++) {
-                const y = (i / 4) * (height - 40) + 20;
-                const price = maxVal - (i / 4) * range;
-                gridHTML += `
-                    <line x1="20" y1="${y}" x2="${width - 20}" y2="${y}" stroke="var(--border)" stroke-dasharray="2,4" stroke-width="1" />
-                    <text x="${width - 15}" y="${y + 4}" fill="var(--text-muted)" font-family="JetBrains Mono" font-size="8" text-anchor="end">$${price.toFixed(0)}</text>
-                `;
-            }
-
-            // Gradient and paths
-            const gradientHTML = `
-                <defs>
-                    <linearGradient id="chart-area-grad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stop-color="var(--emerald)" stop-opacity="0.18" />
-                        <stop offset="100%" stop-color="var(--emerald)" stop-opacity="0" />
-                    </linearGradient>
-                </defs>
-                <path d="${areaPathStr}" fill="url(#chart-area-grad)" style="opacity: 0; transition: opacity 1s ease 0.5s;" id="price-area-fill" />
-                <path d="${pathStr}" fill="none" stroke="var(--emerald)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" id="price-path-draw" />
+            tbody.innerHTML += `
+                <tr class="matrix-target-row">
+                    <td style="font-weight: 800; color: var(--brand-secondary); text-align: left;">${TICKER} (TARGET)</td>
+                    <td style="font-weight: 800; color: var(--brand-secondary);">${targetPE ? targetPE.toFixed(1) + 'x' : '—'}</td>
+                    <td style="font-weight: 800; color: var(--brand-secondary);">${targetFwdPE ? targetFwdPE.toFixed(1) + 'x' : '—'}</td>
+                    <td style="font-weight: 800; color: var(--brand-secondary);">${targetPS ? targetPS.toFixed(2) + 'x' : '—'}</td>
+                    <td style="font-weight: 800; color: var(--brand-secondary);">${targetPB ? targetPB.toFixed(2) + 'x' : '—'}</td>
+                </tr>
             `;
 
-            // Active tracker circles
-            let trackersHTML = "";
-            pathCoords.forEach((pt) => {
-                trackersHTML += `
-                    <circle cx="${pt.x}" cy="${pt.y}" r="6" fill="var(--emerald)" opacity="0" class="hover-circle" 
-                        data-date="${pt.date}" data-val="${pt.val.toFixed(2)}"
-                        onmouseover="hoverChartNode(this, ${pt.x}, ${pt.y})"
-                        onmouseout="leaveChartNode()" />
+            // Render Peers with Heatmapping
+            peers.forEach(p => {
+                let peVal = parseFloat(p.pe);
+                let fwdPeVal = parseFloat(p.fwd_pe);
+                let psVal = parseFloat(p.ps);
+                let pbVal = parseFloat(p.pb);
+
+                let peClass = "";
+                if (!isNaN(peVal) && targetPE) {
+                    peClass = peVal > avgPE * 1.2 ? "heat-premium" : peVal < avgPE * 0.8 ? "heat-discount" : "";
+                }
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="font-weight: 700; color: #fff; text-align: left;">${p.ticker}</td>
+                        <td class="${peClass}">${!isNaN(peVal) ? peVal.toFixed(1) + 'x' : '—'}</td>
+                        <td>${!isNaN(fwdPeVal) ? fwdPeVal.toFixed(1) + 'x' : '—'}</td>
+                        <td>${!isNaN(psVal) ? psVal.toFixed(2) + 'x' : '—'}</td>
+                        <td>${!isNaN(pbVal) ? pbVal.toFixed(2) + 'x' : '—'}</td>
+                    </tr>
                 `;
             });
 
-            svg.innerHTML = gridHTML + gradientHTML + trackersHTML;
-            
-            // Set current closing tracker
-            const latestClose = points[points.length - 1].val;
-            tracker.innerText = `Latest Close: $${latestClose.toFixed(2)}`;
-
-            // Animate draw-in
-            setTimeout(() => {
-                const pathEl = svg.querySelector('#price-path-draw');
-                const areaEl = svg.querySelector('#price-area-fill');
-                if (pathEl) {
-                    const length = pathEl.getTotalLength();
-                    pathEl.style.strokeDasharray = length;
-                    pathEl.style.strokeDashoffset = length;
-                    // Force reflow
-                    pathEl.getBoundingClientRect();
-                    pathEl.style.transition = 'stroke-dashoffset 1.4s var(--ease)';
-                    pathEl.style.strokeDashoffset = '0';
-                }
-                if (areaEl) {
-                    areaEl.style.opacity = '1';
-                }
-            }, 50);
+            const currPrice = parseFloat(m.current_price || m.currentPrice || 1.0);
+            const adv = STOCK_DATA.advanced_models || {};
+            const cca = adv.cca || {};
+            const impliedPEVal = cca.implied_pe_price || (m.trailingEps || 2.0) * avgPE;
+            const el_rel_multiple_target = document.getElementById('rel-multiple-target'); if(el_rel_multiple_target) el_rel_multiple_target.innerText = `$${(impliedPEVal || currPrice * 1.05).toFixed(2)}`;
         }
 
-        function hoverChartNode(circle, x, y) {
-            const tooltip = document.getElementById('chart-tooltip-el');
-            const tracker = document.getElementById('chart-close-tracker');
-            
-            const date = circle.getAttribute('data-date');
-            const val = circle.getAttribute('data-val');
+// --- LIVE QUOTE RAPID POLLING ---
+let liveQuoteInterval = null;
+function startRapidPolling() {
+    if (liveQuoteInterval) clearInterval(liveQuoteInterval);
+    const ticker = typeof CURRENT_TICKER !== 'undefined' ? CURRENT_TICKER : null;
+    if (!ticker) return;
+    
+    // Initial fetch
+    fetchLiveQuote(ticker);
+    
+    // Poll every 3.5 seconds
+    liveQuoteInterval = setInterval(() => {
+        fetchLiveQuote(ticker);
+    }, 3500);
+}
 
-            circle.setAttribute("opacity", "1");
-            tracker.innerText = `Close: $${val}`;
-
-            tooltip.style.display = "block";
-            // Trigger reflow to ensure transition works
-            void tooltip.offsetWidth;
-            tooltip.style.opacity = "1";
+async function fetchLiveQuote(ticker) {
+    try {
+        const res = await fetch(`/api/stock/${ticker}/live-quote`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === 'success') {
+            const price = data.price.toFixed(2);
+            const change = data.change.toFixed(2);
+            const pct = data.change_pct.toFixed(2);
+            const sign = change >= 0 ? '+' : '';
+            const colorClass = change >= 0 ? 'text-bull' : 'text-bear';
             
-            tooltip.style.left = `${x - 40}px`;
-            tooltip.style.top = `${y - 45}px`; // Moved slightly higher
-            tooltip.innerHTML = `${date} &middot; <span style="color: var(--emerald);">$${val}</span>`;
+            // Update Header
+            const hPrice = document.getElementById('header-price');
+            const hChange = document.getElementById('header-price-change');
+            if (hPrice) {
+                hPrice.innerText = `$${price}`;
+                hPrice.style.textShadow = change >= 0 ? '0 0 10px rgba(30,215,96,0.8)' : '0 0 10px rgba(255,75,75,0.8)';
+                setTimeout(() => hPrice.style.textShadow = 'none', 500);
+            }
+            if (hChange) {
+                hChange.innerText = `${sign}${pct}% today`;
+                hChange.className = `quote-change ${colorClass}`;
+            }
+            
+            // Update Stat Node
+            const nPrice = document.getElementById('price-val');
+            const nChange = document.getElementById('price-change-sub');
+            if (nPrice) nPrice.innerText = `$${price}`;
+            if (nChange) {
+                nChange.innerText = `${sign}$${Math.abs(change)} (${sign}${pct}%)`;
+                nChange.style.color = change >= 0 ? 'var(--terminal-green)' : 'var(--terminal-red)';
+            }
         }
+    } catch (e) {
+        console.error("Live quote fetch failed", e);
+    }
+}
 
-        function leaveChartNode() {
-            const tooltip = document.getElementById('chart-tooltip-el');
-            tooltip.style.opacity = "0";
-            
-            // Wait for CSS transition (0.2s) before setting display:none
-            setTimeout(() => {
-                if(tooltip.style.opacity === "0") {
-                    tooltip.style.display = "none";
-                }
-            }, 200);
-            
-            const hovers = document.querySelectorAll('.hover-circle');
-            hovers.forEach(h => h.setAttribute("opacity", "0"));
-        }
-
+document.addEventListener('DOMContentLoaded', () => {
+    startRapidPolling();
+});
         // Render Quarterly Statements dynamically
         function loadStatement(type, btn) {
             document.querySelectorAll('.financial-statement-selector button').forEach(b => b.classList.remove('active'));
@@ -738,6 +1179,7 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
             else data = STOCK_DATA.q_cashflow;
             
             const root = document.getElementById('statement-table-root');
+            if (!root) return;
             root.innerHTML = '';
             
             if (!data || !data.columns || !data.columns.length) {
@@ -822,9 +1264,11 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
             if (placeholder) placeholder.style.display = 'none';
             if (container) container.style.display = 'block';
 
-            document.getElementById('financial-chart-title').innerText = `${metricName} — Quarterly Progression`;
+            const el_financial_chart_title = document.getElementById('financial-chart-title'); if(el_financial_chart_title) el_financial_chart_title.innerText = `${metricName} — Quarterly Progression`;
             
-            const ctx = document.getElementById('financial-row-chart').getContext('2d');
+            const canvas = document.getElementById('financial-row-chart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
             if (financialChartInstance) {
                 financialChartInstance.destroy();
             }
@@ -892,18 +1336,26 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
         }
 
         // Save CAPM DCF Recalculations back to backend Excel and database
-        document.getElementById('save-btn').addEventListener('click', async () => {
-            const saveBtn = document.getElementById('save-btn');
-            saveBtn.disabled = true;
-            saveBtn.innerText = "Saving Workbook...";
+        const saveBtn = document.getElementById('save-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                saveBtn.disabled = true;
+                saveBtn.innerText = "Saving Workbook...";
 
-            // Extract calculated Cost of Equity
-            const capmText = document.getElementById('capm-cost-val').innerText;
-            const wacc = parseFloat(capmText.split(': ')[1].replace('%', ''));
+                // Extract calculated Cost of Equity
+                const capmCostValEl = document.getElementById('capm-cost-val');
+                const capmText = capmCostValEl ? capmCostValEl.innerText : "";
+                const waccMatch = capmText.match(/([\d.]+)%/);
+                const wacc = waccMatch ? parseFloat(waccMatch[1]) : 10.0;
 
-            const growth_1_5 = parseFloat(document.getElementById('growth15-slider').value);
-            const growth_6_10 = parseFloat(document.getElementById('growth610-slider').value);
-            const terminal_growth = parseFloat(document.getElementById('terminal-slider').value);
+                const g15El = document.getElementById('growth15-slider');
+                const growth_1_5 = g15El ? parseFloat(g15El.value) : 15.0;
+                
+                const g610El = document.getElementById('growth610-slider');
+                const growth_6_10 = g610El ? parseFloat(g610El.value) : 10.0;
+                
+                const termEl = document.getElementById('terminal-slider');
+                const terminal_growth = termEl ? parseFloat(termEl.value) : 2.5;
 
             try {
                 const res = await fetch(`/api/stock/${TICKER}/recalculate`, {
@@ -933,7 +1385,180 @@ const TICKER = window.location.pathname.split('/').filter(Boolean).pop().toUpper
                     Save Changes to Excel
                 `;
             }
-        });
+            });
+        }
 
         // Initialize Page
         fetchStockData();
+
+        function updateLiveClockAndSession() {
+            const now = new Date();
+            const utcStr = now.toISOString().slice(11, 19) + " UTC";
+            const clockEl = document.getElementById('live-clock');
+            if (clockEl) clockEl.innerText = utcStr;
+            
+            const sessionBadge = document.getElementById('market-session');
+            if (!sessionBadge) return;
+            
+            try {
+                const estTimeStr = now.toLocaleString("en-US", {timeZone: "America/New_York", hour12: false});
+                const estMatch = estTimeStr.match(/(\d+):(\d+):(\d+)/);
+                if (estMatch) {
+                    const hours = parseInt(estMatch[1]);
+                    const minutes = parseInt(estMatch[2]);
+                    const decimalTime = hours + minutes / 60;
+                    
+                    const estDateObj = new Date(estTimeStr);
+                    const day = estDateObj.getDay();
+                    
+                    if (day === 0 || day === 6) {
+                        sessionBadge.className = 'session-badge closed';
+                        sessionBadge.innerText = 'MARKET CLOSED';
+                    } else {
+                        if (decimalTime >= 4 && decimalTime < 9.5) {
+                            sessionBadge.className = 'session-badge pre-mkt';
+                            sessionBadge.innerText = 'PRE-MARKET';
+                        } else if (decimalTime >= 9.5 && decimalTime < 16) {
+                            sessionBadge.className = 'session-badge open';
+                            sessionBadge.innerText = 'MARKET OPEN';
+                        } else if (decimalTime >= 16 && decimalTime < 20) {
+                            sessionBadge.className = 'session-badge after-hrs';
+                            sessionBadge.innerText = 'AFTER HOURS';
+                        } else {
+                            sessionBadge.className = 'session-badge closed';
+                            sessionBadge.innerText = 'MARKET CLOSED';
+                        }
+                    }
+                }
+            } catch (e) {
+                const utcHours = now.getUTCHours();
+                if (utcHours >= 14 && utcHours < 21) {
+                    sessionBadge.className = 'session-badge open';
+                    sessionBadge.innerText = 'MARKET OPEN';
+                } else {
+                    sessionBadge.className = 'session-badge closed';
+                    sessionBadge.innerText = 'MARKET CLOSED';
+                }
+            }
+        }
+        updateLiveClockAndSession();
+        setInterval(updateLiveClockAndSession, 1000);
+
+
+        window.applyDCFPreset = function(scenario) {
+            const presets = {
+                bear: { rf: 4.5, beta: 1.50, erp: 5.0, g15: 5.0,  g610: 3.0,  terminal: 1.5 },
+                base: { rf: 4.2, beta: 1.00, erp: 4.8, g15: 12.0, g610: 7.0,  terminal: 2.5 },
+                bull: { rf: 3.5, beta: 0.80, erp: 4.375, g15: 22.0, g610: 12.0, terminal: 3.5 },
+            };
+            const p = presets[scenario];
+            if (!p) return;
+            
+            const rfSlider = document.getElementById('rf-slider');
+            const betaSlider = document.getElementById('beta-slider');
+            const erpSlider = document.getElementById('erp-slider');
+            const growth15Slider = document.getElementById('growth15-slider');
+            const growth610Slider = document.getElementById('growth610-slider');
+            const terminalSlider = document.getElementById('terminal-slider');
+            
+            if (rfSlider) rfSlider.value = p.rf;
+            if (betaSlider) betaSlider.value = p.beta;
+            if (erpSlider) erpSlider.value = p.erp;
+            if (growth15Slider) growth15Slider.value = p.g15;
+            if (growth610Slider) growth610Slider.value = p.g610;
+            if (terminalSlider) terminalSlider.value = p.terminal;
+            
+            if (rfSlider) rfSlider.dispatchEvent(new Event('input'));
+        };
+
+        let chartsLoaded = false;
+        async function loadChartsTab() {
+            if (chartsLoaded) return;
+            const container = document.getElementById('charts-container');
+            if (!container) return;
+
+            container.innerHTML = `
+                <div class="narrative-card" style="width: 100%; max-width: 900px; margin: 0 auto; padding: 20px; background: var(--bg-surface);">
+                    <div style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 12px; font-weight: 700;">
+                        5-Year Interactive Price History
+                    </div>
+                    <canvas id="historical-price-chart" height="300"></canvas>
+                </div>
+            `;
+
+            try {
+                const res = await fetch(`/api/stock/${TICKER}/history?period=5y`);
+                if (!res.ok) throw new Error("Failed to fetch historical data");
+                const data = await res.json();
+                const history = data.history || [];
+
+                if (history.length === 0) {
+                    container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 40px; font-style: italic;">
+                        📈 No historical data available for this stock.
+                    </div>`;
+                    return;
+                }
+
+                const labels = history.map(row => row.date);
+                const prices = history.map(row => row.close);
+
+                const ctx = document.getElementById('historical-price-chart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Close Price',
+                            data: prices,
+                            borderColor: '#3f61ec',
+                            backgroundColor: 'rgba(63, 97, 236, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(0,0,0,0.8)',
+                                titleFont: { family: "'Geist Mono', monospace", size: 11 },
+                                bodyFont: { family: "'Geist Mono', monospace", size: 12 },
+                                padding: 10,
+                                displayColors: false,
+                                callbacks: {
+                                    label: function(context) {
+                                        return '$' + context.parsed.y.toFixed(2);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: '#1a1a1a' },
+                                ticks: { color: '#888', maxTicksLimit: 10, font: { family: "'Geist Mono', monospace", size: 9 } }
+                            },
+                            y: {
+                                grid: { color: '#1a1a1a' },
+                                ticks: { color: '#888', font: { family: "'Geist Mono', monospace", size: 9 }, callback: function(value) { return '$' + value; } }
+                            }
+                        }
+                    }
+                });
+
+                chartsLoaded = true;
+            } catch(e) {
+                console.error("Error loading charts:", e);
+                container.innerHTML = `<div style="text-align: center; color: var(--ruby); padding: 40px;">
+                    ❌ Failed to load financial charts: ${e.message}
+                </div>`;
+            }
+        }
+

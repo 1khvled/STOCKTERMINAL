@@ -1,0 +1,91 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} // StockerAI Terminal</title>
+    <link rel="stylesheet" href="/static/css/terminal_shell.css">
+</head>
+<body class="terminal-shell" data-pro-page="{{ page }}">
+    <main class="pro-grid">
+        <section class="pro-card full command-deck">
+            <div class="pro-title">{{ eyebrow }}</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+                <div class="ops-row"><span>Universe</span><strong data-stock-count>--</strong></div>
+                <div class="ops-row"><span>Buy Signals</span><strong class="pro-positive" data-buy-count>--</strong></div>
+                <div class="ops-row"><span>Sell Signals</span><strong class="pro-negative" data-sell-count>--</strong></div>
+                <div class="ops-row"><span>Avg Return</span><strong data-avg-upside>--</strong></div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px;">
+                <div class="pro-command-row"><code>RUN TKR</code><span>compile new model</span></div>
+                <div class="pro-command-row"><code>OPEN TKR</code><span>load workstation</span></div>
+                <div class="pro-command-row"><code>NEWS TKR</code><span>AI materiality</span></div>
+                <div class="pro-command-row"><code>SEC TKR</code><span>filing tape</span></div>
+                <div class="pro-command-row"><code>LAB TKR</code><span>scenario lab</span></div>
+                <div class="pro-command-row"><code>IC TKR</code><span>committee</span></div>
+                <div class="pro-command-row"><code>FLAGS</code><span>risk detector</span></div>
+                <div class="pro-command-row"><code>PORT</code><span>portfolio command</span></div>
+            </div>
+        </section>
+
+        {% if page == "watchlist" %}
+        <section class="pro-card wide">
+            <div class="pro-title">Watchlist Quote Grid</div>
+            <table class="pro-table">
+                <thead><tr><th>Ticker</th><th>Name</th><th>Verdict</th><th>Price</th><th>Return</th><th>Sector</th></tr></thead>
+                <tbody id="pro-primary-table"><tr><td colspan="6">LOADING...</td></tr></tbody>
+            </table>
+        </section>
+        <section class="pro-card side">
+            <div class="pro-title">Opportunity Queue</div>
+            <table class="pro-table">
+                <thead><tr><th>Ticker</th><th>Name</th><th>Verdict</th><th>Price</th><th>Return</th><th>Sector</th></tr></thead>
+                <tbody id="pro-secondary-table"><tr><td colspan="6">LOADING...</td></tr></tbody>
+            </table>
+        </section>
+        {% elif page == "reports" %}
+        <section class="pro-card full">
+            <div class="pro-title">Generated Model Vault</div>
+            <table class="pro-table">
+                <thead><tr><th>Ticker</th><th>Name</th><th>Generated</th><th>Excel</th><th>JSON</th><th>Terminal</th></tr></thead>
+                <tbody id="pro-primary-table"><tr><td colspan="6">LOADING...</td></tr></tbody>
+            </table>
+        </section>
+        {% elif page == "market-feed" %}
+        <section class="pro-card wide">
+            <div class="pro-title">Bullish Terminal Tape</div>
+            <table class="pro-table">
+                <thead><tr><th>Ticker</th><th>Name</th><th>Verdict</th><th>Price</th><th>Return</th><th>Sector</th></tr></thead>
+                <tbody id="pro-primary-table"><tr><td colspan="6">LOADING...</td></tr></tbody>
+            </table>
+        </section>
+        <section class="pro-card side">
+            <div class="pro-title">Risk Tape</div>
+            <table class="pro-table">
+                <thead><tr><th>Ticker</th><th>Name</th><th>Verdict</th><th>Price</th><th>Return</th><th>Sector</th></tr></thead>
+                <tbody id="pro-secondary-table"><tr><td colspan="6">LOADING...</td></tr></tbody>
+            </table>
+        </section>
+        {% else %}
+        <section class="pro-card wide">
+            <div class="pro-title">Subprocess History</div>
+            <table class="pro-table">
+                <thead><tr><th>Ticker</th><th>Name</th><th>Verdict</th><th>Price</th><th>Return</th><th>Sector</th></tr></thead>
+                <tbody id="pro-primary-table"><tr><td colspan="6">LOADING...</td></tr></tbody>
+            </table>
+        </section>
+        <section class="pro-card side">
+            <div class="pro-title">System Monitor</div>
+            <div class="ops-row"><span>Server</span><strong class="pro-positive">ACTIVE</strong></div>
+            <div class="ops-row"><span>Cache</span><strong>{{ cache_size }}</strong></div>
+            <div class="ops-row"><span>Stream</span><strong>SSE READY</strong></div>
+            <div class="ops-row"><span>Storage</span><strong>LOCAL</strong></div>
+            <a href="/" class="ops-link" style="margin-top:14px;">RUN NEW ANALYSIS <span>ENTER</span></a>
+        </section>
+        {% endif %}
+    </main>
+
+    <script src="/static/js/terminal_shell.js"></script>
+    <script src="/static/js/pro_pages.js"></script>
+</body>
+</html>

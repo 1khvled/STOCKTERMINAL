@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockerAI // Watchlist</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/theme.css">
+    <link rel="stylesheet" href="/static/css/index.css">
+    <link rel="stylesheet" href="/static/css/terminal_shell.css">
+    <style>
+        .wl-header {
+            background: #000;
+            border-bottom: 1px solid #222;
+            padding: 14px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        .wl-workspace {
+            max-width: 1300px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 28px;
+        }
+        .wl-card {
+            background: var(--surface, #0d0e12);
+            border: 1px solid var(--border, #222);
+            border-radius: 6px;
+            padding: 28px;
+        }
+        .wl-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .wl-title {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -0.5px;
+        }
+        .wl-meta {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .wl-count {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-muted, #555);
+        }
+        .btn-danger {
+            background: transparent;
+            border: 1px solid var(--ruby, #ef4444);
+            color: var(--ruby, #ef4444);
+            padding: 6px 14px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem;
+            font-weight: 600;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-danger:hover {
+            background: rgba(239,68,68,0.08);
+        }
+        .wl-empty {
+            text-align: center;
+            padding: 60px 20px;
+            border: 1px dashed var(--border, #222);
+            border-radius: 6px;
+        }
+        .wl-empty svg {
+            margin-bottom: 16px;
+            opacity: 0.4;
+        }
+        .wl-empty-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+        .wl-empty-desc {
+            font-size: 0.85rem;
+            color: var(--text-muted, #555);
+            line-height: 1.6;
+        }
+        .wl-empty-desc a {
+            color: var(--emerald, #10b981);
+            text-decoration: none;
+        }
+        .wl-empty-desc a:hover { text-decoration: underline; }
+        .wl-table-wrap { overflow-x: auto; }
+        .wl-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        .wl-table th {
+            padding: 10px 14px;
+            text-align: left;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted, #555);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            border-bottom: 1px solid var(--border, #222);
+            font-weight: 600;
+        }
+        .wl-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            color: var(--text-primary, #f3f4f6);
+            vertical-align: middle;
+        }
+        .wl-table tr:hover td { background: rgba(255,255,255,0.02); }
+        .wl-ticker-cell {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            color: #fff;
+            font-size: 0.95rem;
+        }
+        .wl-badge {
+            display: inline-block;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 3px;
+            text-transform: uppercase;
+        }
+        .badge-buy  { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+        .badge-sell { background: rgba(239,68,68,0.12);  color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+        .badge-hold { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
+        .badge-safe    { background: rgba(16,185,129,0.08); color: #10b981; }
+        .badge-grey    { background: rgba(245,158,11,0.08); color: #f59e0b; }
+        .badge-distress{ background: rgba(239,68,68,0.08);  color: #ef4444; }
+        .wl-action-cell { display: flex; gap: 8px; align-items: center; }
+        .wl-btn-sm {
+            padding: 5px 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: 3px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            transition: all 0.15s ease;
+        }
+        .wl-btn-open   { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+        .wl-btn-open:hover { background: rgba(16,185,129,0.22); }
+        .wl-btn-remove { background: transparent; color: var(--text-muted,#555); border: 1px solid var(--border,#222); }
+        .wl-btn-remove:hover { border-color: #ef4444; color: #ef4444; }
+    </style>
+</head>
+<body class="terminal-shell">
+<div class="main-content" style="padding: 0; gap: 0; margin-left: 0; flex-direction: column; min-height: 100vh;">
+
+    <!-- Header -->
+    <div class="wl-header">
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.85rem; background: #fff; color: #000; padding: 2px 8px; border-radius: 3px;">S_AI</span>
+            <span style="font-size: 1rem; font-weight: 700; color: #fff;">StockerAI Terminal</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--emerald, #10b981); background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); padding: 2px 6px; border-radius: 3px; letter-spacing: 0.5px;">WATCHLIST</span>
+        </div>
+        <a href="/" class="terminal-action-btn" style="text-decoration: none; font-size: 0.82rem;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Back to Hub
+        </a>
+    </div>
+
+    <!-- Workspace -->
+    <div class="wl-workspace">
+        <div class="wl-card">
+            <div class="section-label" style="margin-bottom: 12px;">Starred Tickers</div>
+
+            <div class="wl-title-row">
+                <h1 class="wl-title">My Watchlist</h1>
+                <div class="wl-meta">
+                    <span id="watchlist-count" class="wl-count">0 tickers</span>
+                    <button class="btn-danger" onclick="clearWatchlist()">Clear All</button>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div id="watchlist-empty" class="wl-empty" style="display: none;">
+                <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted, #444)" stroke-width="1.5">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+                <div class="wl-empty-title">No Starred Tickers</div>
+                <div class="wl-empty-desc">
+                    Go to the <a href="/">Stock Hub</a> and click the ☆ star icon next to any ticker in the catalog table to add it here.
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div id="watchlist-grid" class="wl-table-wrap" style="display: none;">
+                <table class="wl-table">
+                    <thead>
+                        <tr>
+                            <th>Ticker</th>
+                            <th>Company</th>
+                            <th>Sector</th>
+                            <th>Verdict</th>
+                            <th>Confidence</th>
+                            <th>Price</th>
+                            <th>Implied Return</th>
+                            <th>Piotroski F</th>
+                            <th>Altman Z</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="watchlist-body">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const WATCHLIST_KEY = 'stocker_watchlist';
+
+    function getWatchlist() {
+        try { return JSON.parse(localStorage.getItem(WATCHLIST_KEY)) || []; }
+        catch(e) { return []; }
+    }
+
+    function removeFromWatchlist(ticker) {
+        const wl = getWatchlist().filter(t => t !== ticker);
+        localStorage.setItem(WATCHLIST_KEY, JSON.stringify(wl));
+        renderPage();
+    }
+
+    function clearWatchlist() {
+        if (!confirm('Remove all tickers from your watchlist?')) return;
+        localStorage.setItem(WATCHLIST_KEY, JSON.stringify([]));
+        renderPage();
+    }
+
+    function getVerdictClass(verdict) {
+        const v = (verdict || '').toUpperCase();
+        if (v.includes('BUY')) return 'badge-buy';
+        if (v.includes('SELL')) return 'badge-sell';
+        return 'badge-hold';
+    }
+
+    function getZoneClass(label) {
+        const l = (label || '').toLowerCase();
+        if (l.includes('safe')) return 'badge-safe';
+        if (l.includes('grey') || l.includes('gray')) return 'badge-grey';
+        return 'badge-distress';
+    }
+
+    function fmtPiotroski(val) {
+        if (val === undefined || val === null || val === 'N/A') return 'N/A';
+        const n = parseInt(val);
+        const color = n >= 7 ? '#10b981' : n >= 4 ? '#f59e0b' : '#ef4444';
+        return `<span style="font-family:'JetBrains Mono',monospace; font-weight:700; color:${color};">${n}/9</span>`;
+    }
+
+    async function renderPage() {
+        const wl = getWatchlist();
+        const countEl  = document.getElementById('watchlist-count');
+        const emptyEl  = document.getElementById('watchlist-empty');
+        const gridEl   = document.getElementById('watchlist-grid');
+        const tbody    = document.getElementById('watchlist-body');
+
+        if (countEl) countEl.innerText = `${wl.length} ticker${wl.length !== 1 ? 's' : ''}`;
+
+        if (wl.length === 0) {
+            emptyEl.style.display = 'block';
+            gridEl.style.display  = 'none';
+            return;
+        }
+
+        emptyEl.style.display = 'none';
+        gridEl.style.display  = 'block';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px; color:var(--text-muted,#555);">Loading watchlist data…</td></tr>';
+
+        try {
+            const res  = await fetch('/api/stocks');
+            const data = await res.json();
+            const allStocks = data.stocks || [];
+            const watchedStocks = allStocks.filter(s => wl.includes(s.ticker));
+
+            if (watchedStocks.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:24px; color:var(--text-muted,#555); font-style:italic;">
+                    None of your watchlist tickers (${wl.join(', ')}) have been analyzed yet.<br>
+                    Run the analysis pipeline from the hub first.
+                </td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = watchedStocks.map(s => {
+                const upVal    = (s.upside || 0) * 100;
+                const upColor  = upVal >= 0 ? '#10b981' : '#ef4444';
+                const upText   = `${upVal >= 0 ? '+' : ''}${upVal.toFixed(1)}%`;
+                const zVal     = parseFloat(s.altman_z || 0);
+                const zLabel   = s.altman_z_label || 'N/A';
+                const confText = (s.confidence !== 'N/A' && s.confidence !== undefined) ? `${s.confidence}%` : 'N/A';
+
+                return `
+                    <tr>
+                        <td class="wl-ticker-cell">${s.ticker}</td>
+                        <td>${s.company_name}</td>
+                        <td style="font-size:0.8rem; color:var(--text-muted,#777);">${s.sector}</td>
+                        <td><span class="wl-badge ${getVerdictClass(s.verdict)}">${s.verdict}</span></td>
+                        <td style="font-family:'JetBrains Mono',monospace; font-size:0.82rem;">${confText}</td>
+                        <td style="font-family:'JetBrains Mono',monospace; font-weight:600;">$${(s.current_price || 0).toFixed(2)}</td>
+                        <td style="font-weight:700; color:${upColor}; font-family:'JetBrains Mono',monospace;">${upText}</td>
+                        <td>${fmtPiotroski(s.piotroski_f)}</td>
+                        <td>
+                            <span class="wl-badge ${getZoneClass(zLabel)}" style="font-size:0.68rem;">
+                                ${isNaN(zVal) ? 'N/A' : zVal.toFixed(2)} — ${zLabel}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="wl-action-cell">
+                                <a href="/dashboard/${s.ticker}" class="wl-btn-sm wl-btn-open">Open</a>
+                                <button class="wl-btn-sm wl-btn-remove" onclick="removeFromWatchlist('${s.ticker}')">Remove</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#ef4444;">
+                Failed to load watchlist data: ${err.message}
+            </td></tr>`;
+        }
+    }
+
+    // Initial render
+    renderPage();
+</script>
+</body>
+</html>

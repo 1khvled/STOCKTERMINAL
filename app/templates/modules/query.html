@@ -1,0 +1,138 @@
+<div
+  class="module-animated"
+  style="height: 100%; display: flex; flex-direction: column"
+>
+  <div style="margin-bottom: 20px; flex-shrink: 0">
+    <h2 style="font-size: 1.5rem">Cross-Document Query</h2>
+    <p
+      style="
+        color: var(--fiscal-text-secondary);
+        font-size: 0.85rem;
+        margin-top: 4px;
+      "
+    >
+      Search across SEC filings, earnings transcripts, investor presentations,
+      and news for any keyword or phrase.
+    </p>
+  </div>
+
+  <!-- Search Input -->
+  <div
+    class="glass-panel"
+    style="padding: 16px 20px; margin-bottom: 16px; flex-shrink: 0"
+  >
+    <div style="display: flex; gap: 10px">
+      <input
+        type="text"
+        id="query-search-input"
+        class="fiscal-search-input"
+        placeholder='e.g. "AI infrastructure spend", "inflation impact margins", "stock buyback program"'
+        style="flex: 1; padding: 12px 16px; font-size: 0.95rem"
+      />
+      <button
+        class="fiscal-btn-primary"
+        onclick="runQuery()"
+        style="padding: 12px 24px"
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          style="margin-right: 6px; vertical-align: middle"
+        >
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        Search
+      </button>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div
+    style="
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    "
+  >
+    <select id="query-scope" class="fiscal-select" style="min-width: 160px">
+      <option value="all">All Documents</option>
+      <option value="filings">SEC Filings (10-K, 10-Q, 8-K)</option>
+      <option value="transcripts">Earnings Transcripts</option>
+      <option value="presentations">Investor Presentations</option>
+      <option value="news">News</option>
+    </select>
+    <select id="query-ticker" class="fiscal-select" style="min-width: 160px">
+      <option value="">All Companies</option>
+    </select>
+    <div class="fiscal-toggle-group">
+      <button class="fiscal-toggle-btn active" data-sort="relevance">
+        Relevance
+      </button>
+      <button class="fiscal-toggle-btn" data-sort="date">Date</button>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div
+    style="
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    "
+    id="query-results-container"
+  >
+    <div
+      class="glass-panel"
+      style="
+        padding: 60px 20px;
+        text-align: center;
+        color: var(--fiscal-text-tertiary);
+      "
+    >
+      <svg
+        width="40"
+        height="40"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        style="margin-bottom: 12px"
+      >
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <p>Enter a query to search across all financial documents</p>
+    </div>
+  </div>
+
+  <div
+    style="
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 4px;
+      flex-shrink: 0;
+    "
+  >
+    <span
+      style="color: var(--fiscal-text-tertiary); font-size: 0.8rem"
+      id="query-count"
+      >0 results</span
+    >
+  </div>
+</div>
+
+<script>
+  setTimeout(() => {
+    if (window.QueryController) window.QueryController.init(window.App);
+  }, 200);
+</script>

@@ -1,0 +1,39 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} // StockerAI Terminal</title>
+    <link rel="stylesheet" href="/static/css/terminal_shell.css">
+</head>
+<body class="terminal-shell" data-intel-page="{{ page }}">
+    <main class="pro-grid">
+        <section class="pro-card full command-deck">
+            <div class="pro-title">{{ eyebrow }}</div>
+            {% if page != "portfolio" %}
+            <div class="intel-runner">
+                <input id="intel-ticker" class="term-command-input intel-input" placeholder="TICKER">
+                <button id="intel-run" class="ops-link" type="button">RUN ENGINE <span>ENTER</span></button>
+            </div>
+            {% else %}
+            <div class="intel-runner">
+                <input id="portfolio-ticker" class="term-command-input intel-input" placeholder="TICKER">
+                <input id="portfolio-weight" class="term-command-input intel-input" placeholder="WEIGHT %" type="number" min="0" max="100" step="0.1">
+                <button id="portfolio-add" class="ops-link" type="button">ADD POSITION <span>PORT</span></button>
+            </div>
+            {% endif %}
+        </section>
+
+        <section class="pro-card wide">
+            <div class="pro-title" id="intel-primary-title">Terminal Output</div>
+            <div id="intel-primary" class="intel-output">AWAITING COMMAND...</div>
+        </section>
+        <section class="pro-card side">
+            <div class="pro-title" id="intel-side-title">Control Tape</div>
+            <div id="intel-side" class="intel-output">READY.</div>
+        </section>
+    </main>
+    <script src="/static/js/terminal_shell.js"></script>
+    <script src="/static/js/intel_pages.js"></script>
+</body>
+</html>

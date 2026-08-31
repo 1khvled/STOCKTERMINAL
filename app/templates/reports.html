@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockerAI // Model Vault</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/theme.css">
+    <link rel="stylesheet" href="/static/css/index.css">
+    <link rel="stylesheet" href="/static/css/terminal_shell.css">
+    <style>
+        .vault-wrapper {
+            padding: 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+        .stat-card {
+            background: var(--bg-panel, #141518);
+            border: 1px solid var(--border, rgba(255,255,255,0.09));
+            border-radius: var(--radius-md, 8px);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            box-shadow: var(--shadow-sm);
+        }
+        .stat-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: var(--text-xs, 0.72rem);
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .stat-value {
+            font-size: var(--text-lg, 1.25rem);
+            font-weight: 700;
+            color: #fff;
+        }
+        .search-vault-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+        #vault-search {
+            flex: 1;
+            background: var(--bg-panel, #141518);
+            border: 1px solid var(--border, rgba(255,255,255,0.09));
+            border-radius: var(--radius-md, 8px);
+            padding: 12px 18px;
+            color: var(--text-primary);
+            font-size: var(--text-sm);
+            font-family: inherit;
+            transition: border-color var(--ease-fast);
+        }
+        #vault-search:focus {
+            outline: none;
+            border-color: var(--cyan, #0a84ff);
+        }
+        .cards-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .vault-card {
+            background: var(--bg-panel, #141518);
+            border: 1px solid var(--border, rgba(255,255,255,0.09));
+            border-radius: var(--radius-md, 8px);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            transition: border-color var(--ease-fast), box-shadow var(--ease-fast);
+            position: relative;
+        }
+        .vault-card:hover {
+            border-color: var(--border-strong);
+            box-shadow: var(--shadow-md);
+        }
+        .vault-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .company-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-width: 70%;
+        }
+        .ticker-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .ticker-lbl {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .company-lbl {
+            font-size: var(--text-sm);
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .verdict-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            padding: 3px 8px;
+            border-radius: var(--radius-xs);
+            text-transform: uppercase;
+        }
+        .verdict-BUY, .verdict-STRONG-BUY {
+            background: rgba(48, 209, 88, 0.1);
+            border: 1px solid rgba(48, 209, 88, 0.25);
+            color: var(--emerald);
+        }
+        .verdict-SELL, .verdict-STRONG-SELL {
+            background: rgba(255, 69, 58, 0.1);
+            border: 1px solid rgba(255, 69, 58, 0.25);
+            color: var(--ruby);
+        }
+        .verdict-HOLD {
+            background: rgba(255, 159, 10, 0.1);
+            border: 1px solid rgba(255, 159, 10, 0.25);
+            color: var(--gold);
+        }
+        .file-sizes-section {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.76rem;
+        }
+        .file-size-row {
+            display: flex;
+            justify-content: space-between;
+        }
+        .file-size-row span:first-child {
+            color: var(--text-muted);
+        }
+        .file-size-row span:last-child {
+            color: var(--text-secondary);
+        }
+        .card-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 4px;
+        }
+        .time-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            align-self: flex-end;
+            margin-top: auto;
+        }
+    </style>
+</head>
+<body class="terminal-shell">
+<div class="main-content" style="padding: 0; gap: 0; margin-left: 0;">
+
+    <!-- Header Bar -->
+    <div style="background: #000; border-bottom: 1px solid #222; padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.85rem; background: #fff; color: #000; padding: 2px 8px; border-radius: 3px;">S_AI</span>
+            <span style="font-size: 1rem; font-weight: 700; color: #fff;">StockerAI Terminal</span>
+            <span class="logo-tag" style="background: rgba(10,132,255,0.1); border-color: rgba(10,132,255,0.3); color: var(--cyan);">Model Vault</span>
+        </div>
+        <a href="/" class="btn btn-sm">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Back to Hub
+        </a>
+    </div>
+
+    <!-- Vault Wrapper -->
+    <div class="vault-wrapper">
+        <!-- Dashboard Toolbar -->
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h1 style="font-size: 1.5rem; font-weight: 800; color: #fff; letter-spacing: -0.5px; margin-bottom: 4px;">Institutional Model Vault</h1>
+                <p style="font-size: var(--text-sm); color: var(--text-muted);">Manage generated valuation matrices, Excel spreadsheets, and raw financial model databases.</p>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-title">Total Entities</span>
+                <span class="stat-value" id="stats-total">0 Tickers</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-title">Excel Models Built</span>
+                <span class="stat-value" id="stats-excel">0 Files</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-title">Database cache size</span>
+                <span class="stat-value" id="stats-size">0 KB</span>
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-vault-bar">
+            <input type="text" id="vault-search" placeholder="Filter models by symbol or company name..." autocomplete="off">
+        </div>
+
+        <!-- Cards Container -->
+        <div class="cards-list" id="cards-container">
+            <div style="padding: 40px; text-align: center; color: var(--text-muted); grid-column: 1 / -1;">Querying model registries...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let reportsData = [];
+
+    async function loadReports() {
+        const container = document.getElementById('cards-container');
+        container.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-muted); grid-column: 1 / -1;">Querying model registries...</div>';
+        
+        try {
+            const res = await fetch('/api/reports');
+            const data = await res.json();
+            reportsData = data.reports || [];
+            
+            updateStats();
+            renderCards(reportsData);
+            
+        } catch (e) {
+            console.error(e);
+            container.innerHTML = `<div style="padding: 40px; text-align: center; color: var(--ruby); grid-column: 1 / -1;">Failed to load models: ${e.message}</div>`;
+        }
+    }
+
+    function updateStats() {
+        const total = reportsData.length;
+        const excels = reportsData.filter(r => r.excel_exists).length;
+        
+        let totalBytes = 0;
+        reportsData.forEach(r => {
+            totalBytes += (r.db_size_kb * 1024);
+            if (r.excel_exists) {
+                totalBytes += (r.excel_size_kb * 1024);
+            }
+        });
+        
+        const sizeStr = totalBytes < 1024 * 1024 
+            ? `${(totalBytes / 1024).toFixed(1)} KB` 
+            : `${(totalBytes / (1024 * 1024)).toFixed(2)} MB`;
+            
+        document.getElementById('stats-total').innerText = `${total} Tickers`;
+        document.getElementById('stats-excel').innerText = `${excels} Files`;
+        document.getElementById('stats-size').innerText = sizeStr;
+    }
+
+    function renderCards(reports) {
+        const container = document.getElementById('cards-container');
+        container.innerHTML = '';
+        
+        if (reports.length === 0) {
+            container.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-muted); grid-column: 1 / -1;">No matching reports found.</div>';
+            return;
+        }
+        
+        reports.forEach(report => {
+            const card = document.createElement('div');
+            card.className = 'vault-card';
+            
+            // Format time
+            let timeStr = 'N/A';
+            if (report.generated_at) {
+                timeStr = new Date(report.generated_at).toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+            
+            const verdictNormal = report.verdict.replace(' ', '-');
+            
+            card.innerHTML = `
+                <div class="vault-card-header">
+                    <div class="company-info">
+                        <div class="ticker-row">
+                            <span class="ticker-lbl">${report.ticker}</span>
+                            <span class="verdict-badge verdict-${verdictNormal}">${report.verdict}</span>
+                        </div>
+                        <span class="company-lbl" title="${report.company_name}">${report.company_name}</span>
+                    </div>
+                </div>
+                
+                <div class="file-sizes-section">
+                    <div class="file-size-row">
+                        <span>Database Object (JSON)</span>
+                        <span>${report.db_size_kb} KB</span>
+                    </div>
+                    <div class="file-size-row">
+                        <span>Financial Spreadsheet (Excel)</span>
+                        <span>${report.excel_exists ? `${report.excel_size_kb} KB` : 'NOT GENERATED'}</span>
+                    </div>
+                </div>
+                
+                <div class="card-actions">
+                    <a href="/dashboard/${report.ticker}" class="btn btn-sm btn-ghost" style="grid-column: 1 / -1; justify-content: center;">
+                        Open Dashboard
+                    </a>
+                    <a href="/json/${report.ticker}" class="btn btn-sm" style="font-family: inherit;">
+                        📁 JSON Data
+                    </a>
+                    <a href="/excel/${report.ticker}" class="btn btn-sm ${report.excel_exists ? 'btn-primary' : ''}" ${!report.excel_exists ? 'disabled style="opacity: 0.3; pointer-events: none;"' : ''} style="font-family: inherit;">
+                        📊 Excel Model
+                    </a>
+                </div>
+                
+                <span class="time-label">RUN DATE: ${timeStr}</span>
+            `;
+            
+            container.appendChild(card);
+        });
+    }
+
+    // Filter cards by search
+    document.getElementById('vault-search').addEventListener('input', (e) => {
+        const val = e.target.value.toUpperCase();
+        const filtered = reportsData.filter(r => 
+            r.ticker.includes(val) || 
+            r.company_name.toUpperCase().includes(val)
+        );
+        renderCards(filtered);
+    });
+
+    // Load on start
+    document.addEventListener('DOMContentLoaded', loadReports);
+</script>
+<script src="/static/js/terminal.js"></script>
+</body>
+</html>

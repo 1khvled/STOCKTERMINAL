@@ -1,28 +1,132 @@
 """
 Data Fetcher — Pulls all stock data from Yahoo Finance
 """
+import os
 import yfinance as yf
 import pandas as pd
 import numpy as np
 import requests
 import json
 import time
+import pickle
+import socket
+import urllib3.util.connection as urllib3_connection
 from pathlib import Path
 from datetime import datetime, timezone
 from config import (
     HISTORY_PERIOD_SHORT, HISTORY_PERIOD_LONG,
     SMA_WINDOWS, RSI_PERIOD,
     MACD_FAST, MACD_SLOW, MACD_SIGNAL,
-    ALPHA_VANTAGE_API_KEY, GROQ_API_KEY, GROQ_BASE_URL,
+    ALPHA_VANTAGE_API_KEY, OPENROUTER_API_KEY, OPENROUTER_BASE_URL, OPENROUTER_MODEL, OPENROUTER_TEMPERATURE, OPENROUTER_TIMEOUT,
     SEC_USER_AGENT
 )
 
 import logging
 logger = logging.getLogger(__name__)
 
+urllib3_connection.allowed_gai_family = lambda: socket.AF_INET
+
 SEC_TICKER_URL = "https://www.sec.gov/files/company_tickers.json"
 SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
 SEC_COMPANYFACTS_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
+
+if os.environ.get("STOCKER_TEST_MODE") == "1":
+    logger.info("[TEST MODE] Mocking yfinance and requests in data_fetcher")
+    
+    class MockTicker:
+        def __init__(self, ticker):
+            self.ticker = ticker
+            self.is_rate_limit = (ticker == "RATELIMIT")
+            self.is_missing = (ticker == "MISSING")
+            
+            if self.is_rate_limit:
+                raise Exception("429 Too Many Requests")
+                
+            self.info = {
+                "longName": f"Mock {ticker} Inc",
+                "shortName": ticker,
+                "regularMarketPrice": 150.0,
+                "currentPrice": 150.0,
+                "marketCap": 10000000000,
+                "trailingPE": 15.0,
+                "forwardPE": 14.0,
+                "priceToBook": 2.0,
+                "enterpriseToEbitda": 10.0,
+                "sector": "Technology",
+                "industry": "Software",
+                "dividendYield": 0.01,
+                "beta": 1.1,
+                "trailingEps": 10.0,
+                "forwardEps": 11.0,
+                "revenueGrowth": 0.15,
+                "grossMargins": 0.6,
+                "operatingMargins": 0.2,
+                "returnOnEquity": 0.15,
+                "sharesOutstanding": 66666666,
+                "totalRevenue": 2000000000,
+                "totalDebt": 500000000,
+                "totalCash": 1000000000,
+                "freeCashflow": 300000000,
+                "recommendationKey": "buy",
+                "targetMeanPrice": 180.0
+            } if not self.is_missing else {}
+
+            self.financials = pd.DataFrame()
+            self.balance_sheet = pd.DataFrame()
+            self.cashflow = pd.DataFrame()
+            self.quarterly_financials = pd.DataFrame()
+            self.quarterly_balance_sheet = pd.DataFrame()
+            self.quarterly_cashflow = pd.DataFrame()
+            self.earnings_dates = pd.DataFrame()
+            self.earnings_history = pd.DataFrame()
+            self.recommendations = pd.DataFrame()
+            self.calendar = {}
+            self.news = []
+            
+            dates = pd.date_range(end=pd.Timestamp.now(), periods=252)
+            self.mock_history = pd.DataFrame({
+                "Open": np.random.normal(150, 5, 252),
+                "High": np.random.normal(155, 5, 252),
+                "Low": np.random.normal(145, 5, 252),
+                "Close": np.random.normal(150, 5, 252),
+                "Volume": np.random.randint(1000000, 5000000, 252)
+            }, index=dates)
+
+        def history(self, period="1y"):
+            if self.is_missing:
+                return pd.DataFrame()
+            return self.mock_history
+            
+    class MockTickers:
+        def __init__(self, tickers):
+            self.tickers = {t: MockTicker(t) for t in tickers.split()}
+            
+    yf.Ticker = MockTicker
+    yf.Tickers = MockTickers
+    
+    class MockResponse:
+        def __init__(self, json_data, status_code=200, headers=None):
+            self._json = json_data
+            self.status_code = status_code
+            self.headers = headers or {}
+        def json(self): return self._json
+        def raise_for_status(self):
+            if self.status_code >= 400: raise requests.exceptions.HTTPError(f"{self.status_code} Error")
+
+    _original_get = requests.get
+    def mock_requests_get(url, *args, **kwargs):
+        if "sec.gov" in url:
+            if "company_tickers.json" in url:
+                return MockResponse({"0": {"cik_str": 123, "ticker": "AAPL", "title": "Apple"}})
+            elif "submissions" in url:
+                return MockResponse({"filings": {"recent": {"form": ["10-K"], "filingDate": ["2023-01-01"]}}})
+            elif "companyfacts" in url:
+                return MockResponse({"facts": {"us-gaap": {"Revenues": {"units": {"USD": [{"val": 100, "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2023-01-01", "end": "2022-12-31"}]}}}}})
+        elif "alphavantage" in url:
+            return MockResponse({"feed": [{"title": "Mock News", "summary": "Mock summary", "overall_sentiment_label": "Bullish", "overall_sentiment_score": 0.5}]})
+        return _original_get(url, *args, **kwargs)
+    requests.get = mock_requests_get
+
 
 
 def _json_default(obj):
@@ -95,6 +199,39 @@ def _statement_dates(df):
     return dates
 
 
+def _cache_root():
+    from config import BASE_DIR
+    cache_dir = BASE_DIR / "output" / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir
+
+
+def _load_ticker_cache(ticker_upper, name, ttl_seconds):
+    path = _cache_root() / f"{ticker_upper}_{name}.pkl"
+    if not path.exists():
+        return None
+    age = time.time() - path.stat().st_mtime
+    if age > ttl_seconds:
+        return None
+    try:
+        with open(path, "rb") as f:
+            payload = pickle.load(f)
+        logger.info(f"   [Cache Hit] {name} for {ticker_upper} ({int(age)}s old)")
+        return payload
+    except Exception as e:
+        logger.info(f"   [Cache Warning] Failed to load {name} cache: {e}")
+        return None
+
+
+def _save_ticker_cache(ticker_upper, name, payload):
+    try:
+        path = _cache_root() / f"{ticker_upper}_{name}.pkl"
+        with open(path, "wb") as f:
+            pickle.dump(payload, f)
+    except Exception as e:
+        logger.info(f"   [Cache Warning] Failed to save {name} cache: {e}")
+
+
 def _latest_fact_value(companyfacts, taxonomy, concepts, unit="USD"):
     facts = companyfacts.get("facts", {}).get(taxonomy, {})
     candidates = []
@@ -125,7 +262,10 @@ def _sec_request_with_retry(url, headers, timeout, retries=3, backoff=2.0):
         try:
             resp = requests.get(url, headers=headers, timeout=timeout)
             if resp.status_code == 429:
-                sleep_time = float(resp.headers.get("Retry-After", backoff * (attempt + 1)))
+                try:
+                    sleep_time = float(resp.headers.get("Retry-After", backoff * (attempt + 1)))
+                except (ValueError, TypeError):
+                    sleep_time = backoff * (attempt + 1)
                 logger.info(f"  [!] SEC rate limited (429). Sleeping for {sleep_time}s before retry...")
                 time.sleep(sleep_time)
                 continue
@@ -140,21 +280,36 @@ def _sec_request_with_retry(url, headers, timeout, retries=3, backoff=2.0):
     raise requests.exceptions.RequestException("Request failed after retries")
 
 
-def fetch_treasury_yield():
-    """Fetch the 10-Year US Treasury yield dynamically from yfinance (^TNX)."""
+def fetch_macro_yields():
+    """Fetch 10-Year (^TNX) and 13-Week (^IRX) yields to assess macro environment curve."""
+    yields = {"10y": 0.042, "short": 0.040, "curve_inverted": False}
     try:
         tnx = yf.Ticker("^TNX")
-        # Try a few options to get the most recent price
-        yield_val = tnx.info.get("previousClose") or tnx.info.get("regularMarketPrice") or tnx.info.get("open")
-        if yield_val is not None:
-            # yfinance returns it as a percentage (e.g. 4.23 for 4.23%)
-            return float(yield_val) / 100.0
+        tnx_val = tnx.info.get("previousClose") or tnx.info.get("regularMarketPrice") or tnx.info.get("open")
+        if tnx_val: yields["10y"] = float(tnx_val) / 100.0
+        
+        irx = yf.Ticker("^IRX")
+        irx_val = irx.info.get("previousClose") or irx.info.get("regularMarketPrice") or irx.info.get("open")
+        if irx_val: yields["short"] = float(irx_val) / 100.0
+        
+        yields["curve_inverted"] = yields["short"] > yields["10y"]
     except Exception as e:
-        logger.info(f"  [!] Failed to fetch Treasury yield: {e}")
-    # Fallback to a sensible long-term average (e.g. 4.2%)
-    return 0.042
+        logger.info(f"  [!] Failed to fetch macro yields: {e}")
+    return yields
 
-
+SPY_HISTORY_CACHE = {"timestamp": 0, "history": None}
+def get_market_history():
+    import time
+    if time.time() - SPY_HISTORY_CACHE["timestamp"] < 3600 and SPY_HISTORY_CACHE["history"] is not None:
+        return SPY_HISTORY_CACHE["history"]
+    try:
+        spy = yf.Ticker("^GSPC")
+        hist = spy.history(period="5y")
+        SPY_HISTORY_CACHE["history"] = hist
+        SPY_HISTORY_CACHE["timestamp"] = time.time()
+        return hist
+    except Exception:
+        return pd.DataFrame()
 def fetch_vix():
     """Fetch current VIX index to scale Equity Risk Premium."""
     try:
@@ -178,28 +333,46 @@ def fetch_hyg_yield():
         pass
     return 0.065  # Safe historical high-yield average
 
-def calculate_capm_wacc(info, financials, balance_sheet, tnx_yield=None):
+def calculate_capm_wacc(info, financials, balance_sheet, history_5y=None):
     """
     Calculate the Weighted Average Cost of Capital (WACC) using CAPM for Cost of Equity.
     """
-    if tnx_yield is None:
-        tnx_yield = fetch_treasury_yield()
-        
-    rf = tnx_yield
+    macro = fetch_macro_yields()
+    rf = macro["10y"]
     
     # Base ERP is 5.5%. Scale up if VIX > 20 (fear). Cap ERP at 10%.
     vix = fetch_vix()
     erp = 0.055
     if vix > 20:
-        erp = min(0.10, 0.055 + (vix - 20) * 0.001)
+        erp += (vix - 20) * 0.001
+    if macro.get("curve_inverted"):
+        erp += 0.015 # Add 1.5% to Equity Risk Premium for macro recession risk
+        
+    erp = min(0.10, erp)
     
-    # 1. Cost of Equity
-    try:
-        beta = float(info.get("beta", 1.0))
-        if pd.isna(beta) or beta <= 0:
-            beta = 1.0
-    except (ValueError, TypeError):
+    # 1. Cost of Equity (Dynamic Rolling Beta if history is available)
+    beta = float(info.get("beta", 1.0))
+    if pd.isna(beta) or beta <= 0:
         beta = 1.0
+        
+    if history_5y is not None and not history_5y.empty and "Close" in history_5y.columns:
+        spy_hist = get_market_history()
+        if not spy_hist.empty and "Close" in spy_hist.columns:
+            try:
+                # Calculate rolling beta over last 5 years
+                stock_ret = history_5y["Close"].pct_change().dropna()
+                spy_ret = spy_hist["Close"].pct_change().dropna()
+                # Align dates
+                aligned = pd.concat([stock_ret, spy_ret], axis=1, join='inner').dropna()
+                if len(aligned) > 252: # Need at least 1 year of trading days
+                    cov = aligned.cov().iloc[0, 1]
+                    var = aligned.iloc[:, 1].var()
+                    dynamic_beta = cov / var if var > 0 else beta
+                    if 0.1 < dynamic_beta < 4.0: # Sanity bounds
+                        beta = float(dynamic_beta)
+            except Exception as e:
+                logger.info(f"  [!] Failed to calculate rolling beta: {e}")
+
     cost_of_equity = rf + beta * erp
     
     # 2. Cost of Debt & Tax Rate
@@ -296,7 +469,7 @@ def fetch_sec_edgar_data(ticker_symbol):
         recent_filings = []
         forms = recent.get("form", [])
         for idx, form in enumerate(forms):
-            if form not in ["10-K", "10-Q"]:
+            if form not in ["10-K", "10-Q", "8-K"]:
                 continue
             recent_filings.append({
                 "form": form,
@@ -373,7 +546,7 @@ def build_source_metadata(
             "sec_filings": "SEC EDGAR submissions and companyfacts APIs",
             "analyst_estimates": "Yahoo Finance via yfinance",
             "news_sentiment": "Alpha Vantage NEWS_SENTIMENT API",
-            "ai_analysis": "Groq OpenAI-compatible chat completions",
+            "ai_analysis": "OpenRouter Nemotron Ultra reasoning model",
             "local_models": "Local Python valuation and technical models"
         },
         "freshness": {
@@ -440,6 +613,9 @@ def compute_macd(series, fast=12, slow=26, signal=9):
 
 def compute_technical_indicators(df):
     """Add technical indicators to a price DataFrame."""
+    if df is None or df.empty or "Close" not in df.columns:
+        return df
+
     close = df["Close"]
 
     # Simple Moving Averages
@@ -478,7 +654,11 @@ def compute_key_metrics(info, history, quarterly_financials=None):
     confidence = {}
 
     # Price metrics
-    close = history["Close"]
+    if history is not None and not history.empty and "Close" in history.columns:
+        close = history["Close"]
+    else:
+        close = pd.Series([info.get("currentPrice") or info.get("regularMarketPrice") or info.get("previousClose") or 0.0], dtype=float)
+        
     metrics["current_price"] = float(close.iloc[-1]) if len(close) > 0 else 0
     metrics["price_change_1d"] = float(close.pct_change().iloc[-1] * 100) if len(close) > 1 else 0
     metrics["high_52w"] = float(close.tail(252).max()) if len(close) >= 252 else float(close.max())
@@ -537,7 +717,9 @@ def compute_key_metrics(info, history, quarterly_financials=None):
         "heldPercentInsiders", "heldPercentInstitutions",
         "shortRatio", "shortPercentOfFloat",
         "overallRisk", "auditRisk", "boardRisk", "compensationRisk", "shareHolderRightsRisk",
-        "sharesOutstanding", "impliedVolatility"
+        "sharesOutstanding", "impliedVolatility",
+        "preMarketPrice", "postMarketPrice", "preMarketChange", "postMarketChange", 
+        "preMarketChangePercent", "postMarketChangePercent"
     ]
     for key in safe_keys:
         metrics[key] = info.get(key, None)
@@ -644,7 +826,7 @@ def get_starting_fcf(info, cashflow):
     """Determine the starting Free Cash Flow directly."""
     fcf = info.get("freeCashflow")
     if not fcf or pd.isna(fcf) or fcf <= 0:
-        if not cashflow.empty and "Free Cash Flow" in cashflow.index:
+        if cashflow is not None and not cashflow.empty and "Free Cash Flow" in cashflow.index:
             try:
                 fcf = float(cashflow.loc["Free Cash Flow"].iloc[0])
             except Exception:
@@ -666,7 +848,7 @@ def get_starting_fcf(info, cashflow):
     return fcf
 
 
-def calculate_dcf(info, cashflow, financials=None, balance_sheet=None):
+def calculate_dcf(info, cashflow, financials=None, balance_sheet=None, history_5y=None):
     """Calculate a basic mathematical Discounted Cash Flow (DCF)."""
     try:
         logger.info("   Calculating DCF Valuation...")
@@ -676,7 +858,7 @@ def calculate_dcf(info, cashflow, financials=None, balance_sheet=None):
         fcf = get_starting_fcf(info, cashflow)
         if not fcf or fcf <= 0: return None
         
-        wacc_info = calculate_capm_wacc(info, financials, balance_sheet)
+        wacc_info = calculate_capm_wacc(info, financials, balance_sheet, history_5y=history_5y)
         wacc = wacc_info["wacc"]
         
         # Check if we are starting from forward FCF
@@ -1004,7 +1186,7 @@ def calculate_log_regression_trend(history_5y):
     """Calculate 5-year log-linear regression trend and channel bounds."""
     import math
     try:
-        if history_5y.empty or len(history_5y) < 50:
+        if history_5y is None or history_5y.empty or len(history_5y) < 50:
             return None
         
         # Take weekly subsample (every 5th day)
@@ -1067,6 +1249,74 @@ def calculate_log_regression_trend(history_5y):
         logger.info(f"  [!] Historical Regression Failed: {e}")
         return None
 
+def calculate_historical_multiples(info, history_5y, financials):
+    """Estimate 5-year average multiples based on historical prices and financials."""
+    import numpy as np
+    import pandas as pd
+    try:
+        shares_out = info.get("sharesOutstanding")
+        if not shares_out or shares_out <= 0:
+            return None
+            
+        if financials is None or financials.empty:
+            return None
+            
+        pe_history = []
+        ps_history = []
+        
+        def val_idx(df, keys, col=0):
+            if df is None or df.empty or col >= len(df.columns): return 0
+            for k in keys:
+                for idx in df.index:
+                    if str(idx).strip().lower() == k.lower() and not pd.isna(df.iloc[:, col].loc[idx]):
+                        return float(df.iloc[:, col].loc[idx])
+            return 0
+        
+        for i in range(len(financials.columns)):
+            date_col = financials.columns[i]
+            try:
+                dt = pd.to_datetime(date_col)
+                if dt.tzinfo is None:
+                    dt = dt.tz_localize('UTC')
+                
+                if history_5y is not None and not history_5y.empty:
+                    history_5y_tz = history_5y.index
+                    if getattr(history_5y_tz, "tzinfo", None) is None:
+                        history_5y_tz = history_5y_tz.tz_localize('UTC')
+                    
+                    # Find closest index
+                    idx = history_5y_tz.get_indexer([dt], method='nearest')[0]
+                    if idx >= 0:
+                        price = float(history_5y.iloc[idx]["Close"])
+                        mcap = price * shares_out
+                        
+                        ni = val_idx(financials, ["Net Income", "NetIncome"], i)
+                        rev = val_idx(financials, ["Total Revenue", "Revenue", "TotalRevenue"], i)
+                        
+                        if ni > 0:
+                            pe_history.append(mcap / ni)
+                        if rev > 0:
+                            ps_history.append(mcap / rev)
+            except Exception:
+                continue
+                
+        result = {}
+        if pe_history:
+            result["avg_pe_5y"] = round(float(np.mean(pe_history)), 2)
+            result["median_pe_5y"] = round(float(np.median(pe_history)), 2)
+        if ps_history:
+            result["avg_ps_5y"] = round(float(np.mean(ps_history)), 2)
+            
+        trailing_pe = info.get("trailingPE")
+        if trailing_pe and result.get("median_pe_5y"):
+            dev = ((trailing_pe - result["median_pe_5y"]) / result["median_pe_5y"]) * 100
+            result["pe_premium_discount_pct"] = round(dev, 2)
+            
+        return result
+    except Exception as e:
+        logger.info(f"  [!] Historical Multiples Failed: {e}")
+        return None
+
 
 def fetch_peers_data(ticker_symbol, company_name):
     """Use AI to dynamically find competitors, then fetch their basic multiples."""
@@ -1091,19 +1341,36 @@ def fetch_peers_data(ticker_symbol, company_name):
         peers = []
         if ticker_upper in PEER_OVERRIDES:
             peers = PEER_OVERRIDES[ticker_upper]
-        elif GROQ_API_KEY:
+        elif OPENROUTER_API_KEY:
             try:
-                headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+                headers = {
+                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "http://127.0.0.1:5001",
+                    "X-Title": "Stock Terminal"
+                }
                 payload = {
-                    "model": "llama-3.3-70b-versatile",
-                    "messages": [{"role": "user", "content": f"Return a JSON object containing exactly 3 stock ticker symbols that are the closest direct public competitors to {ticker_symbol} ({company_name}). Format: {{\"peers\": [\"TICKER1\", \"TICKER2\", \"TICKER3\"]}}"}],
+                    "model": OPENROUTER_MODEL,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are Nemotron Ultra helping an equity dashboard. Think privately, then output only valid JSON. Select closest direct public competitors with tickers that Yahoo Finance can usually query."
+                        },
+                        {
+                            "role": "user",
+                            "content": f"Return a JSON object containing exactly 4 stock ticker symbols that are the closest direct public competitors to {ticker_symbol} ({company_name}).\n\nRules:\n1. Choose public companies traded on US or major international exchanges.\n2. Prioritize direct competitors in the same industry with comparable business models and sizes.\n3. Output ONLY a valid JSON object in this format: {{\"peers\": [\"TICKER1\", \"TICKER2\", \"TICKER3\", \"TICKER4\"]}}"
+                        }
+                    ],
+                    "temperature": OPENROUTER_TEMPERATURE,
+                    "reasoning": {"enabled": True},
                     "response_format": {"type": "json_object"}
                 }
-                resp = requests.post(GROQ_BASE_URL, headers=headers, json=payload, timeout=10)
+                resp = requests.post(OPENROUTER_BASE_URL, headers=headers, json=payload, timeout=OPENROUTER_TIMEOUT)
+                resp.raise_for_status()
                 data = resp.json()["choices"][0]["message"]["content"]
                 peers = json.loads(data).get("peers", [])
             except Exception as e:
-                logger.info(f"  [!] Failed to dynamically fetch peers via AI: {e}")
+                logger.info(f"  [!] Failed to dynamically fetch peers via Nemotron: {e}")
                 peers = []
         else:
             return []
@@ -1157,6 +1424,38 @@ def get_insider_trades(ticker):
         logger.info(f"  [!] Failed to fetch insiders: {e}")
         return []
 
+def get_options_sentiment(ticker):
+    """Fetch basic options market sentiment (Put/Call ratio and avg Implied Volatility)."""
+    try:
+        if not ticker.options:
+            return None
+        
+        # Get nearest expiration date
+        nearest_exp = ticker.options[0]
+        chain = ticker.option_chain(nearest_exp)
+        
+        calls = chain.calls
+        puts = chain.puts
+        
+        call_vol = calls['volume'].sum() if 'volume' in calls else 0
+        put_vol = puts['volume'].sum() if 'volume' in puts else 0
+        
+        call_oi = calls['openInterest'].sum() if 'openInterest' in calls else 0
+        put_oi = puts['openInterest'].sum() if 'openInterest' in puts else 0
+        
+        avg_iv_calls = calls['impliedVolatility'].mean() if 'impliedVolatility' in calls else 0
+        avg_iv_puts = puts['impliedVolatility'].mean() if 'impliedVolatility' in puts else 0
+        
+        return {
+            "expiration": nearest_exp,
+            "put_call_volume_ratio": float(put_vol / call_vol) if call_vol > 0 else 0.0,
+            "put_call_oi_ratio": float(put_oi / call_oi) if call_oi > 0 else 0.0,
+            "avg_implied_volatility": float((avg_iv_calls + avg_iv_puts) / 2.0)
+        }
+    except Exception as e:
+        logger.info(f"  [!] Failed to fetch options data: {e}")
+        return None
+
 def calculate_financial_scores(info, financials, balance_sheet, cashflow):
     """
     Calculate Altman Z-Score and Piotroski F-Score dynamically from annual statements.
@@ -1175,7 +1474,7 @@ def calculate_financial_scores(info, financials, balance_sheet, cashflow):
     
     try:
         def val(df, keys, col=0):
-            if df.empty or len(df.columns) <= col: return 0
+            if df is None or df.empty or len(df.columns) <= col: return 0
             for k in keys:
                 for idx in df.index:
                     if k.lower() == str(idx).strip().lower():
@@ -1221,7 +1520,7 @@ def calculate_financial_scores(info, financials, balance_sheet, cashflow):
         logger.info(f"  [!] Failed to calculate Altman Z-Score: {e}")
         
     try:
-        if not financials.empty and len(financials.columns) >= 2 and not balance_sheet.empty and len(balance_sheet.columns) >= 2:
+        if financials is not None and not financials.empty and len(financials.columns) >= 2 and balance_sheet is not None and not balance_sheet.empty and len(balance_sheet.columns) >= 2:
             f_score = 0
             
             ni_0 = val(financials, ["Net Income", "NetIncome"], 0)
@@ -1286,7 +1585,7 @@ def calculate_financial_scores(info, financials, balance_sheet, cashflow):
         logger.info(f"  [!] Failed to calculate Piotroski F-Score: {e}")
 
     try:
-        if not financials.empty and len(financials.columns) >= 2 and not balance_sheet.empty and len(balance_sheet.columns) >= 2:
+        if financials is not None and not financials.empty and len(financials.columns) >= 2 and balance_sheet is not None and not balance_sheet.empty and len(balance_sheet.columns) >= 2:
             # Year 0 (current) and Year 1 (prior) values
             rec_0 = val(balance_sheet, ["Net Receivables", "Receivables", "Accounts Receivable", "AccountsReceivable"], 0)
             rec_1 = val(balance_sheet, ["Net Receivables", "Receivables", "Accounts Receivable", "AccountsReceivable"], 1)
@@ -1409,69 +1708,92 @@ def fetch_stock_data(ticker_symbol, raw_output_dir=None):
     Fetch all stock data for a given ticker.
     Returns a dict with all data needed for analysis.
     """
-    logger.info(f"  > Downloading data for {ticker_symbol}...")
+    ticker_upper = ticker_symbol.upper().strip()
+    
+    # 15-minute full cache for repeated clicks, plus longer caches below for slow statement data.
+    cache_dir = _cache_root()
+    cache_file = cache_dir / f"{ticker_upper}_raw_cache.pkl"
+    
+    if cache_file.exists():
+        age = time.time() - cache_file.stat().st_mtime
+        if age < 900:  # 15 minutes
+            logger.info(f"   [Cache Hit] Loading raw data for {ticker_upper} from local disk cache ({int(age)}s old)...")
+            try:
+                with open(cache_file, "rb") as f:
+                    stock_data = pickle.load(f)
+                return stock_data
+            except Exception as ce:
+                logger.info(f"   [Cache Warning] Failed to load cache file: {ce}. Querying new data...")
+
+    logger.info(f"  > Downloading data for {ticker_upper}...")
 
     ticker = yf.Ticker(ticker_symbol)
     raw_snapshot_paths = {}
+    statement_cache = _load_ticker_cache(ticker_upper, "statements_14d", 14 * 24 * 3600) or {}
+    aux_cache = _load_ticker_cache(ticker_upper, "aux_1d", 24 * 3600) or {}
 
-    # Basic info
-    try:
-        info = ticker.info
-    except Exception:
-        info = {}
+    import concurrent.futures
 
-    # Price history
-    logger.info("   Fetching price history...")
-    history_1y = ticker.history(period=HISTORY_PERIOD_SHORT)
-    history_5y = ticker.history(period=HISTORY_PERIOD_LONG)
+    logger.info("   Launching concurrent data fetchers...")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        f_info = executor.submit(lambda: ticker.info)
+        f_history_1y = executor.submit(lambda: ticker.history(period=HISTORY_PERIOD_SHORT))
+        f_history_5y = executor.submit(lambda: ticker.history(period=HISTORY_PERIOD_LONG))
+        f_financials = None if "financials" in statement_cache else executor.submit(lambda: ticker.financials)
+        f_balance_sheet = None if "balance_sheet" in statement_cache else executor.submit(lambda: ticker.balance_sheet)
+        f_cashflow = None if "cashflow" in statement_cache else executor.submit(lambda: ticker.cashflow)
+        f_quarterly_financials = None if "quarterly_financials" in statement_cache else executor.submit(lambda: ticker.quarterly_financials)
+        f_quarterly_balance_sheet = None if "quarterly_balance_sheet" in statement_cache else executor.submit(lambda: ticker.quarterly_balance_sheet)
+        f_quarterly_cashflow = None if "quarterly_cashflow" in statement_cache else executor.submit(lambda: ticker.quarterly_cashflow)
+        f_earnings_dates = None if "earnings_dates" in aux_cache else executor.submit(lambda: ticker.earnings_dates)
+        f_earnings_history = None if "earnings_history" in statement_cache else executor.submit(lambda: ticker.earnings_history)
+        f_recommendations = None if "recommendations" in aux_cache else executor.submit(lambda: ticker.recommendations)
+        f_news_sentiment = executor.submit(fetch_alpha_vantage_news, ticker_symbol)
+        f_sec_data = None if "sec_data" in statement_cache else executor.submit(fetch_sec_edgar_data, ticker_symbol)
+
+        def safe_get(future, default):
+            try:
+                res = future.result()
+                return res if res is not None else default
+            except Exception as e:
+                return default
+
+        info = safe_get(f_info, {})
+        history_1y = safe_get(f_history_1y, pd.DataFrame())
+        history_5y = safe_get(f_history_5y, pd.DataFrame())
+        financials = statement_cache.get("financials") if f_financials is None else safe_get(f_financials, pd.DataFrame())
+        balance_sheet = statement_cache.get("balance_sheet") if f_balance_sheet is None else safe_get(f_balance_sheet, pd.DataFrame())
+        cashflow = statement_cache.get("cashflow") if f_cashflow is None else safe_get(f_cashflow, pd.DataFrame())
+        quarterly_financials = statement_cache.get("quarterly_financials") if f_quarterly_financials is None else safe_get(f_quarterly_financials, pd.DataFrame())
+        quarterly_balance_sheet = statement_cache.get("quarterly_balance_sheet") if f_quarterly_balance_sheet is None else safe_get(f_quarterly_balance_sheet, pd.DataFrame())
+        quarterly_cashflow = statement_cache.get("quarterly_cashflow") if f_quarterly_cashflow is None else safe_get(f_quarterly_cashflow, pd.DataFrame())
+        earnings_dates = aux_cache.get("earnings_dates") if f_earnings_dates is None else safe_get(f_earnings_dates, pd.DataFrame())
+        earnings_history = statement_cache.get("earnings_history") if f_earnings_history is None else safe_get(f_earnings_history, pd.DataFrame())
+        recommendations = aux_cache.get("recommendations") if f_recommendations is None else safe_get(f_recommendations, pd.DataFrame())
+        news_sentiment = safe_get(f_news_sentiment, [])
+        sec_data = statement_cache.get("sec_data") if f_sec_data is None else safe_get(f_sec_data, {"available": False})
+
+    # Extended hours pricing (pre-market / after-hours)
+    extended_hours = {
+        "regular_market_price": info.get("regularMarketPrice"),
+        "regular_market_change": info.get("regularMarketChange"),
+        "regular_market_change_percent": info.get("regularMarketChangePercent"),
+        "pre_market_price": info.get("preMarketPrice"),
+        "pre_market_change": info.get("preMarketChange"),
+        "pre_market_change_percent": info.get("preMarketChangePercent"),
+        "post_market_price": info.get("postMarketPrice"),
+        "post_market_change": info.get("postMarketChange"),
+        "post_market_change_percent": info.get("postMarketChangePercent"),
+        "market_state": info.get("marketState", "UNKNOWN"),  # PRE, REGULAR, POST, CLOSED, etc.
+    }
 
     # Add technical indicators
-    if not history_1y.empty:
+    if history_1y is not None and not history_1y.empty and "Close" in history_1y.columns:
         history_1y = compute_technical_indicators(history_1y.copy())
-    if not history_5y.empty:
+    if history_5y is not None and not history_5y.empty and "Close" in history_5y.columns:
         history_5y = compute_technical_indicators(history_5y.copy())
 
-    # Financial statements
-    logger.info("   Fetching financial statements...")
-    try:
-        financials = ticker.financials
-    except Exception:
-        financials = pd.DataFrame()
-
-    try:
-        balance_sheet = ticker.balance_sheet
-    except Exception:
-        balance_sheet = pd.DataFrame()
-
-    try:
-        cashflow = ticker.cashflow
-    except Exception:
-        cashflow = pd.DataFrame()
-
-    # Quarterly statements
-    logger.info("   Fetching quarterly data...")
-    try:
-        quarterly_financials = ticker.quarterly_financials
-    except Exception:
-        quarterly_financials = pd.DataFrame()
-
-    try:
-        quarterly_balance_sheet = ticker.quarterly_balance_sheet
-    except Exception:
-        quarterly_balance_sheet = pd.DataFrame()
-
-    try:
-        quarterly_cashflow = ticker.quarterly_cashflow
-    except Exception:
-        quarterly_cashflow = pd.DataFrame()
-
-    # Earnings data
-    try:
-        earnings_dates = ticker.earnings_dates
-    except Exception:
-        earnings_dates = pd.DataFrame()
-
-    if earnings_dates.empty:
+    if earnings_dates is None or earnings_dates.empty:
         try:
             cal = ticker.calendar
             if isinstance(cal, dict) and "Earnings Date" in cal:
@@ -1490,24 +1812,6 @@ def fetch_stock_data(ticker_symbol, raw_output_dir=None):
         except Exception as e:
             logger.info(f"   ⚠️ Fallback to ticker.calendar failed: {e}")
 
-    try:
-        earnings_history = ticker.earnings_history
-    except Exception:
-        earnings_history = pd.DataFrame()
-
-    # Analyst recommendations
-    logger.info("   Fetching analyst data...")
-    try:
-        recommendations = ticker.recommendations
-    except Exception:
-        recommendations = pd.DataFrame()
-
-    # Fetch News from Alpha Vantage
-    news_sentiment = fetch_alpha_vantage_news(ticker_symbol)
-
-    # SEC EDGAR direct filing source
-    sec_data = fetch_sec_edgar_data(ticker_symbol)
-
     # Compute key metrics
     key_metrics = compute_key_metrics(info, history_1y, quarterly_financials)
 
@@ -1515,10 +1819,17 @@ def fetch_stock_data(ticker_symbol, raw_output_dir=None):
     company_name = info.get("longName") or info.get("shortName") or ticker_symbol
     
     # Premium Data (DCF, Peers, Insiders)
-    dcf_data = calculate_dcf(info, cashflow, financials=financials, balance_sheet=balance_sheet)
-    peers_data = fetch_peers_data(ticker_symbol, company_name)
-    insider_trades = get_insider_trades(ticker)
+    dcf_data = calculate_dcf(info, cashflow, financials=financials, balance_sheet=balance_sheet, history_5y=history_5y)
+    peers_data = aux_cache.get("peers_data")
+    if peers_data is None:
+        peers_data = fetch_peers_data(ticker_symbol, company_name)
+    insider_trades = aux_cache.get("insider_trades")
+    if insider_trades is None:
+        insider_trades = get_insider_trades(ticker)
     financial_scores = calculate_financial_scores(info, financials, balance_sheet, cashflow)
+    options_sentiment = aux_cache.get("options_sentiment")
+    if options_sentiment is None:
+        options_sentiment = get_options_sentiment(ticker)
 
     # Advanced local quantitative models (zero AI tokens)
     logger.info("   Running local quantitative valuation models (zero AI tokens)...")
@@ -1526,12 +1837,14 @@ def fetch_stock_data(ticker_symbol, raw_output_dir=None):
     cca_data = calculate_cca(info, peers_data)
     ddm_data = calculate_ddm(info)
     regression_data = calculate_log_regression_trend(history_5y)
+    historical_multiples = calculate_historical_multiples(info, history_5y, financials)
     
     advanced_models = {
         "monte_carlo": mc_data,
         "cca": cca_data,
         "ddm": ddm_data,
-        "historical_regression": regression_data
+        "regression": regression_data,
+        "historical_multiples": historical_multiples
     }
 
     source_metadata = build_source_metadata(
@@ -1581,8 +1894,36 @@ def fetch_stock_data(ticker_symbol, raw_output_dir=None):
         "peers_data": peers_data,
         "insider_trades": insider_trades,
         "financial_scores": financial_scores,
+        "options_sentiment": options_sentiment,
+        "extended_hours": extended_hours,
         "advanced_models": advanced_models,
     }
+
+    _save_ticker_cache(ticker_upper, "statements_14d", {
+        "financials": financials,
+        "balance_sheet": balance_sheet,
+        "cashflow": cashflow,
+        "quarterly_financials": quarterly_financials,
+        "quarterly_balance_sheet": quarterly_balance_sheet,
+        "quarterly_cashflow": quarterly_cashflow,
+        "earnings_history": earnings_history,
+        "sec_data": sec_data,
+    })
+    _save_ticker_cache(ticker_upper, "aux_1d", {
+        "earnings_dates": earnings_dates,
+        "recommendations": recommendations,
+        "peers_data": peers_data,
+        "insider_trades": insider_trades,
+        "options_sentiment": options_sentiment,
+    })
+
+    # Save to cache
+    try:
+        with open(cache_file, "wb") as f:
+            pickle.dump(stock_data, f)
+        logger.info(f"   [Cache Save] Cached raw data for {ticker_upper} to local disk cache.")
+    except Exception as ce:
+        logger.info(f"   [Cache Warning] Failed to write cache file: {ce}")
 
     logger.info(f"   Data loaded for {company_name}")
     return stock_data

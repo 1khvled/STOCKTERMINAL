@@ -1,0 +1,330 @@
+<div
+  class="module-animated"
+  style="
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    overflow-y: auto;
+    padding: 4px;
+  "
+>
+  <!-- Dashboard Header -->
+  <div
+    style="
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-shrink: 0;
+    "
+  >
+    <div>
+      <h1
+        class="glow-text"
+        style="font-size: 2rem; margin-bottom: 6px"
+        id="dash-greeting"
+      >
+        Dashboard
+      </h1>
+      <p style="color: var(--fiscal-text-secondary); font-size: 0.95rem">
+        <span id="dash-market-date">Loading market data...</span>
+      </p>
+    </div>
+    <div style="display: flex; gap: 8px">
+      <button
+        class="fiscal-btn-secondary"
+        style="padding: 8px 16px; font-size: 0.85rem"
+        onclick="window.App.loadModule('screener')"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          style="margin-right: 6px; vertical-align: middle"
+        >
+          <polygon
+            points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"
+          ></polygon>
+        </svg>
+        Discover
+      </button>
+      <button
+        class="fiscal-btn-primary"
+        style="padding: 8px 16px; font-size: 0.85rem"
+        onclick="window.DashboardController.openNewPortfolioModal()"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          style="margin-right: 6px; vertical-align: middle"
+        >
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        New Portfolio
+      </button>
+    </div>
+  </div>
+
+  <!-- Quick Stats Row -->
+  <div
+    id="dash-indices"
+    style="
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      flex-shrink: 0;
+    "
+  >
+    <div class="glass-panel" id="idx-sp500" style="padding: 18px">
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+        "
+      >
+        <span style="color: var(--fiscal-text-secondary); font-size: 0.8rem"
+          >S&P 500</span
+        >
+        <span class="fiscal-badge badge-success" id="idx-sp500-badge">--</span>
+      </div>
+      <div
+        id="idx-sp500-val"
+        style="
+          font-size: 1.5rem;
+          font-family: var(--font-mono);
+          font-weight: 600;
+          margin-top: 12px;
+        "
+      >
+        --
+      </div>
+    </div>
+    <div class="glass-panel" id="idx-nasdaq" style="padding: 18px">
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+        "
+      >
+        <span style="color: var(--fiscal-text-secondary); font-size: 0.8rem"
+          >NASDAQ 100</span
+        >
+        <span class="fiscal-badge badge-success" id="idx-nasdaq-badge">--</span>
+      </div>
+      <div
+        id="idx-nasdaq-val"
+        style="
+          font-size: 1.5rem;
+          font-family: var(--font-mono);
+          font-weight: 600;
+          margin-top: 12px;
+        "
+      >
+        --
+      </div>
+    </div>
+    <div class="glass-panel" id="idx-10y" style="padding: 18px">
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+        "
+      >
+        <span style="color: var(--fiscal-text-secondary); font-size: 0.8rem"
+          >US 10-YR YIELD</span
+        >
+        <span class="fiscal-badge badge-danger" id="idx-10y-badge">--</span>
+      </div>
+      <div
+        id="idx-10y-val"
+        style="
+          font-size: 1.5rem;
+          font-family: var(--font-mono);
+          font-weight: 600;
+          margin-top: 12px;
+        "
+      >
+        --
+      </div>
+    </div>
+    <div class="glass-panel" id="idx-vix" style="padding: 18px">
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+        "
+      >
+        <span style="color: var(--fiscal-text-secondary); font-size: 0.8rem"
+          >CBOE VIX</span
+        >
+        <span class="fiscal-badge badge-danger" id="idx-vix-badge">--</span>
+      </div>
+      <div
+        id="idx-vix-val"
+        style="
+          font-size: 1.5rem;
+          font-family: var(--font-mono);
+          font-weight: 600;
+          margin-top: 12px;
+        "
+      >
+        --
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content Grid -->
+  <div
+    style="
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+      flex: 1;
+      min-height: 300px;
+    "
+  >
+    <!-- Portfolio Chart -->
+    <div
+      class="glass-panel"
+      style="padding: 20px; display: flex; flex-direction: column"
+    >
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 16px;
+        "
+      >
+        <div>
+            <h3 style="font-size: 1rem; color: var(--fiscal-text-secondary);">Watchlist Performance</h3>
+            <div id="dash-portfolio-val" style="font-size: 1.8rem; font-family: var(--font-mono); font-weight: 700; color: var(--fiscal-text-primary); margin-top: 4px;">--</div>
+            <div id="dash-portfolio-pct" style="font-size: 0.85rem; font-weight: 600; margin-top: 2px;">--</div>
+        </div>
+        <div class="fiscal-toggle-group">
+          <button class="fiscal-toggle-btn" data-range="1D" onclick="window.DashboardController.updateChartPeriod('1D')">1D</button>
+          <button class="fiscal-toggle-btn" data-range="1W" onclick="window.DashboardController.updateChartPeriod('1W')">1W</button>
+          <button class="fiscal-toggle-btn active" data-range="1M" onclick="window.DashboardController.updateChartPeriod('1M')">1M</button>
+          <button class="fiscal-toggle-btn" data-range="YTD" onclick="window.DashboardController.updateChartPeriod('YTD')">YTD</button>
+          <button class="fiscal-toggle-btn" data-range="1Y" onclick="window.DashboardController.updateChartPeriod('1Y')">1Y</button>
+        </div>
+      </div>
+      <div style="flex: 1; position: relative; min-height: 200px">
+        <canvas id="dash-portfolio-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- Right Column -->
+    <div style="display: flex; flex-direction: column; gap: 16px">
+      <!-- Recently Analyzed -->
+      <div
+        class="glass-panel"
+        style="padding: 20px; flex: 1; display: flex; flex-direction: column"
+      >
+        <h3
+          style="
+            font-size: 1rem;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+          "
+        >
+          <span>Watchlist (<span id="dash-watchlist-count">0</span>)</span>
+          <span
+            style="
+              font-size: 0.75rem;
+              color: var(--fiscal-accent-primary);
+              cursor: pointer;
+            "
+            onclick="window.App.loadModule('screener')"
+            >View All</span
+          >
+        </h3>
+        <div
+          id="dash-watchlist-container"
+          style="
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          "
+        ></div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div
+        class="glass-panel"
+        style="padding: 16px 20px; display: flex; gap: 8px; flex-wrap: wrap"
+      >
+        <span
+          style="
+            color: var(--fiscal-text-tertiary);
+            font-size: 0.75rem;
+            width: 100%;
+            margin-bottom: 4px;
+          "
+          >QUICK ACTIONS</span
+        >
+        <button
+          class="fiscal-btn-secondary"
+          style="font-size: 0.78rem; padding: 6px 12px"
+          onclick="document.getElementById('global-search').focus()"
+        >
+          Analyze Stock
+        </button>
+        <button
+          class="fiscal-btn-secondary"
+          style="font-size: 0.78rem; padding: 6px 12px"
+          onclick="window.App.loadModule('screener')"
+        >
+          Screen Market
+        </button>
+        <button
+          class="fiscal-btn-secondary"
+          style="font-size: 0.78rem; padding: 6px 12px"
+          onclick="window.App.loadModule('charting')"
+        >
+          Chart
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const dashCtrl = window.DashboardController;
+    if (dashCtrl) dashCtrl.init(window.App);
+
+    // Update greeting with time
+    const h = new Date().getHours();
+    let g = "Morning";
+    if (h >= 12) g = "Afternoon";
+    if (h >= 17) g = "Evening";
+    const el = document.getElementById("dash-greeting");
+    if (el) el.textContent = g + ", Abdelli";
+
+    // Market date
+    const d = document.getElementById("dash-market-date");
+    if (d)
+      d.textContent = new Date().toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+  })();
+</script>
