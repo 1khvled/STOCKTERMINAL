@@ -74,6 +74,7 @@ else:
     except Exception:
         pass
     app.secret_key = _secret
+ALLOWED_PERIODS = {"1d","5d","1mo","3mo","6mo","1y","2y","5y","10y","ytd","max"}
 MODULES = {"dashboard", "analysis", "charting", "screener", "query", "resources", "settings"}
 VERDICT_BUCKETS = {
     "BUY": {"BUY", "STRONG BUY", "ACCUMULATE", "OUTPERFORM"},
@@ -275,8 +276,13 @@ def _filter_catalog(criteria):
     criteria = _normalize_criteria(criteria)
     return [row for row in _catalog_rows() if _stock_matches_criteria(row, criteria)]
 
+_cache_size_cache = {"value": None, "ts": 0}
 def get_cache_size_str():
-    """Calculate the total size of the output cached directories."""
+    """Calculate the total size of the output cached directories (memoized 60s)."""
+    import time
+    now = time.time()
+    if _cache_size_cache["value"] is not None and now - _cache_size_cache["ts"] < 60:
+        return _cache_size_cache["value"]
     total = 0
     if OUTPUT_ROOT.exists():
         try:
@@ -290,8 +296,14 @@ def get_cache_size_str():
             pass
     for factor, unit in [(1024**3, "GB"), (1024**2, "MB"), (1024, "KB")]:
         if total >= factor:
-            return f"{total/factor:.1f} {unit}"
-    return f"{total} B"
+            val = f"{total/factor:.1f} {unit}"
+            _cache_size_cache["value"] = val
+            _cache_size_cache["ts"] = now
+            return val
+    val = f"{total} B"
+    _cache_size_cache["value"] = val
+    _cache_size_cache["ts"] = now
+    return val
 
 def get_recent_stocks():
     """Scan output folder to extract verdict and name of previously analyzed tickers."""
@@ -455,6 +467,10 @@ def query_search():
     
     if not q:
         return {"results": []}
+    if len(q) > 200:
+        q = q[:200]
+    if ticker_filter and not is_valid_ticker(ticker_filter):
+        return {"error": "Invalid ticker filter"}, 400
         
     type_list = [t.strip().upper() for t in types.split(",") if t.strip()]
 
@@ -463,7 +479,7 @@ def query_search():
         return {"results": []}
 
     results = []
-    search_words = q.split()
+    search_words = q.split()[:10]  # cap words to prevent DoS
 
     for fpath in db_dir.glob("*.json"):
         try:
@@ -761,7 +777,9 @@ def get_stock_history(ticker):
     ticker = ticker.upper().strip()
     if not is_valid_ticker(ticker):
         return {"error": "Invalid ticker format"}, 400
-    period = request.args.get("period", "1mo")
+    period = request.args.get("period", "1mo").strip()
+    if period not in ALLOWED_PERIODS:
+        period = "1mo"
     # In test mode, skip live yfinance (would timeout) and use DB fallback directly
     if os.environ.get("STOCKER_TEST_MODE") == "1":
         # Fast path for tests — no network
@@ -945,8 +963,15 @@ def serve_guide():
 def download_excel(ticker):
     """Download the dynamic Excel financial model of a ticker."""
     ticker = ticker.upper().strip()
-    path = OUTPUT_ROOT / ticker / f"{ticker}_Financial_Model.xlsx"
-    if path.exists():
+    if not is_valid_ticker(ticker):
+        return {"error": "Invalid ticker format"}, 400
+    # Prevent path traversal via resolve check
+    path = (OUTPUT_ROOT / ticker / f"{ticker}_Financial_Model.xlsx").resolve()
+    try:
+        path.relative_to(OUTPUT_ROOT.resolve())
+    except ValueError:
+        return {"error": "Invalid path"}, 400
+    if path.exists() and path.is_file():
         return send_file(path, as_attachment=True, download_name=f"{ticker}_Financial_Model.xlsx")
     return f"Excel model for {ticker} not found.", 404
 
@@ -954,8 +979,14 @@ def download_excel(ticker):
 def download_json(ticker):
     """Download the raw JSON database record of a ticker."""
     ticker = ticker.upper().strip()
-    path = _db_path(ticker)
-    if path.exists():
+    if not is_valid_ticker(ticker):
+        return {"error": "Invalid ticker format"}, 400
+    path = _db_path(ticker).resolve()
+    try:
+        path.relative_to(OUTPUT_ROOT.resolve())
+    except ValueError:
+        return {"error": "Invalid path"}, 400
+    if path.exists() and path.is_file():
         return send_file(path, as_attachment=True, download_name=f"{ticker}_Raw_Data.json")
     return f"JSON record for {ticker} not found.", 404
 
@@ -998,6 +1029,8 @@ def get_stock_news(ticker):
 
 
 # Auto-update state
+import threading
+_auto_update_lock = threading.Lock()
 auto_update_state = {"last_run": None, "next_run": None, "running": False, "queue": [], "log": []}
 live_quotes_cache = {"data": None, "timestamp": 0}
 
@@ -1278,6 +1311,8 @@ def api_auto_update_trigger():
         import time
         from stock_analyzer import analyze
         global auto_update_state
+        if not _auto_update_lock.acquire(blocking=False):
+            return
         if auto_update_state["running"]:
             return
         auto_update_state["running"] = True
@@ -1302,6 +1337,10 @@ def api_auto_update_trigger():
                     logger.info(f"manual auto-update {tk} failed: {e}")
         finally:
             auto_update_state["running"] = False
+            try:
+                _auto_update_lock.release()
+            except Exception:
+                pass
             auto_update_state["queue"] = []
             import time as _t
             auto_update_state["last_run"] = _t.strftime("%Y-%m-%dT%H:%M:%SZ", _t.gmtime())
