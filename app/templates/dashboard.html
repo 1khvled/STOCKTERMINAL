@@ -47,7 +47,8 @@
 
   <div class="tabs" id="tabs">
     <button class="tab active" data-tab="verdict">VERDICT</button>
-    <button class="tab" data-tab="valuation">VALUATION</button>
+    <button class="tab" data-tab="valuation">VALUATION • FCF/DCF</button>
+    <button class="tab" data-tab="notion">NOTION RESEARCH</button>
     <button class="tab" data-tab="financials">FINANCIALS</button>
     <button class="tab" data-tab="peers">PEERS</button>
     <button class="tab" data-tab="risks">RISKS</button>
@@ -104,6 +105,14 @@
 
   <div id="panel-peers" class="panel">
     <div class="card"><div class="card-title">Peers Multiples</div><div style="overflow:auto"><table class="table" id="peers-table"><thead><tr><th>Ticker</th><th>P/E</th><th>Fwd P/E</th><th>P/S</th><th>P/B</th></tr></thead><tbody></tbody></table></div></div>
+  </div>
+
+  <div id="panel-notion" class="panel">
+    <div class="card">
+      <div class="card-title">Notion — Company Research Hub <span id="notion-page" style="margin-left:auto;font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted)"></span></div>
+      <div id="notion-subnav" style="display:flex;gap:6px;overflow-x:auto;margin-bottom:12px"></div>
+      <div id="notion-content" style="line-height:1.7;font-size:13px;max-height:70vh;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--bg)"></div>
+    </div>
   </div>
 
   <div id="panel-risks" class="panel">

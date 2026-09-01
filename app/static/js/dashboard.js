@@ -100,6 +100,28 @@ function render(){
   const cats=(an.catalysts||[]).map(c=> `<li><b>${c.catalyst}</b> <span style="color:var(--muted)">(${c.timeline}, ${c.impact})</span></li>`).join('');
   html('catalyst-list', cats||'<li>No catalysts</li>');
 
+  // notion
+  const notion=DATA.notion_data||{};
+  const subpages=notion.subpages||{};
+  const notionNav=$('notion-subnav'), notionContent=$('notion-content'), notionPage=$('notion-page');
+  if(notionPage) notionPage.innerText = notion.company_title||'';
+  if(notionNav && notionContent){
+    const keys=Object.keys(subpages);
+    if(keys.length){
+      notionNav.innerHTML = keys.map((k,i)=> `<button class="notion-btn ${i===0?'active':''}" data-k="${k}">${subpages[k].title||k}</button>`).join('');
+      const renderNotion=(k)=>{
+        const html=subpages[k]?.html||'<div style="color:var(--muted)">No content</div>';
+        notionContent.innerHTML=html;
+        notionNav.querySelectorAll('.notion-btn').forEach(b=> b.classList.toggle('active', b.dataset.k===k));
+      };
+      notionNav.querySelectorAll('.notion-btn').forEach(b=> b.onclick=()=> renderNotion(b.dataset.k));
+      renderNotion(keys[0]);
+    }else{
+      notionNav.innerHTML='<span style="color:var(--muted);font-size:12px">No Notion research — will auto-generate on next analyze</span>';
+      notionContent.innerHTML='<div style="color:var(--muted)">Notion workspace not linked or empty for '+TICK+'</div>';
+    }
+  }
+
   // financials
   loadStmt('income');
   loadCharts();
