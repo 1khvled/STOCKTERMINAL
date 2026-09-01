@@ -15,13 +15,34 @@ if sys.platform == "win32":
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
     os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
-from config import OUTPUT_DIR, validate_config
-from data_fetcher import fetch_stock_data
-from ai_engine import generate_analysis
-from dashboard_generator import generate_dashboard, _df_to_json_ready
-from excel_generator import generate_excel_model
-from chart_generator import generate_all_charts
-from pdf_generator import generate_pdf
+try:
+    from config import OUTPUT_DIR, validate_config
+except ImportError:
+    from .config import OUTPUT_DIR, validate_config
+try:
+    from data_fetcher import fetch_stock_data
+except ImportError:
+    from .data_fetcher import fetch_stock_data
+try:
+    from ai_engine import generate_analysis
+except ImportError:
+    from .ai_engine import generate_analysis
+try:
+    from dashboard_generator import generate_dashboard, _df_to_json_ready
+except ImportError:
+    from .dashboard_generator import generate_dashboard, _df_to_json_ready
+try:
+    from excel_generator import generate_excel_model
+except ImportError:
+    from .excel_generator import generate_excel_model
+try:
+    from chart_generator import generate_all_charts
+except ImportError:
+    from .chart_generator import generate_all_charts
+try:
+    from pdf_generator import generate_pdf
+except ImportError:
+    from .pdf_generator import generate_pdf
 
 
 BANNER = r"""

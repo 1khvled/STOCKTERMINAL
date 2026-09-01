@@ -122,13 +122,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const data = await response.json();
-                
+
                 if (data.html) {
                     printLog(data.html, true);
                 } else if (data.text) {
                     printLog(data.text);
-                } else {
+                } else if (!data.redirect && !data.clear) {
                     printLog('No output received from server.', false);
+                }
+                if (data.clear) {
+                    terminalBody.innerHTML = '';
+                }
+                if (data.redirect) {
+                    const target = String(data.redirect);
+                    // only allow internal redirects
+                    if (target.startsWith('/') && !target.startsWith('//')) {
+                        window.location.href = target;
+                    }
                 }
 
             } catch (err) {

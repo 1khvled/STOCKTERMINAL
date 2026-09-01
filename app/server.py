@@ -308,6 +308,19 @@ def stream_logs():
     ticker = request.args.get("ticker", "").strip().upper()
     if not ticker or not is_valid_ticker(ticker):
         return Response("data: ❌ Error: Invalid or no ticker provided.\n\n", mimetype="text/event-stream")
+    # TEST_MODE: mock stream to avoid spawning analyzer + yfinance network (prevents pytest hangs)
+    if os.environ.get("STOCKER_TEST_MODE") == "1":
+        def _mock_stream():
+            yield f"data: [TEST_MODE] Mock analysis for {ticker}\n\n"
+            # RATELIMIT sentinel triggers 429-like branch in tests
+            if ticker == "RATELIMIT":
+                yield "data: 429 rate limited (mock)\n\n"
+            elif ticker == "MISSING":
+                yield f"data: Ticker {ticker} not found (mock)\n\n"
+            else:
+                yield f"data: Analysis complete for {ticker} (mock)\n\n"
+            yield f"data: REDIRECT: /dashboard/{ticker}\n\n"
+        return Response(_mock_stream(), mimetype="text/event-stream")
 
     def generate_events():
         from queue import Queue, Empty
@@ -660,14 +673,18 @@ def api_portfolio_remove():
 
 @app.route("/api/terminal/execute", methods=["POST"])
 def api_terminal_execute():
-    payload = request.get_json() or {}
+    payload = request.get_json(silent=True) or {}
     command = str(payload.get("command") or "").strip()
+    if len(command) > 64:
+        return {"html": "<span class=\"bbg-text-red\">Command too long (max 64).</span>"}, 400
+    if not command:
+        return {"text": ""}
     try:
         from terminal_commands import process_command
         return process_command(command)
     except Exception as e:
         logger.info(f"Terminal command failed: {e}")
-        return {"error": str(e)}, 500
+        return {"error": "Terminal error"}, 500
 
 
 @app.route("/api/reports")
@@ -988,6 +1005,15 @@ ticker_tape_cache = {"data": None, "timestamp": 0}
 
 def get_ticker_tape():
     import time
+    if os.environ.get("STOCKER_TEST_MODE") == "1":
+        return [
+            {"label": "S&P 500", "val": "5,200.00", "pct": 0.5, "is_yield": False},
+            {"label": "NASDAQ 100", "val": "18,000.00", "pct": 0.7, "is_yield": False},
+            {"label": "DOW JONES", "val": "38,000.00", "pct": 0.3, "is_yield": False},
+            {"label": "CBOE VIX", "val": "14.00", "pct": -1.2, "is_yield": False},
+            {"label": "US 10-YR YIELD", "val": "4.100%", "pct": 0.02, "is_yield": True},
+            {"label": "BTC/USD", "val": "68,000.00", "pct": 1.1, "is_yield": False},
+        ]
     import yfinance as yf
     
     if ticker_tape_cache["data"] and time.time() - ticker_tape_cache["timestamp"] < 300:
@@ -1066,6 +1092,12 @@ def api_live_quotes():
     if not tickers:
         tickers = [row["ticker"] for row in _catalog_rows()[:25]]
     tickers = [t for t in tickers[:50] if is_valid_ticker(t)]
+    if os.environ.get("STOCKER_TEST_MODE") == "1":
+        quotes = []
+        for ticker in tickers:
+            row = next((r for r in _catalog_rows() if r["ticker"] == ticker), None)
+            quotes.append({"ticker": ticker, "price": row.get("current_price", 150.0) if row else 150.0, "change": 1.2, "pct": 0.008, "source": "mock_test"})
+        return {"quotes": quotes}
     # Try live yfinance batch fetch, fallback to local
     quotes = []
     try:

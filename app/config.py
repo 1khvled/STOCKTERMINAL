@@ -152,12 +152,13 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
 
 def validate_config():
-    """Check that required configuration is present."""
-    if not OPENROUTER_API_KEY:
-        print("\nNo OpenRouter API key found.")
-        print("   1. Go to https://openrouter.ai and create an API key")
-        print("   2. Copy your API key")
-        print("   3. Create a .env file with: OPENROUTER_API_KEY=your_key_here")
-        print("   Or run setup.bat for guided setup.\n")
+    """Check that at least one LLM provider is configured."""
+    has_key = bool(GROQ_API_KEY or OPENROUTER_API_KEY or GEMINI_API_KEY or ANTHROPIC_API_KEY)
+    if not has_key:
+        print("\nNo LLM API key found. Configure at least one:")
+        print("   GROQ_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, or ANTHROPIC_API_KEY")
+        print("   1. Create a .env file with: GROQ_API_KEY=your_key_here")
+        print("   2. Get a free key at https://console.groq.com or https://openrouter.ai")
+        print("   Or run start.cmd for guided setup.\n")
         return False
     return True
