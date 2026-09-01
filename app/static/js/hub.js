@@ -381,7 +381,7 @@ function safeSetInterval(fn, t) {
                     }
                 }
             } catch (err) {
-                console.error("Failed to load local stock database:", err);
+                console.error("Failed to load local stock database:", err); if(typeof showToast==="function") showToast("Failed to load catalog: "+(err.message||err),"error");
                 document.getElementById('catalog-body').innerHTML = `<tr><td colspan="12" class="empty-state" style="color: var(--ruby);">❌ Failed to load local database record directory.</td></tr>`;
             }
         }

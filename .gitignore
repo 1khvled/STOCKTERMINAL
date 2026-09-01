@@ -7,6 +7,7 @@ env/
 # Environment files
 .env
 .env.*
+!.env.example
 
 # Compiled Python files
 __pycache__/
@@ -36,6 +37,7 @@ NUL
 final_*.txt
 test_*.txt
 test_*.py
+!tests/e2e/test_*.py
 fix_*.py
 patch_*.py
 scratch/
@@ -48,4 +50,6 @@ package-lock.json
 pytest.ini
 requirements-dev.txt
 data/
-
+.flask_secret
+output/cache/
+*.log

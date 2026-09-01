@@ -35,10 +35,10 @@ GROQ_BASE_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3-32b")
 GROQ_MAX_TOKENS = int(os.getenv("GROQ_MAX_TOKENS", "4000"))
 GROQ_TEMPERATURE = float(os.getenv("GROQ_TEMPERATURE", "0.25"))
-# Fallback embedded key if .env missing (local personal use)
+# No hardcoded fallback — keys must come from .env for security & rotation
 if not GROQ_API_KEY:
-    GROQ_API_KEY = "[REDACTED-GROQ-KEY]"
-    GROQ_API_KEYS = [GROQ_API_KEY, "[REDACTED-GROQ-KEY]"]
+    GROQ_API_KEY = ""
+    GROQ_API_KEYS = []
 
 ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "")
 SEC_USER_AGENT = os.getenv("SEC_USER_AGENT", "AI Stock Analyzer research contact@example.com")

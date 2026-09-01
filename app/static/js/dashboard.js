@@ -1,3 +1,8 @@
+// Safe helpers — prevent undefined leaks, XSS via escape
+function safeDisplay(v, fallback='--'){ if(v===null||v===undefined||v===''||String(v).toUpperCase()==='N/A'||String(v).toUpperCase()==='UNDEFINED') return fallback; return String(v); }
+function esc(s){ if(typeof s!=='string') return s; return s.replace(/[&<>'"]/g, c=> ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+function toast(msg, type='info'){ if(window.showToast) return window.showToast(msg,type); const el=document.createElement('div'); el.textContent=msg; el.style.cssText='position:fixed;bottom:20px;right:20px;background:#111214;color:#fff;padding:10px 14px;border-radius:8px;border:1px solid #1e1f23;z-index:9999;font-size:12px'; document.body.appendChild(el); setTimeout(()=>el.remove(),3000); }
+
 // StockerAI - Rebuilt Dashboard - Minimal, FCF/DCF focus, live prices
 const TICK = typeof TICKER!=='undefined'?TICKER: window.location.pathname.split('/').pop().toUpperCase();
 let DATA=null;
@@ -23,12 +28,30 @@ function tabInit(){
 }
 
 async function fetchData(){
-  const r=await fetch(`/api/stock/${TICK}?t=${Date.now()}`);
-  if(!r.ok) throw new Error('no data');
-  DATA=await r.json();
-  render();
-  // live poll
-  try{ pollLive(); setInterval(pollLive,30000);}catch(e){}
+  const maxRetries=2;
+  for(let attempt=0; attempt<=maxRetries; attempt++){
+    try{
+      const r=await fetch(`/api/stock/${TICK}?t=${Date.now()}`);
+      if(r.status===429 && attempt<maxRetries){ await new Promise(res=>setTimeout(res, 1000*(attempt+1))); continue; }
+      if(!r.ok){
+        const j=await r.json().catch(()=>({error:r.statusText}));
+        throw new Error(j.error || `HTTP ${r.status}`);
+      }
+      DATA=await r.json();
+      if(!DATA || !DATA.ticker) throw new Error('Empty response');
+      render();
+      try{ pollLive(); setInterval(pollLive,30000);}catch(e){}
+      return;
+    }catch(e){
+      if(attempt===maxRetries){
+        html('exec-summary', `<div style="color:var(--red);padding:12px;border:1px solid var(--red);border-radius:8px">FAILED to load ${TICK}: ${e.message}. <button onclick="location.reload()" class="btn" style="margin-left:8px">Retry</button></div>`);
+        toast('Failed to load '+TICK+': '+e.message, 'error');
+        console.error(e);
+      } else {
+        await new Promise(res=>setTimeout(res, 600*(attempt+1)));
+      }
+    }
+  }
 }
 
 function render(){
@@ -91,7 +114,7 @@ function render(){
   const peers=DATA.peers_data||[];
   const tbody=document.querySelector('#peers-table tbody');
   if(tbody){
-    tbody.innerHTML = peers.length? peers.map(p=> `<tr><td>${p.ticker}</td><td>${fmt(p.pe)}</td><td>${fmt(p.fwd_pe)}</td><td>${fmt(p.ps)}</td><td>${fmt(p.pb)}</td></tr>`).join('') : `<tr><td colspan="5" style="color:var(--muted)">No peers</td></tr>`;
+    tbody.innerHTML = peers.length? peers.map(p=> `<tr><td>${esc(safeDisplay(p.ticker))}</td><td>${fmt(p.pe)}</td><td>${fmt(p.fwd_pe)}</td><td>${fmt(p.ps)}</td><td>${fmt(p.pb)}</td></tr>`).join('') : `<tr><td colspan="5" style="color:var(--muted)">No peers</td></tr>`;
   }
 
   // risks
@@ -176,14 +199,25 @@ function loadCharts(){
 async function pollLive(){
   try{
     const r=await fetch(`/api/stock/${TICK}/live-quote`);
+    if(!r.ok) return;
     const j=await r.json();
-    if(j.price){
-      set('hero-price', `$${Number(j.price).toFixed(2)}`);
-      set('s-price', `$${Number(j.price).toFixed(2)}`);
+    if(j.price && Number.isFinite(Number(j.price))){
+      const priceEl=$('hero-price'), sPriceEl=$('s-price');
+      const prevPrice = priceEl ? parseFloat(priceEl.innerText.replace('$','')) : NaN;
+      const newPrice = Number(j.price);
+      set('hero-price', `$${newPrice.toFixed(2)}`);
+      set('s-price', `$${newPrice.toFixed(2)}`);
+      if(Number.isFinite(prevPrice) && prevPrice!==newPrice){
+        [priceEl, sPriceEl].forEach(el=>{
+          if(!el) return;
+          el.style.transition='background 0.2s';
+          el.style.background = newPrice>prevPrice ? 'rgba(52,199,89,0.18)' : 'rgba(255,59,48,0.18)';
+          setTimeout(()=> el.style.background='', 600);
+        });
+      }
       const chg=Number(j.change||0), pct=Number(j.pct||0);
       set('hero-price-sub', `${chg>=0?'+':''}${chg.toFixed(2)} (${(pct*100).toFixed(2)}% live)`);
-      const el=$('s-price-sub'); if(el) el.innerText=`${chg>=0?'+':''}${chg.toFixed(2)} today`;
-      el && (el.style.color = chg>=0?'var(--green)':'var(--red)');
+      const el=$('s-price-sub'); if(el){ el.innerText=`${chg>=0?'+':''}${chg.toFixed(2)} today`; el.style.color = chg>=0?'var(--green)':'var(--red)'; }
     }
   }catch(e){}
 }
@@ -194,10 +228,14 @@ function applyPreset(which){
   $('wacc').value=v.wacc; $('g15').value=v.g15; $('g610').value=v.g610; $('term').value=v.term;
 }
 async function recalc(){
-  const body={wacc: Number($('wacc').value), growth_1_5: Number($('g15').value), growth_6_10: Number($('g610').value), terminal_growth: Number($('term').value)};
+  const wacc=Number($('wacc').value), g15=Number($('g15').value), g610=Number($('g610').value), term=Number($('term').value);
+  if(![wacc,g15,g610,term].every(Number.isFinite)){ toast('Invalid inputs','error'); return; }
+  if(wacc <= term){ toast('WACC must be > terminal growth','error'); return; }
+  const body={wacc, growth_1_5:g15, growth_6_10:g610, terminal_growth:term};
+  toast('Recalculating...','info');
   const r=await fetch(`/api/stock/${TICK}/recalculate`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const j=await r.json();
-  if(j.error){ alert(j.error); return; }
+  if(j.error){ toast(j.error,'error'); return; } toast('Recalculated','success');
   DATA=j; render();
 }
 

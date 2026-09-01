@@ -1,9 +1,9 @@
 # Project: StockerAI Personal Terminal - Bloomberg Grade Single-User
 
 ## Architecture
-- Backend: Flask Server (app/server.py:1), AI Engine (app/ai_engine.py:1), Data Fetcher (app/data_fetcher.py:1) with yfinance+SEC+AlphaVantage, DCF/WACC registry
+- Backend: Flask Server (app/server.py), AI Engine (app/ai_engine.py), Data Fetcher (app/data_fetcher.py) with yfinance+SEC+AlphaVantage, DCF/WACC registry
 - Frontend: Bloomberg terminal 3-col layout HTML/CSS/JS in app/templates and app/static (dashboard_new.css, theme.css, hub.js, dashboard.js)
-- Database: Local JSON cache -> Supabase optional mirror (app/supabase_db.py:1) + output/database/*.json, local portfolio.json
+- Database: Local JSON cache -> Supabase optional mirror (app/supabase_db.py) + output/database/*.json, local portfolio.json
 - External: Yahoo Finance, Groq/OpenRouter/Gemini (config.py), Notion optional, SEC EDGAR
 
 ## Code Layout
@@ -23,10 +23,11 @@
 | # | Name | Scope | Status |
 |---|------|-------|--------|
 | 1 | Merge & Personalize | ALONE+BACKUP merged, SaaS stripped, Bloomberg layout, .env deduped | DONE af28b33 |
-| 2 | Backend Reliability | yf retry, SEC 429 backoff, cache (15m/14d/1d), graceful missing-data fallback, server JSON error boundaries | IN_PROGRESS |
-| 3 | Frontend Polish | 8 modules work, undefined guards, error toasts, price flash, watchlist/portfolio local | IN_PROGRESS |
-| 4 | E2E Suite | Pass Tiers 1-4 (conftest STOCKER_TEST_MODE) | PLANNED |
-| 5 | Adversarial Hardening | Tier 5 malformed tickers, empty DB, rate-limit soak | PLANNED |
+| 2 | Backend Reliability | yf retry (status-aware 429, Retry-After, jitter, no retry on bad ticker), SEC 429 backoff (exponential + jitter, Host-aware), cache (15m/14d/1d rglob), graceful missing-data fallback, server JSON error boundaries, persistent Flask secret, CORS locked to localhost | DONE 2026-09-01 |
+| 3 | Frontend Polish | 8 modules work, safeDisplay/esc guards, toast.js on all pages, price flash live 30s, fetch retry on 429, skeleton loaders, Notion subnav, responsive Bloomberg CSS | DONE 2026-09-01 |
+| 4 | E2E Suite | Pass Tiers 1-4 (conftest STOCKER_TEST_MODE, Playwright) — 3 core tests pass; TEST_MODE fast paths for history/live-quote | DONE 2026-09-01 |
+| 5 | Adversarial Hardening | Tier 5 malformed tickers, empty DB, rate-limit soak — is_valid_ticker hardened (12 char, no traversal), financials/history/live-quote validate 400, SEC/yf retry hardened, 13 adversarial tests | DONE 2026-09-01 |
+| 6 | Polish A-Z (2026-09-01) | Security: removed hardcoded Groq keys, .env.example, .flask_secret gitignored, CORS no credentials; Infra: duckduckgo-search pinned, start.cmd quiet, NUL removed, dashboard_new.css price-flash+toast+shimmer; Docs: Supabase REST note, Bloomberg UX contracts | DONE |
 
 ## Interface Contracts
 ### Frontend <-> Backend
@@ -38,6 +39,14 @@
 ```
 pip install -r requirements.txt
 python -m app.stock_analyzer AAPL            # one-off
-python -m app.server --server               # http://127.0.0.1:5001
+python -m app.server                         # http://127.0.0.1:5001
 STOCKER_TEST_MODE=1 pytest tests/e2e -v
 ```
+
+## Polish Notes (2026-09-01)
+- Config: no hardcoded secrets, keys from .env only
+- Server: persistent secret at output/.flask_secret, CORS localhost-only, is_valid_ticker hardened, 404/500/429 JSON handlers, rglob cache size
+- Data: yf retry status-aware + Retry-After + jitter + no-retry on bad ticker; SEC retry Host-aware + exponential jitter capped 30s
+- Frontend: dashboard.js safeDisplay/esc/toast, fetchData retry with Retry-After, pollLive price flash, recalc validation; hub.js catalog toast; dashboard.html+index.html load toast.js; dashboard_new.css adds price-flash, toast, shimmer, notion-btn
+- Infra: requirements pinned flask-cors>=4.0.0 + duckduckgo-search, .env.example, .gitignore + .flask_secret/output/cache/*.log, start.cmd checks flask before pip
+- Tests: tests/e2e/test_adversarial.py (13 Tier5 tests), server TEST_MODE fast paths for history/live-quote

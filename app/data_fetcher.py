@@ -257,16 +257,24 @@ def _latest_fact_value(companyfacts, taxonomy, concepts, unit="USD"):
 
 
 def _sec_request_with_retry(url, headers, timeout, retries=3, backoff=2.0):
-    """Fetch URL with retries and exponential backoff, handling 429 and timeouts."""
+    """Fetch URL with retries, exponential backoff, Retry-After respect, jitter, Host-aware."""
+    import random
     for attempt in range(retries):
         try:
-            resp = requests.get(url, headers=headers, timeout=timeout)
+            # Ensure correct Host per SEC guidelines
+            h = dict(headers) if headers else {}
+            if "sec.gov" in url:
+                expected_host = "data.sec.gov" if "data.sec.gov" in url else "www.sec.gov"
+                h.setdefault("Host", expected_host)
+            resp = requests.get(url, headers=h, timeout=timeout)
             if resp.status_code == 429:
                 try:
-                    sleep_time = float(resp.headers.get("Retry-After", backoff * (attempt + 1)))
+                    retry_after = resp.headers.get("Retry-After")
+                    sleep_time = float(retry_after) if retry_after and str(retry_after).replace('.','',1).isdigit() else backoff * (2 ** attempt) + random.uniform(0, 0.5)
+                    sleep_time = min(sleep_time, 30)
                 except (ValueError, TypeError):
-                    sleep_time = backoff * (attempt + 1)
-                logger.info(f"  [!] SEC rate limited (429). Sleeping for {sleep_time}s before retry...")
+                    sleep_time = min(backoff * (2 ** attempt) + random.uniform(0, 0.5), 30)
+                logger.info(f"  [!] SEC rate limited (429). Sleeping for {sleep_time:.1f}s before retry {attempt+1}/{retries}...")
                 time.sleep(sleep_time)
                 continue
             resp.raise_for_status()
@@ -274,14 +282,15 @@ def _sec_request_with_retry(url, headers, timeout, retries=3, backoff=2.0):
         except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
             if attempt == retries - 1:
                 raise e
-            sleep_time = backoff * (2 ** attempt)
-            logger.info(f"  [!] SEC Request failed: {e}. Retrying in {sleep_time}s...")
+            sleep_time = min(backoff * (2 ** attempt) + random.uniform(0, 0.5), 30)
+            logger.info(f"  [!] SEC Request failed: {e}. Retrying in {sleep_time:.1f}s ({attempt+1}/{retries})...")
             time.sleep(sleep_time)
     raise requests.exceptions.RequestException("Request failed after retries")
 
 
 def _yf_with_retry(fn, retries=3, backoff=1.5, label="yfinance"):
-    """Retry yfinance call with exponential backoff on 429/connection errors."""
+    """Retry yfinance with status-aware 429 detection, Retry-After, jitter, and no-retry on bad ticker."""
+    import random
     last_exc = None
     for attempt in range(retries):
         try:
@@ -289,17 +298,42 @@ def _yf_with_retry(fn, retries=3, backoff=1.5, label="yfinance"):
         except Exception as e:
             last_exc = e
             msg = str(e).lower()
-            is_rate = "429" in str(e) or "too many requests" in msg or "rate limit" in msg
+            # Status-code aware detection
+            status = getattr(getattr(e, "response", None), "status_code", None)
+            is_rate = status == 429 or "429" in str(e) or "too many requests" in msg or "rate limit" in msg
+            is_conn = isinstance(e, (requests.exceptions.ConnectionError, requests.exceptions.Timeout, TimeoutError, socket.timeout)) or "connection" in msg or "timeout" in msg or "timed out" in msg
+            # Never retry on bad ticker — fail fast
+            if any(x in msg for x in ["not found", "no data found", "no results", "invalid ticker", "symbol may be delisted"]) and not is_rate:
+                raise
             if is_rate:
-                wait = backoff * (attempt + 1) * 2
+                # Respect Retry-After if present
+                retry_after = None
+                try:
+                    resp = getattr(e, "response", None)
+                    if resp is not None:
+                        retry_after = resp.headers.get("Retry-After") if hasattr(resp, "headers") else None
+                except Exception:
+                    pass
+                if retry_after and str(retry_after).replace('.','',1).isdigit():
+                    wait = min(float(retry_after), 30)
+                else:
+                    wait = min(backoff * (2 ** attempt) + random.uniform(0, 0.7), 30)
                 logger.info(f"  [!] {label} rate limited (429). Retry {attempt+1}/{retries} in {wait:.1f}s...")
                 time.sleep(wait)
-            elif attempt < retries - 1:
-                wait = backoff * (2 ** attempt)
+                continue
+            if is_conn and attempt < retries - 1:
+                wait = min(backoff * (2 ** attempt) + random.uniform(0, 0.5), 30)
+                logger.info(f"  [!] {label} connection issue: {e}. Retry {attempt+1}/{retries} in {wait:.1f}s...")
+                time.sleep(wait)
+                continue
+            if attempt < retries - 1 and not is_rate and not is_conn:
+                # Only retry unknown errors once, with backoff
+                wait = min(backoff * (1.5 ** attempt) + random.uniform(0, 0.3), 15)
                 logger.info(f"  [!] {label} failed: {e}. Retry {attempt+1}/{retries} in {wait:.1f}s...")
                 time.sleep(wait)
-            else:
-                logger.info(f"  [!] {label} failed after {retries} retries: {e}")
+                continue
+            logger.info(f"  [!] {label} failed after {retries} retries: {e}")
+            break
     if last_exc:
         raise last_exc
     return None
