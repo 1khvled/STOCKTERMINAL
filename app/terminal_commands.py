@@ -3,7 +3,11 @@ import os
 import re
 from datetime import datetime
 
-OUTPUT_DIR = "output"
+try:
+    from config import OUTPUT_DIR as _CONFIG_OUTPUT_DIR
+except ImportError:
+    from .config import OUTPUT_DIR as _CONFIG_OUTPUT_DIR
+OUTPUT_DIR = str(_CONFIG_OUTPUT_DIR)
 DATABASE_DIR = os.path.join(OUTPUT_DIR, "database")
 
 _TICKER_RE = re.compile(r"^[A-Z0-9.\-\^]{1,12}$")

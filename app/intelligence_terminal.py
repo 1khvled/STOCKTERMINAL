@@ -616,14 +616,25 @@ def get_sec_filings(ticker, force=False):
     return result
 
 
+_CIK_CACHE = {}
+_CIK_CACHE_TTL = 7 * 24 * 3600
+
+
 def _lookup_cik(ticker):
+    cached = _CIK_CACHE.get(ticker)
+    if cached and time.time() - cached[1] < _CIK_CACHE_TTL:
+        return cached[0]
     try:
         headers = {"User-Agent": SEC_USER_AGENT}
         data = requests.get("https://www.sec.gov/files/company_tickers.json", headers=headers, timeout=10).json()
         for item in data.values():
             if item.get("ticker", "").upper() == ticker:
-                return str(item.get("cik_str")).zfill(10)
+                cik = str(item.get("cik_str")).zfill(10)
+                _CIK_CACHE[ticker] = (cik, time.time())
+                return cik
     except Exception:
+        if cached:
+            return cached[0]
         return ""
     return ""
 

@@ -109,7 +109,7 @@ def _read_json_file(path):
         return None
 
 def _db_path(ticker):
-    return DB_DIR / f"{ticker.upper()}.json"
+    return local_db.DB_DIR / f"{ticker.upper()}.json"
 
 def _load_stock_record(ticker):
     if not is_valid_ticker(ticker):
@@ -123,45 +123,6 @@ def _calc_upside_from_record(data):
     price = _safe_float(metrics.get("current_price") or metrics.get("currentPrice"), 0)
     fair = _safe_float((analysis.get("valuation_assessment") or {}).get("fair_value_mid") or dcf_data.get("implied_price"), 0)
     return ((fair - price) / price) if price else 0
-
-def _catalog_row(data):
-    metrics = data.get("key_metrics", {})
-    dcf_data = data.get("dcf_data", {})
-    scores = data.get("financial_scores", {})
-    analysis = data.get("analysis", {})
-    curr_price = _safe_float(metrics.get("current_price") or metrics.get("currentPrice"), 0)
-    fair_mid = _safe_float((analysis.get("valuation_assessment") or {}).get("fair_value_mid") or dcf_data.get("implied_price"), 0)
-    return {
-        "ticker": (data.get("ticker") or "").upper(),
-        "company_name": data.get("company_name", "N/A"),
-        "sector": metrics.get("sector") or "N/A",
-        "industry": metrics.get("industry") or "N/A",
-        "verdict": analysis.get("verdict", "HOLD"),
-        "current_price": curr_price,
-        "fair_value_mid": fair_mid,
-        "upside": ((fair_mid - curr_price) / curr_price) if curr_price else 0,
-        "pe_ratio": _safe_float(metrics.get("trailingPE") or metrics.get("forwardPE"), 0),
-        "altman_z": scores.get("altman_z", "N/A"),
-        "altman_z_label": scores.get("altman_z_label", "Safe"),
-        "piotroski_f": _safe_float(scores.get("piotroski_f"), None),
-        "beneish_m": scores.get("beneish_m", "N/A"),
-        "totalCash": _safe_float(metrics.get("totalCash"), 0),
-        "totalDebt": _safe_float(metrics.get("totalDebt"), 0),
-        "bookValue": _safe_float(metrics.get("bookValue"), 0),
-        "debtToEquity": _safe_float(metrics.get("debtToEquity"), None),
-        "currentRatio": _safe_float(metrics.get("currentRatio"), None),
-        "quickRatio": _safe_float(metrics.get("quickRatio"), None),
-        "marketCap": _safe_float(metrics.get("marketCap"), 0),
-        "freeCashflow": _safe_float(metrics.get("freeCashflow"), 0),
-        "totalRevenue": _safe_float(metrics.get("totalRevenue"), 0),
-        "returnOnEquity": _safe_float(metrics.get("returnOnEquity"), None),
-        "returnOnAssets": _safe_float(metrics.get("returnOnAssets"), None),
-        "revenueGrowth": _safe_float(metrics.get("revenueGrowth"), None),
-        "operatingMargins": _safe_float(metrics.get("operatingMargins"), None),
-        "profitMargins": _safe_float(metrics.get("profitMargins"), None),
-        "confidence": analysis.get("verdict_confidence", "N/A"),
-        "generated_at": data.get("generated_at", "")
-    }
 
 def _catalog_rows():
     return local_db.catalog_rows()
@@ -334,7 +295,7 @@ def stream_logs():
             else:
                 yield f"data: Analysis complete for {ticker} (mock)\n\n"
             yield f"data: REDIRECT: /dashboard/{ticker}\n\n"
-        return Response(_mock_stream(), mimetype="text/event-stream")
+        return Response(_mock_stream(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"})
 
     def generate_events():
         from queue import Queue, Empty
@@ -412,7 +373,7 @@ def stream_logs():
                 process.terminate()
                 process.wait()
 
-    return Response(generate_events(), mimetype="text/event-stream")
+    return Response(generate_events(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"})
 
 @app.route("/api/stocks")
 def get_stocks():
@@ -1312,16 +1273,14 @@ def api_stock_estimates(ticker):
     try:
         with _estimates_lock:
             cache = _read_estimates_cache()
-        if out["earnings"] or out["revenue"]:
-            with _estimates_lock:
-                fresh = _read_estimates_cache()
-                fresh[ticker] = {"fetched_at": _time.time(), "data": out}
-                _write_estimates_cache(fresh)
-        elif (cache.get(ticker) or {}).get("data"):
-            stale = dict(cache[ticker]["data"])
-            stale["cached"] = True
-            stale["stale"] = True
-            return stale
+            if out["earnings"] or out["revenue"]:
+                cache[ticker] = {"fetched_at": _time.time(), "data": out}
+                _write_estimates_cache(cache)
+            elif (cache.get(ticker) or {}).get("data"):
+                stale = dict(cache[ticker]["data"])
+                stale["cached"] = True
+                stale["stale"] = True
+                return stale
     except Exception:
         pass
     return out
@@ -1390,6 +1349,12 @@ def api_live_quotes():
             row = next((r for r in _catalog_rows() if r["ticker"] == ticker), None)
             quotes.append({"ticker": ticker, "price": row.get("current_price", 150.0) if row else 150.0, "change": 1.2, "pct": 0.008, "source": "mock_test"})
         return {"quotes": quotes}
+    # 30s cache to avoid hammering yfinance on every 30s frontend poll
+    import time as _tq
+    _cache_key = ",".join(tickers)
+    if (live_quotes_cache.get("data") and live_quotes_cache.get("key") == _cache_key
+            and _tq.time() - live_quotes_cache.get("timestamp", 0) < 30):
+        return {"quotes": live_quotes_cache["data"]}
     # Try live yfinance batch fetch, fallback to local
     quotes = []
     try:
@@ -1415,6 +1380,9 @@ def api_live_quotes():
             else:
                 row = next((r for r in _catalog_rows() if r["ticker"] == ticker), None)
                 quotes.append({"ticker": ticker, "price": row.get("current_price", 0) if row else 0, "change": 0, "pct": 0, "source": "local_database"})
+        live_quotes_cache["data"] = quotes
+        live_quotes_cache["key"] = _cache_key
+        live_quotes_cache["timestamp"] = _tq.time()
         return {"quotes": quotes}
     except Exception as e:
         logger.info(f"live-quotes error: {e}")
@@ -1631,6 +1599,8 @@ def _auto_update_worker():
                 pass
             if auto_update_state["running"]:
                 continue
+            if not _auto_update_lock.acquire(blocking=False):
+                continue
             rows = _catalog_rows()
             _refresh_earnings_schedule([r["ticker"] for r in rows])
             due = []
@@ -1662,9 +1632,17 @@ def _auto_update_worker():
             auto_update_state["last_run"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             auto_update_state["running"] = False
             auto_update_state["queue"] = []
+            try:
+                _auto_update_lock.release()
+            except Exception:
+                pass
         except Exception as e:
             logger.info(f"[AutoUpdate] worker error: {e}")
             auto_update_state["running"] = False
+            try:
+                _auto_update_lock.release()
+            except Exception:
+                pass
             time.sleep(3600)
 
 def _start_auto_update_thread():
@@ -1708,7 +1686,6 @@ def api_earnings_schedule_refresh():
             for tk in tickers:
                 (sched.get(tk) or {}).pop("next_earnings", None)
             _write_earnings_schedule(sched)
-            _read_earnings_schedule.cache_clear() if hasattr(_read_earnings_schedule, "cache_clear") else None
         sched = _refresh_earnings_schedule(tickers)
         return {"status": "refreshed", "count": len(sched), "due": _earnings_due_list()}
     except Exception as e:
@@ -1734,8 +1711,8 @@ def api_auto_update_trigger():
                 return
             auto_update_state["running"] = True
             try:
-                if req_tickers:
-                    targets = [tk.upper().strip() for tk in req_tickers if is_valid_ticker(tk.upper().strip())]
+                if isinstance(req_tickers, list) and req_tickers:
+                    targets = [tk.upper().strip() for tk in req_tickers[:10] if isinstance(tk, str) and is_valid_ticker(tk.upper().strip())]
                 else:
                     _refresh_earnings_schedule([r["ticker"] for r in _catalog_rows()])
                     targets = []
