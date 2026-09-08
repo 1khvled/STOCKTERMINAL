@@ -3,10 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StockerAI // Peer Comparison</title>
+    <title>Compare - Stocker Finance</title>
     <link rel="stylesheet" href="/static/css/theme.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
-    <link rel="stylesheet" href="/static/css/terminal_shell.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/terminal.css') }}">
     <style>
         .compare-container {
@@ -14,7 +12,7 @@
             margin: 0 auto;
             padding: 2rem;
         }
-        
+
         .compare-header {
             display: flex;
             justify-content: space-between;
@@ -23,7 +21,7 @@
             border-bottom: 1px solid var(--border);
             padding-bottom: 1rem;
         }
-        
+
         .compare-title {
             font-size: 2rem;
             font-weight: 800;
@@ -32,12 +30,12 @@
             align-items: center;
             gap: 12px;
         }
-        
+
         .ticker-input-group {
             display: flex;
             gap: 10px;
         }
-        
+
         .ticker-input-group input {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -49,12 +47,12 @@
             width: 250px;
             text-transform: uppercase;
         }
-        
+
         .ticker-input-group input:focus {
             outline: none;
             border-color: var(--emerald);
         }
-        
+
         .compare-table {
             width: 100%;
             border-collapse: collapse;
@@ -63,13 +61,13 @@
             overflow: hidden;
             border: 1px solid var(--border);
         }
-        
+
         .compare-table th, .compare-table td {
             padding: 1rem;
             text-align: left;
             border-bottom: 1px solid var(--border);
         }
-        
+
         .compare-table th {
             background: var(--bg-header);
             font-weight: 600;
@@ -80,14 +78,14 @@
             letter-spacing: 1px;
             border-right: 1px solid var(--border);
         }
-        
+
         .compare-table td {
             border-right: 1px solid var(--border);
             font-family: var(--font-mono);
             color: var(--text-primary);
             transition: background 0.3s;
         }
-        
+
         .compare-table th:first-child, .compare-table td:first-child {
             width: 250px;
             background: var(--bg-header);
@@ -96,7 +94,7 @@
             color: var(--text-primary);
             border-right: 2px solid var(--border);
         }
-        
+
         .metric-group {
             background: rgba(255, 255, 255, 0.02);
             font-size: 0.8rem;
@@ -107,11 +105,11 @@
             padding: 0.5rem 1rem !important;
             border-top: 2px solid var(--border) !important;
         }
-        
+
         .val-positive { color: var(--emerald); }
         .val-negative { color: var(--ruby); }
         .val-neutral { color: var(--text-secondary); }
-        
+
         .remove-btn {
             background: none;
             border: none;
@@ -125,157 +123,31 @@
             height: 24px;
             border-radius: 4px;
         }
-        
+
         .remove-btn:hover {
             background: rgba(255, 59, 48, 0.1);
         }
-        
+
         .table-header-cell {
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        
+
         .winner-cell {
             background: rgba(48, 209, 88, 0.12) !important;
             border: 1px solid rgba(48, 209, 88, 0.4) !important;
             box-shadow: inset 0 0 10px rgba(48, 209, 88, 0.1);
         }
-        
+
         .loser-cell {
             background: rgba(255, 69, 58, 0.06) !important;
             opacity: 0.8;
         }
     </style>
-    <style>
-        .compare-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-        
-        .compare-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 1rem;
-        }
-        
-        .compare-title {
-            font-size: 2rem;
-            font-weight: 800;
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .ticker-input-group {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .ticker-input-group input {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            color: var(--text-primary);
-            padding: 10px 15px;
-            border-radius: 6px;
-            font-family: var(--font-mono);
-            font-size: 1rem;
-            width: 250px;
-            text-transform: uppercase;
-        }
-        
-        .ticker-input-group input:focus {
-            outline: none;
-            border-color: var(--emerald);
-        }
-        
-        .compare-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: var(--bg-elevated);
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid var(--border);
-        }
-        
-        .compare-table th, .compare-table td {
-            padding: 1rem;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .compare-table th {
-            background: var(--bg-header);
-            font-weight: 600;
-            color: var(--text-secondary);
-            font-family: var(--font-mono);
-            text-transform: uppercase;
-            font-size: 0.85rem;
-            letter-spacing: 1px;
-            border-right: 1px solid var(--border);
-        }
-        
-        .compare-table td {
-            border-right: 1px solid var(--border);
-            font-family: var(--font-mono);
-            color: var(--text-primary);
-        }
-        
-        .compare-table th:first-child, .compare-table td:first-child {
-            width: 250px;
-            background: var(--bg-header);
-            font-weight: 600;
-            font-family: var(--font-sans);
-            color: var(--text-primary);
-            border-right: 2px solid var(--border);
-        }
-        
-        .metric-group {
-            background: rgba(255, 255, 255, 0.02);
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            padding: 0.5rem 1rem !important;
-            border-top: 2px solid var(--border) !important;
-        }
-        
-        .val-positive { color: var(--emerald); }
-        .val-negative { color: var(--ruby); }
-        .val-neutral { color: var(--text-secondary); }
-        
-        .remove-btn {
-            background: none;
-            border: none;
-            color: var(--ruby);
-            cursor: pointer;
-            font-size: 1.2rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 24px;
-            height: 24px;
-            border-radius: 4px;
-        }
-        
-        .remove-btn:hover {
-            background: rgba(255, 59, 48, 0.1);
-        }
-        
-        .table-header-cell {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-    </style>
+
 </head>
-<body class="terminal-shell">
+<body class="terminal-shell"><style>.hdr{position:sticky;top:0;z-index:50;background:#0d0e13;border-bottom:1px solid #22242e}.hdr-in{max-width:1400px;margin:0 auto;padding:0 20px;height:60px;display:flex;align-items:center;gap:18px}.logo{font-weight:800;font-size:17px;white-space:nowrap;color:#f4f5f7;text-decoration:none}.logo b{color:#bf5af2}.prem{font-size:10px;color:#0a0a0f;background:linear-gradient(90deg,#ffd60a,#ff9f0a);padding:3px 9px;border-radius:999px;font-weight:700;white-space:nowrap}.nav{display:flex;gap:2px;margin-left:4px}@media(max-width:900px){.hdr-in{flex-wrap:wrap;height:auto;padding:10px 20px;row-gap:8px}.nav{order:3;width:100%;overflow-x:auto;margin-left:0}}.nav a{font-size:13px;font-weight:600;color:#9aa0ae;padding:8px 11px;border-radius:8px;white-space:nowrap;text-decoration:none}.nav a:hover,.nav a.on{color:#f4f5f7;background:#17181f}.search{position:relative;flex:1;max-width:420px;margin-left:auto}.search input{width:100%;background:#17181f;border:1px solid #2c2e3a;color:#f4f5f7;padding:10px 14px;border-radius:10px;font-size:13px;outline:none}.sdrop{position:absolute;top:calc(100% + 6px);left:0;right:0;background:#17181f;border:1px solid #2c2e3a;border-radius:12px;overflow:hidden;display:none;z-index:60}.sdrop a{display:flex;gap:10px;padding:10px 14px;color:#f4f5f7;text-decoration:none}.clock{text-align:right;font-size:12px;white-space:nowrap;color:#9aa0ae}body{background:#0a0a0f;color:#f4f5f7}.main-content,.term-shell-main{background:transparent}:root{--bg:#0a0a0f;--surface-0:#0a0a0f;--surface-1:#0a0a0f;--surface-2:#121318;--surface-3:#17181f;--surface-4:#17181f;--surface-5:#1d1e26;--bg-base:#0a0a0f;--bg-panel:#121318;--bg-hover:#181a23;--bg-header:#121318;--bg-elevated:#121318;--surface:#121318;--border:#22242e;--border-subtle:#22242e;--border-default:#22242e;--border-strong:#2c2e3a;--border-highlight:#2c2e3a;--text-primary:#f4f5f7;--text-secondary:#9aa0ae;--text-muted:#9aa0ae;--text-dimmed:#6b7080;--slate:#6b7080}</style><header class="hdr"><div class="hdr-in"><a class="logo" href="/">Stocker <b>Finance</b></a><span class="prem">PREMIUM &#8226; FREE</span><nav class="nav"><a href="/">Home</a><a href="/watchlist">Watchlist</a><a href="/portfolio">Portfolio</a><a href="/module/screener">Screener</a><a href="/compare" class="on">Compare</a><a href="/earnings">Earnings</a><a href="/scenario-lab">Lab</a><a href="/guide">Guide</a></nav><div class="search"><input id="q" placeholder="Quote lookup..." autocomplete="off"/><div class="sdrop" id="sdrop"></div></div><div class="clock" id="clock">--:--:-- ET</div></div></header>
 
 <div class="main-content term-shell-main">
 <div class="compare-container">
@@ -291,7 +163,7 @@
             Peer Comparison Matrix
         </div>
         <div style="display: flex; gap: 15px; align-items: center;">
-            <a href="/" class="btn" style="background: transparent; border: 1px solid var(--border);">← Back to Hub</a>
+
             <button class="btn btn-ghost btn-sm" id="share-btn" onclick="copyShareLink()">🔗 Copy Link</button>
             <button class="btn btn-ghost btn-sm" id="pdf-btn" onclick="exportComparePDF()">📄 Export PDF</button>
             <div class="ticker-input-group">
@@ -300,7 +172,7 @@
             </div>
         </div>
     </div>
-    
+
     <div id="loading-indicator" style="display: none; text-align: center; padding: 2rem; color: var(--text-muted); font-style: italic;">
         Querying database...
     </div>
@@ -323,7 +195,7 @@
             </tbody>
         </table>
     </div>
-    
+
     <div id="empty-state" style="text-align: center; padding: 4rem; background: var(--bg-elevated); border-radius: 8px; border: 1px dashed var(--border);">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" style="margin-bottom: 1rem;">
             <circle cx="11" cy="11" r="8"></circle>
@@ -336,11 +208,11 @@
 </div>
 </div>
 <script src="/static/js/terminal_shell.js"></script>
-<script src="/static/js/toast.js"></script>
+<script src="/static/js/toast.js"></script><script>var cD=function(id){return document.getElementById(id)};function cesc(s){s=String(s==null?'':s);s=s.split('&').join('&amp;');s=s.split('<').join('&lt;');s=s.split('>').join('&gt;');return s}var cqt=null;function cdoSearch(v){var d=cD('sdrop');if(!v){d.style.display='none';return}clearTimeout(cqt);cqt=setTimeout(function(){fetch('/api/query/search?q='+encodeURIComponent(v)).then(function(r){return r.json()}).then(function(j){var R=j.results||[];if(!R.length){d.style.display='none';return}d.innerHTML=R.slice(0,7).map(function(x){return '<a href="/dashboard/'+cesc(x.ticker)+'">'+ '<span>'+cesc(x.ticker)+'</span><span>'+cesc(x.company||x.title||'')+'</span></a>'}).join('');d.style.display='block'}).catch(function(){})},250)}cD('q').addEventListener('input',function(){cdoSearch(cD('q').value.trim())});cD('q').addEventListener('keydown',function(e){if(e.key==='Enter'){var v=cD('q').value.trim();if(v)location.href='/dashboard/'+encodeURIComponent(v.toUpperCase())}});document.addEventListener('click',function(e){if(!e.target.closest('.search'))cD('sdrop').style.display='none'});function ctick(){try{var d=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));var pf=function(n){return (n<10?'0':'')+n};cD('clock').textContent=(pf(d.getHours())+':'+pf(d.getMinutes())+':'+pf(d.getSeconds())+' ET')}catch(e){}}setInterval(ctick,1000);ctick();</script>
 
 <script>
     let activeTickers = [];
-    
+
     // Check URL parameters for initial tickers
     window.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -367,9 +239,9 @@
     function addTicker() {
         const input = document.getElementById('ticker-input');
         const ticker = input.value.trim().toUpperCase();
-        
+
         if (!ticker) return;
-        
+
         if (activeTickers.includes(ticker)) {
             if (typeof showToast === 'function') {
                 showToast(`${ticker} is already in the comparison.`, 'warn');
@@ -379,7 +251,7 @@
             input.value = '';
             return;
         }
-        
+
         if (activeTickers.length >= 5) {
             if (typeof showToast === 'function') {
                 showToast("Maximum 5 tickers allowed in the comparison matrix.", 'error');
@@ -388,13 +260,13 @@
             }
             return;
         }
-        
+
         activeTickers.push(ticker);
         input.value = '';
         fetchComparison();
         updateUrlParams();
     }
-    
+
     function removeTicker(ticker) {
         activeTickers = activeTickers.filter(t => t !== ticker);
         if (activeTickers.length === 0) {
@@ -405,7 +277,7 @@
         }
         updateUrlParams();
     }
-    
+
     function updateUrlParams() {
         const url = new URL(window.location);
         if (activeTickers.length > 0) {
@@ -418,15 +290,15 @@
 
     async function fetchComparison() {
         if (activeTickers.length === 0) return;
-        
+
         document.getElementById('loading-indicator').style.display = 'block';
         document.getElementById('compare-table').style.display = 'none';
         document.getElementById('empty-state').style.display = 'none';
-        
+
         try {
             const res = await fetch(`/api/compare?tickers=${activeTickers.join(',')}`);
             const data = await res.json();
-            
+
             if (data.status === 'success') {
                 renderTable(data.results);
             } else {
@@ -447,18 +319,18 @@
             document.getElementById('loading-indicator').style.display = 'none';
         }
     }
-    
+
     function renderTable(results) {
         if (results.length === 0) {
             document.getElementById('compare-table').style.display = 'none';
             document.getElementById('empty-state').style.display = 'block';
             return;
         }
-        
+
         document.getElementById('compare-table').style.display = 'table';
         const thead = document.getElementById('row-headers');
         const tbody = document.getElementById('compare-tbody');
-        
+
         // Render headers
         let theadHtml = '<th>Metric</th>';
         results.forEach(res => {
@@ -475,24 +347,24 @@
             `;
         });
         thead.innerHTML = theadHtml;
-        
+
         // Define rows
         const rows = [
             { id: 'group1', label: 'Valuation & Price', isGroup: true },
             { id: 'price', label: 'Current Price', format: (val) => formatCurrency(val) },
             { id: 'fair_value', label: 'Implied Fair Value', format: (val) => formatCurrency(val) },
             { id: 'upside', label: 'Upside / Downside', format: (val) => `<span class="${val.startsWith('+') ? 'val-positive' : (val.startsWith('-') ? 'val-negative' : '')}">${val}</span>` },
-            
+
             { id: 'group2', label: 'Multiples', isGroup: true },
             { id: 'pe', label: 'Trailing P/E', format: (val) => formatMultiple(val) },
             { id: 'fwd_pe', label: 'Forward P/E', format: (val) => formatMultiple(val) },
             { id: 'pb', label: 'Price to Book', format: (val) => formatMultiple(val) },
-            
+
             { id: 'group3', label: 'Profitability & Returns', isGroup: true },
             { id: 'roe', label: 'Return on Equity (ROE)', format: (val) => formatPercent(val) },
             { id: 'roa', label: 'Return on Assets (ROA)', format: (val) => formatPercent(val) },
             { id: 'freeCashflow', label: 'Free Cash Flow', format: (val) => formatLargeCurrency(val) },
-            
+
             { id: 'group4', label: 'Solvency & Risk', isGroup: true },
             { id: 'debt_eq', label: 'Debt to Equity', format: (val) => formatMultiple(val) },
             { id: 'altman_z', label: 'Altman Z-Score', format: (val, rowIdx, colIdx, res) => {
@@ -501,16 +373,16 @@
                 const colorClass = num > 2.99 ? 'val-positive' : (num < 1.8 ? 'val-negative' : 'val-neutral');
                 return `<span class="${colorClass}">${val}</span> <span style="font-size:0.7rem; color:var(--text-muted);">(${res.altman_z_label})</span>`;
             }},
-            
+
             { id: 'group5', label: 'AI Verdict', isGroup: true },
-            { id: 'verdict', label: 'StockerAI Verdict', format: (val) => {
+            { id: 'verdict', label: 'AI Verdict', format: (val) => {
                 let badgeClass = 'badge-hold';
                 if(val === 'STRONG BUY' || val === 'BUY') badgeClass = 'badge-buy';
                 else if(val === 'STRONG SELL' || val === 'SELL') badgeClass = 'badge-sell';
                 return `<span class="badge ${badgeClass}" style="padding: 4px 8px; font-size: 0.75rem; border-radius: 4px; font-family: var(--font-sans); font-weight: 700; color: #fff; background: ${badgeClass === 'badge-buy' ? 'var(--emerald)' : (badgeClass === 'badge-sell' ? 'var(--ruby)' : 'var(--slate)')}">${val}</span>`;
             }}
         ];
-        
+
         let tbodyHtml = '';
         rows.forEach((row, rowIdx) => {
             if (row.isGroup) {
@@ -530,14 +402,14 @@
                 tbodyHtml += `</tr>`;
             }
         });
-        
+
         tbody.innerHTML = tbodyHtml;
-        
+
         // Apply Winner Highlighting and Radar Drawing
         highlightTableRows();
         drawRadarChart(results);
     }
-    
+
     // Formatting helpers
     function formatCurrency(val) {
         if(typeof val === 'number') return '$' + val.toFixed(2);
@@ -587,21 +459,21 @@
     function highlightTableRows() {
         const tbody = document.getElementById('compare-tbody');
         if (!tbody) return;
-        
+
         const rows = tbody.querySelectorAll('tr');
         rows.forEach(row => {
             if (row.querySelector('.metric-group') || row.cells.length <= 2) return;
-            
+
             const label = row.cells[0].innerText.trim();
             let higherIsBetter = true;
-            
+
             if (label.includes('P/E') || label.includes('Price to Book') || label.includes('Debt to Equity')) {
                 higherIsBetter = false;
-            } else if (label.includes('Current Price') || label.includes('Implied Fair Value') || label.includes('StockerAI Verdict') || label.includes('Free Cash Flow')) {
+            } else if (label.includes('Current Price') || label.includes('Implied Fair Value') || label.includes('AI Verdict') || label.includes('Free Cash Flow')) {
                 // Ignore highlighting for basic pricing and categorical verdicts
                 return;
             }
-            
+
             const cells = Array.from(row.cells).slice(1);
             const values = cells.map(cell => {
                 let text = cell.innerText.trim();
@@ -609,12 +481,12 @@
                 const val = parseFloat(text);
                 return isNaN(val) ? null : val;
             });
-            
+
             let bestVal = higherIsBetter ? -Infinity : Infinity;
             let worstVal = higherIsBetter ? Infinity : -Infinity;
             let bestIdx = -1;
             let worstIdx = -1;
-            
+
             values.forEach((v, idx) => {
                 if (v === null) return;
                 if (higherIsBetter) {
@@ -625,7 +497,7 @@
                     if (v > worstVal) { worstVal = v; worstIdx = idx; }
                 }
             });
-            
+
             if (bestIdx !== -1 && worstIdx !== -1 && bestVal !== worstVal) {
                 cells.forEach((cell, idx) => {
                     if (idx === bestIdx) {
@@ -641,23 +513,23 @@
     function drawRadarChart(results) {
         const canvas = document.getElementById('compare-radar');
         if (!canvas) return;
-        
+
         if (results.length < 2) {
             canvas.style.display = 'none';
             return;
         }
-        
+
         canvas.style.display = 'block';
         const ctx = canvas.getContext('2d');
         const W = canvas.width;
         const H = canvas.height;
         ctx.clearRect(0, 0, W, H);
-        
+
         const center = { x: W / 2, y: H / 2 - 10 };
         const radius = 120;
         const axes = ['Valuation', 'Profitability', 'Safety', 'Growth', 'Cash Gen'];
         const numAxes = axes.length;
-        
+
         // Draw pentagonal background grids
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
         ctx.lineWidth = 1;
@@ -674,28 +546,28 @@
             ctx.closePath();
             ctx.stroke();
         }
-        
+
         // Draw axis lines and labels
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
         ctx.fillStyle = 'var(--text-muted)';
         ctx.font = 'bold 10px var(--font-sans)';
         ctx.textAlign = 'center';
-        
+
         for (let i = 0; i < numAxes; i++) {
             const angle = (i * 2 * Math.PI) / numAxes - Math.PI / 2;
             const x = center.x + radius * Math.cos(angle);
             const y = center.y + radius * Math.sin(angle);
-            
+
             ctx.beginPath();
             ctx.moveTo(center.x, center.y);
             ctx.lineTo(x, y);
             ctx.stroke();
-            
+
             const labelX = center.x + (radius + 20) * Math.cos(angle);
             const labelY = center.y + (radius + 15) * Math.sin(angle) + 4;
             ctx.fillText(axes[i], labelX, labelY);
         }
-        
+
         // Extract metrics
         const parsed = results.map(res => {
             const pe = parseFloat(res.pe);
@@ -703,7 +575,7 @@
             const altman = parseFloat(res.altman_z);
             const upside = parseFloat(res.upside.replace('%', ''));
             const fcf = parseFloat(res.freeCashflow);
-            
+
             return {
                 ticker: res.ticker,
                 val: isNaN(pe) || pe <= 0 ? 0.02 : 1 / pe,
@@ -713,17 +585,17 @@
                 cash: isNaN(fcf) ? 0 : fcf
             };
         });
-        
+
         const keys = ['val', 'prof', 'safe', 'growth', 'cash'];
         const maxVals = {};
         const minVals = {};
-        
+
         keys.forEach(k => {
             const vals = parsed.map(p => p[k]);
             maxVals[k] = Math.max(...vals, 0.0001);
             minVals[k] = Math.min(...vals, 0);
         });
-        
+
         const colors = {
             0: { fill: 'rgba(48, 209, 88, 0.15)', stroke: 'rgba(48, 209, 88, 0.8)' },
             1: { fill: 'rgba(10, 132, 255, 0.15)', stroke: 'rgba(10, 132, 255, 0.8)' },
@@ -731,7 +603,7 @@
             3: { fill: 'rgba(191, 90, 242, 0.15)', stroke: 'rgba(191, 90, 242, 0.8)' },
             4: { fill: 'rgba(255, 69, 58, 0.15)', stroke: 'rgba(255, 69, 58, 0.8)' }
         };
-        
+
         parsed.forEach((p, idx) => {
             const color = colors[idx] || colors[0];
             const normalized = keys.map(k => {
@@ -741,7 +613,7 @@
                 const score = range > 0 ? (p[k] - min) / range : 0.5;
                 return 0.15 + score * 0.85;
             });
-            
+
             ctx.beginPath();
             for (let i = 0; i < numAxes; i++) {
                 const angle = (i * 2 * Math.PI) / numAxes - Math.PI / 2;
@@ -752,14 +624,14 @@
                 else ctx.lineTo(x, y);
             }
             ctx.closePath();
-            
+
             ctx.fillStyle = color.fill;
             ctx.fill();
-            
+
             ctx.strokeStyle = color.stroke;
             ctx.lineWidth = 2;
             ctx.stroke();
-            
+
             // Draw Legend
             const legendX = 20 + idx * 75;
             const legendY = H - 10;

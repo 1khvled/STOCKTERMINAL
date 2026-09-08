@@ -40,8 +40,8 @@ def handle_screen_command(query):
     if len(query) > 120:
         query = query[:120]
     try:
-        import supabase_db
-        stocks = supabase_db.catalog_rows()
+        import local_db
+        stocks = local_db.catalog_rows()
     except Exception:
         return {"html": "<span class=\"bbg-text-red\">No database records found.</span>"}
     if not stocks:
@@ -173,8 +173,8 @@ def process_command(raw_command):
         if not _is_valid_ticker(ticker):
             return {"html": f"<span class=\"bbg-text-red\">Invalid ticker '{_esc(ticker)}'.</span>"}
         try:
-            import supabase_db
-            stock_data = supabase_db.load_stock_record(ticker)
+            import local_db
+            stock_data = local_db.load_stock_record(ticker)
         except Exception:
             stock_data = None
         if not stock_data:

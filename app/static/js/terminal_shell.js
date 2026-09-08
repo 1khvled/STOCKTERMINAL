@@ -173,3 +173,21 @@
         sanitizeTerminalText();
     });
 })();
+
+// Shared nav active-state: highlights the current section on .nav pages
+(function syncNav() {
+    function run() {
+        var cur = window.location.pathname;
+        var links = document.querySelectorAll('.nav a');
+        if (!links.length) return;
+        for (var i = 0; i < links.length; i++) {
+            var href = links[i].getAttribute('href');
+            if (!href) continue;
+            var on = href === '/' ? cur === '/' : (cur === href || cur.indexOf(href + '/') === 0);
+            if (on) links[i].classList.add('on');
+            else links[i].classList.remove('on');
+        }
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+    else run();
+})();

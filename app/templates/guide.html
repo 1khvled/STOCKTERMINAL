@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StockerAI // Institutional Quantitative Reference Guide</title>
-    
+    <title>Stocker Finance // Institutional Quantitative Reference Guide</title>
+
     <!-- KaTeX Math Engine for Professional Equation Rendering -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
@@ -23,19 +23,19 @@
             --text-primary: #f3f4f6;
             --text-secondary: #9ca3af;
             --text-muted: #4b5563;
-            
+
             --emerald: #10b981;
             --emerald-glow: rgba(16, 185, 129, 0.05);
             --emerald-border: rgba(16, 185, 129, 0.15);
-            
+
             --gold: #f59e0b;
             --gold-glow: rgba(245, 158, 11, 0.05);
             --gold-border: rgba(245, 158, 11, 0.15);
-            
+
             --ruby: #ef4444;
             --ruby-glow: rgba(239, 68, 68, 0.05);
             --ruby-border: rgba(239, 68, 68, 0.15);
-            
+
             --radius-sm: 4px;
             --radius-md: 6px;
         }
@@ -467,7 +467,7 @@
             border-bottom-style: solid;
         }
 
-        /* Back to Hub Floating Anchor */
+        /* Floating Home Anchor */
         .back-hub {
             position: fixed;
             bottom: 24px;
@@ -479,9 +479,9 @@
 </head>
 <body>
     <nav>
-        <div class="logo-container" onclick="toggleTerminal()" style="cursor: pointer;" title="Open Terminal (Ctrl + ~)">
-            <span class="logo-symbol">S_AI</span>
-            <span class="logo-text">StockerAI Terminal</span>
+        <div class="logo-container">
+            <span class="logo-symbol">SF</span>
+            <span class="logo-text">Stocker Finance</span>
             <span class="logo-tag">Quantitative Reference Guide</span>
         </div>
         <div>
@@ -514,7 +514,7 @@
             <!-- Floating Home Anchor -->
             <a href="/" class="btn back-hub">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
-                Terminal Hub
+                Home
             </a>
 
             <!-- Header Card -->
@@ -523,15 +523,15 @@
                     <span>Bloomberg-Grade Formula Compendium</span>
                     <span id="reading-time-estimate" style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-muted);">Calculating reading time...</span>
                 </div>
-                <h1 class="guide-title">StockerAI Institutional Quantitative Reference Guide</h1>
-                <p class="guide-subtitle">A dynamically loaded and parsed compilation directly from StockerAI's Notion Reference Hub. Fully compiled in real-time in the browser.</p>
+                <h1 class="guide-title">Stocker Finance Institutional Quantitative Reference Guide</h1>
+                <p class="guide-subtitle">A dynamically loaded and parsed compilation directly from the Stocker Finance reference hub. Fully compiled in real-time in the browser.</p>
             </div>
 
-            <blockquote class="notion-quote">strong>A to Z Bloomberg-Grade Formula Compendium</strong><em>Written for professional-grade equity analysis. Every formula, every variable, every diagnostic threshold.</em></blockquote>
+            <blockquote class="notion-quote"><strong>A to Z Bloomberg-Grade Formula Compendium</strong> <em>Written for professional-grade equity analysis. Every formula, every variable, every diagnostic threshold.</em></blockquote>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
     <div class="callout callout-note">
         <div class="callout-icon">💡</div>
-        <div class="callout-content">strong>How to use this guide:</strong> Each section follows the same architecture — Theory → Formula → Variables → Thresholds → Case Diagnostic. Read sequentially for first-time users; use as a reference lookup for experienced analysts. All LaTeX blocks are copy-paste ready for Notion equation blocks.</div>
+        <div class="callout-content"><strong>How to use this guide:</strong> Each section follows the same architecture — Theory → Formula → Variables → Thresholds → Case Diagnostic. Read sequentially for first-time users; use as a reference lookup for experienced analysts. All LaTeX blocks are copy-paste ready for Notion equation blocks.</div>
     </div>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
 </div>
@@ -609,7 +609,7 @@ $$WACC = \left(\frac{E}{V} \times K_e\right) + \left(\frac{D}{V} \times K_d \tim
     </div>
     <div class="callout callout-warning">
         <div class="callout-icon">⚠</div>
-        <div class="callout-content">strong>Common Trap — Book vs. Market Values:</strong> Always use <strong>market value of equity</strong> (market cap), not book equity, when computing $E/V$ and $D/V$. Using book values systematically understates equity weight for growth companies and inflates WACC.</div>
+        <div class="callout-content"><strong>Common Trap — Book vs. Market Values:</strong> Always use <strong>market value of equity</strong> (market cap), not book equity, when computing $E/V$ and $D/V$. Using book values systematically understates equity weight for growth companies and inflates WACC.</div>
     </div>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
     <div class="sub-subtitle">📊 Diagnostics &amp; Thresholds</div>
@@ -650,7 +650,7 @@ $$WACC = \left(\frac{E}{V} \times K_e\right) + \left(\frac{D}{V} \times K_d \tim
 </ul>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
     <div class="sub-subtitle">🔬 Case Diagnostic — NVIDIA (NVDA)</div>
-    <blockquote class="notion-quote">strong>Scenario:</strong> NVDA in late 2024. $R_f = 4.3%$ (10Y Treasury). $\beta = 1.72$. $ERP = 5.5%$.</blockquote>
+    <blockquote class="notion-quote"><strong>Scenario:</strong> NVDA in late 2024. $R_f = 4.3%$ (10Y Treasury). $\beta = 1.72$. $ERP = 5.5%$.</blockquote>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
 </div>
 <!-- Section Card -->
@@ -728,11 +728,11 @@ $$\text{Net Debt} = \text{Total Debt} - \text{Total Cash &amp; Equivalents}$$</p
     </div>
     <div class="callout callout-warning">
         <div class="callout-icon">⚠</div>
-        <div class="callout-content">strong>Terminal Value Dominance:</strong> For most growth companies, PV(TV) represents 60–80% of total intrinsic value. This means your terminal growth rate assumption is the single most important number in the model. A 0.5% change in $g_{terminal}$ can move intrinsic value by 20–30%. Treat it with extreme caution — never assume terminal growth &gt; 3%.</div>
+        <div class="callout-content"><strong>Terminal Value Dominance:</strong> For most growth companies, PV(TV) represents 60–80% of total intrinsic value. This means your terminal growth rate assumption is the single most important number in the model. A 0.5% change in $g_{terminal}$ can move intrinsic value by 20–30%. Treat it with extreme caution — never assume terminal growth &gt; 3%.</div>
     </div>
     <div class="callout callout-note">
         <div class="callout-icon">💡</div>
-        <div class="callout-content">strong>Sensitivity Table Best Practice:</strong> Always run a 2D sensitivity matrix: WACC (rows) × terminal growth rate (columns). A single-point DCF output without sensitivity analysis is not institutional-grade work.</div>
+        <div class="callout-content"><strong>Sensitivity Table Best Practice:</strong> Always run a 2D sensitivity matrix: WACC (rows) × terminal growth rate (columns). A single-point DCF output without sensitivity analysis is not institutional-grade work.</div>
     </div>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
     <div class="sub-subtitle">🚨 Quantitative Breakthrough: The Forward EPS Cash Conversion Fallback</div>
@@ -745,7 +745,7 @@ $$\text{Net Debt} = \text{Total Debt} - \text{Total Cash &amp; Equivalents}$$</p
     </div>
     <p class="concept-body">When a company undergoes a massive CapEx supercycle (e.g., NVIDIA building AI infrastructure, Samsung constructing fabs, cyclical miners at trough), $CapEx_{TTM}$ balloons while future earnings potential soars. The result: <strong>FCF goes negative or near-zero</strong>, and the DCF spits out an absurd intrinsic value (e.g., $32 for NVDA when it was trading at $800+).</p>
     <p class="concept-body">This is not a company problem. It is a <strong>model failure</strong> — you are punishing a company for investing in its future.</p>
-    <p class="concept-body"><strong>The Solution — StockerAI Forward EPS Cash Conversion Fallback:</strong></p>
+    <p class="concept-body"><strong>The Solution — Forward EPS Cash Conversion Fallback:</strong></p>
     <div class="math-box">
         <div class="math-box-label">Equation Formula</div>
         <div class="equation">$$\textbf{If } FCF_{trailing} \leq 0 \textbf{ and } ForwardEPS &gt; 0:$$</div>
@@ -789,15 +789,15 @@ $$\text{Net Debt} = \text{Total Debt} - \text{Total Cash &amp; Equivalents}$$</p
     </div>
     <div class="callout callout-note">
         <div class="callout-icon">💡</div>
-        <div class="callout-content">strong>Why Forward EPS?</strong> Analyst consensus forward EPS already incorporates the normalization of CapEx cycles. It reflects what the business earns at steady-state — which is exactly what the terminal value phase of a DCF represents. Using it as a proxy base bridges the gap between the current investment cycle and the long-run profitability picture.</div>
+        <div class="callout-content"><strong>Why Forward EPS?</strong> Analyst consensus forward EPS already incorporates the normalization of CapEx cycles. It reflects what the business earns at steady-state — which is exactly what the terminal value phase of a DCF represents. Using it as a proxy base bridges the gap between the current investment cycle and the long-run profitability picture.</div>
     </div>
     <div class="callout callout-warning">
         <div class="callout-icon">⚠</div>
-        <div class="callout-content">strong>When NOT to use the Fallback:</strong> If a company has negative forward EPS (genuine losses), the fallback should not activate. A burning cash company is not the same as a profitable company with elevated CapEx. The fallback is for <strong>profitable businesses with distorted trailing cash flows</strong>, not loss-making startups.</div>
+        <div class="callout-content"><strong>When NOT to use the Fallback:</strong> If a company has negative forward EPS (genuine losses), the fallback should not activate. A burning cash company is not the same as a profitable company with elevated CapEx. The fallback is for <strong>profitable businesses with distorted trailing cash flows</strong>, not loss-making startups.</div>
     </div>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
     <div class="sub-subtitle">🔬 Case Diagnostic — NVIDIA (NVDA) CapEx Trap</div>
-    <blockquote class="notion-quote">strong>Scenario:</strong> FY2024. NVDA's TTM FCF was compressed by massive data center build-out investment. Simple TTM DCF output: ~$32/share (absurd vs. market price of $800+).</blockquote>
+    <blockquote class="notion-quote"><strong>Scenario:</strong> FY2024. NVDA's TTM FCF was compressed by massive data center build-out investment. Simple TTM DCF output: ~$32/share (absurd vs. market price of $800+).</blockquote>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
 </div>
 <!-- Section Card -->
@@ -883,7 +883,7 @@ $$\text{Net Debt} = \text{Total Debt} - \text{Total Cash &amp; Equivalents}$$</p
     </div>
     <div class="callout callout-warning">
         <div class="callout-icon">⚠</div>
-        <div class="callout-content">strong>The Debt-Inflated ROE Trap:</strong> A firm with negative book equity (accumulated losses exceed paid-in capital — common in mature buyback machines like McDonald's or Boeing) will show <strong>negative or infinite ROE</strong>. This is not a quality signal. Always decompose before interpreting. If the equity multiplier is 10x+ and profit margins are thin, the ROE is a leverage mirage.</div>
+        <div class="callout-content"><strong>The Debt-Inflated ROE Trap:</strong> A firm with negative book equity (accumulated losses exceed paid-in capital — common in mature buyback machines like McDonald's or Boeing) will show <strong>negative or infinite ROE</strong>. This is not a quality signal. Always decompose before interpreting. If the equity multiplier is 10x+ and profit margins are thin, the ROE is a leverage mirage.</div>
     </div>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
     <div class="sub-subtitle">🔬 Case Diagnostic — Two 25% ROE Companies</div>
@@ -982,7 +982,7 @@ $$\text{Net Debt} = \text{Total Debt} - \text{Total Cash &amp; Equivalents}$$</p
     </div>
     <div class="callout callout-note">
         <div class="callout-icon">💡</div>
-        <div class="callout-content">strong>Variable $C$ has the highest weight (3.3x)</strong> — EBIT/Assets. Altman found operating profitability relative to asset base is the single strongest discriminator between distressed and healthy firms. A company can survive negative working capital temporarily; it cannot survive prolonged EBIT destruction.</div>
+        <div class="callout-content"><strong>Variable $C$ has the highest weight (3.3x)</strong> — EBIT/Assets. Altman found operating profitability relative to asset base is the single strongest discriminator between distressed and healthy firms. A company can survive negative working capital temporarily; it cannot survive prolonged EBIT destruction.</div>
     </div>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
     <div class="sub-subtitle">📊 Thresholds</div>
@@ -1012,7 +1012,7 @@ $$\text{Net Debt} = \text{Total Debt} - \text{Total Cash &amp; Equivalents}$$</p
     </div>
     <div class="callout callout-warning">
         <div class="callout-icon">⚠</div>
-        <div class="callout-content">strong>Original Z-Score Limitations:</strong> Altman's original model was calibrated on manufacturing firms. For non-manufacturing or financial firms, use the <strong>Z''-Score variant</strong> (different coefficients). Also note: the model uses market cap (variable $D$), so a company whose stock has crashed may mechanically enter distress zone even if fundamentals are sound. Always cross-check with Piotroski F-Score and cash runway.</div>
+        <div class="callout-content"><strong>Original Z-Score Limitations:</strong> Altman's original model was calibrated on manufacturing firms. For non-manufacturing or financial firms, use the <strong>Z''-Score variant</strong> (different coefficients). Also note: the model uses market cap (variable $D$), so a company whose stock has crashed may mechanically enter distress zone even if fundamentals are sound. Always cross-check with Piotroski F-Score and cash runway.</div>
     </div>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
     <div class="sub-subtitle">🔬 Case Diagnostic — Cyclical Steel Company at Trough</div>
@@ -1112,7 +1112,7 @@ $$\text{Net Debt} = \text{Total Debt} - \text{Total Cash &amp; Equivalents}$$</p
     </div>
     <div class="callout callout-note">
         <div class="callout-icon">💡</div>
-        <div class="callout-content">strong>Cash Flow Quality Check (CFO &gt; Net Income):</strong> This single criterion is one of the most powerful fraud and accruals detectors in the grid. If a company consistently reports net income significantly above operating cash flow, it is building accruals — revenue recognized before cash is collected. This is the accounting fingerprint of earnings manipulation (see Beneish M-Score below).</div>
+        <div class="callout-content"><strong>Cash Flow Quality Check (CFO &gt; Net Income):</strong> This single criterion is one of the most powerful fraud and accruals detectors in the grid. If a company consistently reports net income significantly above operating cash flow, it is building accruals — revenue recognized before cash is collected. This is the accounting fingerprint of earnings manipulation (see Beneish M-Score below).</div>
     </div>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
     <div class="sub-subtitle">🔬 Case Diagnostic — Two Value Stocks at Same P/B</div>
@@ -1188,7 +1188,7 @@ $$+ 0.115 \cdot DEPI - 0.172 \cdot SGAI + 4.679 \cdot TATA - 0.327 \cdot LVGI$$<
     </div>
     <div class="callout callout-warning">
         <div class="callout-icon">⚠</div>
-        <div class="callout-content">strong>TATA is the nuclear variable.</strong> Its coefficient is 4.679 — by far the largest in the model. Total accruals (Net Income minus Cash from Operations, scaled by assets) directly measures the gap between accounting earnings and economic reality. Companies with persistently high TATA are reporting income they are not collecting in cash. This is the most reliable early-warning signal of earnings quality deterioration.</div>
+        <div class="callout-content"><strong>TATA is the nuclear variable.</strong> Its coefficient is 4.679 — by far the largest in the model. Total accruals (Net Income minus Cash from Operations, scaled by assets) directly measures the gap between accounting earnings and economic reality. Companies with persistently high TATA are reporting income they are not collecting in cash. This is the most reliable early-warning signal of earnings quality deterioration.</div>
     </div>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
     <div class="sub-subtitle">📊 Thresholds</div>
@@ -1324,15 +1324,15 @@ $$Z_{deviation} = \frac{\ln(Price_{current}) - (\alpha + \beta x_{current})}{\si
     </div>
     <div class="callout callout-warning">
         <div class="callout-icon">⚠</div>
-        <div class="callout-content">strong>The $R^2$ Gating Rule:</strong> Never interpret the channel bands for stocks with $R^2 &lt; 0.60$. A low $R^2$ means the regression is not describing a real trend — it is fitting noise. High-volatility small-caps, biotech, and recent IPOs often fail this filter. The tool is designed for established companies with 5+ years of meaningful price history.</div>
+        <div class="callout-content"><strong>The $R^2$ Gating Rule:</strong> Never interpret the channel bands for stocks with $R^2 &lt; 0.60$. A low $R^2$ means the regression is not describing a real trend — it is fitting noise. High-volatility small-caps, biotech, and recent IPOs often fail this filter. The tool is designed for established companies with 5+ years of meaningful price history.</div>
     </div>
     <div class="callout callout-note">
         <div class="callout-icon">💡</div>
-        <div class="callout-content">strong>Why 1.5σ instead of 2σ?</strong> Standard normal 2σ captures 95% of observations. In log-price space, 1.5σ empirically captures ~87% of weekly closes for most large-caps — wide enough to filter noise, tight enough to generate actionable signals. Using 2σ produces bands so wide they lose diagnostic value.</div>
+        <div class="callout-content"><strong>Why 1.5σ instead of 2σ?</strong> Standard normal 2σ captures 95% of observations. In log-price space, 1.5σ empirically captures ~87% of weekly closes for most large-caps — wide enough to filter noise, tight enough to generate actionable signals. Using 2σ produces bands so wide they lose diagnostic value.</div>
     </div>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
     <div class="sub-subtitle">🔬 Case Diagnostic — NVIDIA 5-Year Log-Linear Regression</div>
-    <blockquote class="notion-quote">strong>Window:</strong> 2019–2024 (260 weekly observations)</blockquote>
+    <blockquote class="notion-quote"><strong>Window:</strong> 2019–2024 (260 weekly observations)</blockquote>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
 </div>
 <!-- Section Card -->
@@ -1409,7 +1409,7 @@ $$Z_{deviation} = \frac{\ln(Price_{current}) - (\alpha + \beta x_{current})}{\si
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
     <div class="callout callout-note">
         <div class="callout-icon">💡</div>
-        <div class="callout-content">strong>Last Updated:</strong> May 2026 — StockerAI Quantitative Framework v2.0
+        <div class="callout-content"><strong>Last Updated:</strong> May 2026 — Stocker Finance Quantitative Framework v2.0
 All formulas verified against Damodaran (NYU), Altman (1968), Piotroski (2000), Beneish (1999), and Penman (Columbia).</div>
     </div>
 </div>
@@ -1441,28 +1441,28 @@ All formulas verified against Damodaran (NYU), Altman (1968), Piotroski (2000), 
             // Auto-generate TOC links from H2.section-title elements
             const tocList = document.getElementById('toc-list');
             const sections = document.querySelectorAll('.section-card');
-            
+
             sections.forEach(section => {
                 const id = section.id;
                 const titleEl = section.querySelector('.section-title');
                 if (!titleEl || !id) return;
-                
+
                 const titleText = titleEl.textContent.replace(/^\d+\s+/, '').trim(); // Remove section number prefix for clean text
-                
+
                 const li = document.createElement('li');
                 li.className = 'toc-item';
                 li.dataset.sectionId = id;
-                
+
                 const a = document.createElement('a');
                 a.href = `#${id}`;
                 a.textContent = titleText;
-                
+
                 a.addEventListener('click', (e) => {
                     e.preventDefault();
                     document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
                     history.pushState(null, null, `#${id}`);
                 });
-                
+
                 li.appendChild(a);
                 tocList.appendChild(li);
             });
@@ -1526,9 +1526,9 @@ All formulas verified against Damodaran (NYU), Altman (1968), Piotroski (2000), 
                 while (node = walker.nextNode()) {
                     const parent = node.parentNode;
                     if (parent && (
-                        parent.tagName === 'SCRIPT' || 
-                        parent.tagName === 'STYLE' || 
-                        parent.classList.contains('katex') || 
+                        parent.tagName === 'SCRIPT' ||
+                        parent.tagName === 'STYLE' ||
+                        parent.classList.contains('katex') ||
                         parent.closest('.katex') ||
                         parent.tagName === 'CODE' ||
                         parent.tagName === 'NOSCRIPT'
@@ -1549,17 +1549,17 @@ All formulas verified against Damodaran (NYU), Altman (1968), Piotroski (2000), 
                     const text = node.nodeValue;
                     const fragment = document.createDocumentFragment();
                     let lastIndex = 0;
-                    
+
                     text.replace(regex, (match, p1, offset) => {
                         if (offset > lastIndex) {
                             fragment.appendChild(document.createTextNode(text.substring(lastIndex, offset)));
                         }
-                        
+
                         const mark = document.createElement('mark');
                         mark.className = 'search-highlight';
                         mark.textContent = match;
                         fragment.appendChild(mark);
-                        
+
                         matchCount++;
                         lastIndex = offset + match.length;
                         return match;
@@ -1606,7 +1606,6 @@ All formulas verified against Damodaran (NYU), Altman (1968), Piotroski (2000), 
             }
         });
     </script>
-    <script src="{{ url_for('static', filename='js/terminal.js') }}"></script>
     <script src="{{ url_for('static', filename='js/toast.js') }}"></script>
 </body>
 </html>

@@ -31,11 +31,14 @@ else:
     GROQ_API_KEY = ""
 
 GROQ_BASE_URL = "https://api.groq.com/openai/v1/chat/completions"
-# Qwen 3 32B via Groq — user requested Qwen 3.6 class, 32B reasoning, embedded key
-GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3-32b")
-GROQ_MAX_TOKENS = int(os.getenv("GROQ_MAX_TOKENS", "4000"))
-GROQ_TEMPERATURE = float(os.getenv("GROQ_TEMPERATURE", "0.25"))
-# No hardcoded fallback — keys must come from .env for security & rotation
+# Qwen 3.8 27B via Groq - frontier reasoning (thinking/default) + 131K context
+# Preview model qwen/qwen3.8-27b: 450+ tps, multimodal, tool-use, reasoning_format hidden|parsed
+GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+GROQ_MAX_TOKENS = int(os.getenv("GROQ_MAX_TOKENS", "6000"))
+GROQ_TEMPERATURE = float(os.getenv("GROQ_TEMPERATURE", "0.35"))
+GROQ_REASONING_EFFORT = os.getenv("GROQ_REASONING_EFFORT", "default")  # low|medium|default|high|none
+GROQ_REASONING_FORMAT = os.getenv("GROQ_REASONING_FORMAT", "hidden")  # hidden|parsed
+# No hardcoded fallback - keys must come from .env for security & rotation
 if not GROQ_API_KEY:
     GROQ_API_KEY = ""
     GROQ_API_KEYS = []
@@ -146,9 +149,6 @@ MACD_SLOW = 26
 MACD_SIGNAL = 9
 
 
-# ─── Supabase Configuration ──────────────────────────────────────────
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
 
 def validate_config():

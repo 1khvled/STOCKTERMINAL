@@ -34,7 +34,7 @@ GROQ_API_KEY=gsk_...                # console.groq.com (free)
 SEC_USER_AGENT=YourName email@example.com
 ```
 
-See `.env.example` for all options (Finnhub, Notion, Supabase are optional).
+See `.env.example` for all options (Finnhub, Notion are optional).
 
 ## Features
 
@@ -43,7 +43,7 @@ See `.env.example` for all options (Finnhub, Notion, Supabase are optional).
 - **AI:** `app/ai_engine.py` — `_call_llm` with rotation (OpenCode → OpenRouter → Anthropic → Groq), key rotation + cooldown, 3 skeptical prompts (fund/val, macro/risk, red-team), valuation coherence enforcement.
 - **Server:** `app/server.py` — Flask, 45 routes, SSE `/api/stream` with keepalive, `/api/stocks` catalog, screener (`/api/screener/filter` + AI), query, intel (`/api/intel/*`), portfolio, terminal (`/api/terminal/execute` 64-char whitelist), live quotes `/api/stocks/live-quotes` (30s poll) + ticker tape (5m), quarterly auto-update worker, persistent `output/.flask_secret`, CORS localhost-only, JSON 400/404/500.
 - **Frontend:** Bloomberg 3-col dark terminal (`theme.css`, `dashboard_new.css`), safeDisplay/esc guards, `toast.js` on every page, price-flash live poll, 429 retry with Retry-After, skeleton + shimmer, Notion subnav, terminal overlay (`Ctrl+~`, `CLEAR`, `DES/DCF/COMP/CHART/ER/SCREEN/NEWS/SEC/LAB/IC/FLAGS/PORT`).
-- **Storage:** Local JSON `output/database/*.json` + `output/portfolio.json` (primary). Supabase REST mirror optional (`app/supabase_db.py` — no `supabase-py` needed, local fallback).
+- **Storage:** Local JSON `output/database/*.json` + `output/portfolio.json` (`app/local_db.py`, pure stdlib, no database needed).
 - **Outputs:** `output/<TICKER>/` → `<TICKER>_dashboard.html`, `<TICKER>_Financial_Model.xlsx` (dynamic formulas), `cache/`, `database/`.
 
 ## Routes
@@ -61,7 +61,7 @@ app/ai_engine.py            LLM routing + valuation coherence
 app/stock_analyzer.py      CLI pipeline + terminal quant briefing
 app/dashboard_generator.py  Per-ticker HTML generation
 app/excel_generator.py      Dynamic Excel model
-app/supabase_db.py          Local JSON + Supabase REST fallback
+app/local_db.py             Local JSON file database (no cloud)
 app/terminal_commands.py    64-char whitelist, html-escaped, test-mode mock
 app/intelligence_terminal.py  News/sec/scenario/committee/flags cache 15m
 app/templates/              index.html, dashboard.html, intel_page.html, pro_page.html, guide.html, 404.html

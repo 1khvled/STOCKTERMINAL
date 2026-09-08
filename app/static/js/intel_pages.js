@@ -64,7 +64,7 @@
                     <td>${esc(f.form)}</td>
                     <td>${esc(f.filed)}</td>
                     <td>${esc(f.report_date)}</td>
-                    <td><a href="${esc(f.url)}" target="_blank" style="color:var(--term-orange);">OPEN</a></td>
+                    <td><a href="${esc(f.url)}" target="_blank" style="color:var(--orange);">OPEN</a></td>
                 </tr>`))}
         `;
         side.innerHTML = `<div class="pro-title">Red Flags</div>${(data.red_flags || []).map(x => `<div class="ops-row"><span>FLAG</span><strong>${esc(x)}</strong></div>`).join("") || "<div class='pro-muted'>NO AI FLAGS RETURNED</div>"}`;
@@ -126,32 +126,6 @@
         side.innerHTML = `<div class="pro-title">Mitigants</div>${(data.mitigants || []).map(x => `<div class="ops-row"><span>CHECK</span><strong>${esc(x)}</strong></div>`).join("") || "<div class='pro-muted'>NO MITIGANTS RETURNED</div>"}`;
     }
 
-    async function loadPortfolio() {
-        primary.textContent = "LOADING PORTFOLIO COMMAND CENTER...";
-        const data = await safeFetch("/api/portfolio");
-        if (data.error) { primary.innerHTML = `<div class="pro-negative">FETCH FAILED: ${data.error}</div>`; side.innerHTML = ""; return; }
-        primary.innerHTML = `
-            <div class="ops-row"><span>Total Weight</span><strong>${Number(data.total_weight || 0).toFixed(1)}%</strong></div>
-            <div class="ops-row"><span>Weighted Upside</span><strong class="${Number(data.avg_upside || 0) >= 0 ? "pro-positive" : "pro-negative"}">${pct(data.avg_upside)}</strong></div>
-            <div class="ops-row"><span>AI Verdict</span><strong>${esc((data.ai || {}).portfolio_verdict)}</strong></div>
-            <p class="intel-copy">${esc((data.ai || {}).risk_summary)}</p>
-            ${table(["Ticker", "Weight", "Sector", "Verdict", "Upside", "Remove"], (data.positions || []).map(p => `
-                <tr>
-                    <td><a href="/dashboard/${esc(p.ticker)}" style="color:var(--term-orange);">${esc(p.ticker)}</a></td>
-                    <td>${Number(p.weight || 0).toFixed(1)}%</td>
-                    <td>${esc(p.sector)}</td>
-                    <td>${esc(p.verdict)}</td>
-                    <td class="${Number(p.upside || 0) >= 0 ? "pro-positive" : "pro-negative"}">${pct(p.upside)}</td>
-                    <td><button class="portfolio-remove" data-ticker="${esc(p.ticker)}">DEL</button></td>
-                </tr>`))}
-        `;
-        side.innerHTML = `<div class="pro-title">Sector Exposure</div>${Object.entries(data.sector_exposure || {}).map(([k, v]) => `<div class="ops-row"><span>${esc(k)}</span><strong>${Number(v).toFixed(1)}%</strong></div>`).join("")}<div class="pro-title" style="margin-top:16px;">AI Actions</div>${((data.ai || {}).actions || []).map(x => `<div class="ops-row"><span>ACTION</span><strong>${esc(x)}</strong></div>`).join("")}`;
-        document.querySelectorAll(".portfolio-remove").forEach(btn => btn.onclick = async () => {
-            await fetch("/api/portfolio/remove", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ticker: btn.dataset.ticker})});
-            loadPortfolio();
-        });
-    }
-
     if (page === "news-impact" || page === "filings" || page === "scenario-lab" || page === "committee" || page === "red-flags") {
         const input = document.getElementById("intel-ticker");
         const run = () => {
@@ -172,14 +146,4 @@
         }
     }
 
-    if (page === "portfolio") {
-        document.getElementById("portfolio-add").onclick = async () => {
-            const ticker = document.getElementById("portfolio-ticker").value.trim().toUpperCase();
-            const weight = Number(document.getElementById("portfolio-weight").value || 0);
-            if (!ticker) return;
-            await fetch("/api/portfolio/add", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ticker, weight})});
-            loadPortfolio();
-        };
-        loadPortfolio();
-    }
 })();

@@ -1,347 +1,146 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StockerAI // Watchlist</title>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/theme.css">
-    <link rel="stylesheet" href="/static/css/index.css">
-    <link rel="stylesheet" href="/static/css/terminal_shell.css">
-    <style>
-        .wl-header {
-            background: #000;
-            border-bottom: 1px solid #222;
-            padding: 14px 28px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-shrink: 0;
-        }
-        .wl-workspace {
-            max-width: 1300px;
-            margin: 0 auto;
-            width: 100%;
-            padding: 28px;
-        }
-        .wl-card {
-            background: var(--surface, #0d0e12);
-            border: 1px solid var(--border, #222);
-            border-radius: 6px;
-            padding: 28px;
-        }
-        .wl-title-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-        .wl-title {
-            font-size: 1.6rem;
-            font-weight: 800;
-            color: #fff;
-            letter-spacing: -0.5px;
-        }
-        .wl-meta {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        .wl-count {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
-            color: var(--text-muted, #555);
-        }
-        .btn-danger {
-            background: transparent;
-            border: 1px solid var(--ruby, #ef4444);
-            color: var(--ruby, #ef4444);
-            padding: 6px 14px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.78rem;
-            font-weight: 600;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        .btn-danger:hover {
-            background: rgba(239,68,68,0.08);
-        }
-        .wl-empty {
-            text-align: center;
-            padding: 60px 20px;
-            border: 1px dashed var(--border, #222);
-            border-radius: 6px;
-        }
-        .wl-empty svg {
-            margin-bottom: 16px;
-            opacity: 0.4;
-        }
-        .wl-empty-title {
-            font-size: 1rem;
-            font-weight: 600;
-            color: #fff;
-            margin-bottom: 8px;
-        }
-        .wl-empty-desc {
-            font-size: 0.85rem;
-            color: var(--text-muted, #555);
-            line-height: 1.6;
-        }
-        .wl-empty-desc a {
-            color: var(--emerald, #10b981);
-            text-decoration: none;
-        }
-        .wl-empty-desc a:hover { text-decoration: underline; }
-        .wl-table-wrap { overflow-x: auto; }
-        .wl-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.85rem;
-        }
-        .wl-table th {
-            padding: 10px 14px;
-            text-align: left;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem;
-            color: var(--text-muted, #555);
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            border-bottom: 1px solid var(--border, #222);
-            font-weight: 600;
-        }
-        .wl-table td {
-            padding: 12px 14px;
-            border-bottom: 1px solid rgba(255,255,255,0.04);
-            color: var(--text-primary, #f3f4f6);
-            vertical-align: middle;
-        }
-        .wl-table tr:hover td { background: rgba(255,255,255,0.02); }
-        .wl-ticker-cell {
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 700;
-            color: #fff;
-            font-size: 0.95rem;
-        }
-        .wl-badge {
-            display: inline-block;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
-            font-weight: 700;
-            padding: 3px 8px;
-            border-radius: 3px;
-            text-transform: uppercase;
-        }
-        .badge-buy  { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
-        .badge-sell { background: rgba(239,68,68,0.12);  color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
-        .badge-hold { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
-        .badge-safe    { background: rgba(16,185,129,0.08); color: #10b981; }
-        .badge-grey    { background: rgba(245,158,11,0.08); color: #f59e0b; }
-        .badge-distress{ background: rgba(239,68,68,0.08);  color: #ef4444; }
-        .wl-action-cell { display: flex; gap: 8px; align-items: center; }
-        .wl-btn-sm {
-            padding: 5px 12px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem;
-            font-weight: 600;
-            border-radius: 3px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            transition: all 0.15s ease;
-        }
-        .wl-btn-open   { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
-        .wl-btn-open:hover { background: rgba(16,185,129,0.22); }
-        .wl-btn-remove { background: transparent; color: var(--text-muted,#555); border: 1px solid var(--border,#222); }
-        .wl-btn-remove:hover { border-color: #ef4444; color: #ef4444; }
-    </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Watchlist - Stocker Finance</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0f;--panel:#121318;--panel2:#17181f;--border:#22242e;--border2:#2c2e3a;--text:#f4f5f7;--muted:#9aa0ae;--dim:#6b7080;--green:#34c759;--red:#ff453a;--orange:#ff9f0a;--blue:#0a84ff;--purple:#bf5af2;--mono:'JetBrains Mono',monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,sans-serif;font-size:14px}
+a{color:inherit;text-decoration:none}
+.hdr{position:sticky;top:0;z-index:50;background:rgba(10,10,15,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.hdr-in{max-width:1280px;margin:0 auto;padding:0 20px;height:60px;display:flex;align-items:center;gap:18px}
+.logo{font-weight:800;font-size:17px;letter-spacing:.4px;white-space:nowrap}
+.logo b{color:var(--purple)}
+.prem{font-family:var(--mono);font-size:10px;color:#0a0a0f;background:linear-gradient(90deg,#ffd60a,#ff9f0a);padding:3px 9px;border-radius:999px;font-weight:700;letter-spacing:.6px;white-space:nowrap}
+.nav{display:flex;gap:2px;margin-left:4px}
+.nav a{font-size:13px;font-weight:600;color:var(--muted);padding:8px 11px;border-radius:8px;white-space:nowrap}
+.nav a:hover,.nav a.on{color:var(--text);background:var(--panel2)}
+.nav a.on{box-shadow:inset 0 -2px 0 var(--purple)}
+.search{position:relative;flex:1;max-width:420px;margin-left:auto}
+.search input{width:100%;background:var(--panel2);border:1px solid var(--border2);color:var(--text);padding:10px 14px 10px 36px;border-radius:10px;font-size:13px;outline:none;font-family:var(--mono)}
+.search input:focus{border-color:var(--purple)}
+.search .ic{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--dim);font-size:14px}
+.sdrop{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--panel2);border:1px solid var(--border2);border-radius:12px;overflow:hidden;display:none;box-shadow:0 16px 40px rgba(0,0,0,.5)}
+.sdrop a{display:flex;gap:10px;align-items:center;padding:10px 14px;font-size:13px}
+.sdrop a:hover{background:#1e2029}
+.sdrop .tk{font-family:var(--mono);font-weight:700;color:var(--purple)}
+.sdrop .co{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.clock{text-align:right;line-height:1.3;white-space:nowrap}
+.clock .t{font-family:var(--mono);font-size:12px;font-weight:600}
+.wrap{max-width:1280px;margin:0 auto;padding:20px}
+.bar{border:1px solid var(--border);background:var(--panel);border-radius:14px;padding:18px 20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.bar h1{margin:0;font-size:19px;font-weight:800}
+.bar .cnt{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.addrow{display:flex;gap:8px;margin-left:auto}
+.inp{background:#0a0a10;border:1px solid var(--border2);color:var(--text);padding:10px 13px;border-radius:10px;font-family:var(--mono);font-size:13px;outline:none;width:170px;text-transform:uppercase}
+.inp:focus{border-color:var(--purple)}
+.btn{background:var(--purple);color:#fff;border:none;padding:10px 16px;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer}
+.btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--muted);padding:10px 14px;border-radius:10px;font-weight:600;font-size:13px;cursor:pointer}
+.btn-ghost:hover{color:var(--red);border-color:var(--red)}
+.panel{border:1px solid var(--border);background:var(--panel);border-radius:14px;overflow:hidden;margin-top:16px}
+table.q{width:100%;border-collapse:collapse;font-size:13px}
+table.q th{font-size:10.5px;letter-spacing:.5px;color:var(--dim);font-weight:700;text-align:right;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap}
+table.q th:first-child,table.q td:first-child{text-align:left}
+table.q th:hover{color:var(--text)}
+table.q td{padding:11px 12px;border-bottom:1px solid #181a21;text-align:right;font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+table.q tbody tr{cursor:pointer}
+table.q tbody tr:hover{background:#181a23}
+.sym{font-weight:700;font-size:13px}
+.co{font-size:11px;color:var(--muted);font-family:Inter;max-width:180px;overflow:hidden;text-overflow:ellipsis}
+.pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:10.5px;font-weight:700;font-family:Inter}
+.buy{color:var(--green);border:1px solid rgba(52,199,89,.35);background:rgba(52,199,89,.09)}
+.sell{color:var(--red);border:1px solid rgba(255,69,58,.35);background:rgba(255,69,58,.09)}
+.hold{color:var(--orange);border:1px solid rgba(255,159,10,.35);background:rgba(255,159,10,.09)}
+.mini{background:transparent;border:1px solid var(--border2);color:var(--muted);font-size:11px;font-weight:700;padding:5px 10px;border-radius:8px;cursor:pointer;font-family:var(--mono)}
+.mini:hover{color:var(--text);border-color:var(--purple)}
+.mini.rm:hover{color:var(--red);border-color:var(--red)}
+.empty{padding:44px;text-align:center;color:var(--muted);font-size:13px}
+.empty .big{font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px}
+.empty a{color:var(--purple);font-weight:600}
+.up{color:var(--green)}.dn{color:var(--red)}.flat{color:var(--muted)}
+.foot{max-width:1280px;margin:0 auto;padding:18px 20px 40px;color:var(--dim);font-size:12px}
+@media(max-width:900px){.hdr-in{flex-wrap:wrap;height:auto;padding:10px 20px;row-gap:8px}.nav{order:3;width:100%;overflow-x:auto;margin-left:0}.addrow{margin-left:0}}
+</style>
 </head>
-<body class="terminal-shell">
-<div class="main-content" style="padding: 0; gap: 0; margin-left: 0; flex-direction: column; min-height: 100vh;">
-
-    <!-- Header -->
-    <div class="wl-header">
-        <div style="display: flex; align-items: center; gap: 16px;">
-            <span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.85rem; background: #fff; color: #000; padding: 2px 8px; border-radius: 3px;">S_AI</span>
-            <span style="font-size: 1rem; font-weight: 700; color: #fff;">StockerAI Terminal</span>
-            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--emerald, #10b981); background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); padding: 2px 6px; border-radius: 3px; letter-spacing: 0.5px;">WATCHLIST</span>
-        </div>
-        <a href="/" class="terminal-action-btn" style="text-decoration: none; font-size: 0.82rem;">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-            Back to Hub
-        </a>
+<body>
+<header class="hdr"><div class="hdr-in">
+  <a class="logo" href="/">STOCKER<b>FINANCE</b></a><span class="prem">PREMIUM &bull; FREE</span>
+  <nav class="nav">
+    <a href="/">Home</a><a href="/watchlist" class="on">Watchlist</a><a href="/portfolio">Portfolio</a><a href="/module/screener">Screener</a><a href="/compare">Compare</a><a href="/earnings">Earnings</a><a href="/scenario-lab">Lab</a><a href="/guide">Guide</a>
+  </nav>
+  <div class="search"><span class="ic">&#9906;</span><input id="q" placeholder="Quote lookup..." autocomplete="off" spellcheck="false"/><div class="sdrop" id="sdrop"></div></div>
+  <div class="clock"><div class="t" id="clock">--:--:-- ET</div></div>
+</div></header>
+<div class="wrap">
+  <div class="bar">
+    <div><h1>&#9733; My Watchlist</h1><div class="cnt" id="wcount">0 tickers &bull; live &bull; auto 30s</div></div>
+    <div class="addrow">
+      <input id="add" class="inp" placeholder="ADD: NVDA" maxlength="12" autocomplete="off" spellcheck="false"/>
+      <button class="btn" id="addbtn">ADD</button>
+      <button class="btn-ghost" id="clearbtn">CLEAR ALL</button>
     </div>
-
-    <!-- Workspace -->
-    <div class="wl-workspace">
-        <div class="wl-card">
-            <div class="section-label" style="margin-bottom: 12px;">Starred Tickers</div>
-
-            <div class="wl-title-row">
-                <h1 class="wl-title">My Watchlist</h1>
-                <div class="wl-meta">
-                    <span id="watchlist-count" class="wl-count">0 tickers</span>
-                    <button class="btn-danger" onclick="clearWatchlist()">Clear All</button>
-                </div>
-            </div>
-
-            <!-- Empty State -->
-            <div id="watchlist-empty" class="wl-empty" style="display: none;">
-                <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted, #444)" stroke-width="1.5">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                </svg>
-                <div class="wl-empty-title">No Starred Tickers</div>
-                <div class="wl-empty-desc">
-                    Go to the <a href="/">Stock Hub</a> and click the ☆ star icon next to any ticker in the catalog table to add it here.
-                </div>
-            </div>
-
-            <!-- Table -->
-            <div id="watchlist-grid" class="wl-table-wrap" style="display: none;">
-                <table class="wl-table">
-                    <thead>
-                        <tr>
-                            <th>Ticker</th>
-                            <th>Company</th>
-                            <th>Sector</th>
-                            <th>Verdict</th>
-                            <th>Confidence</th>
-                            <th>Price</th>
-                            <th>Implied Return</th>
-                            <th>Piotroski F</th>
-                            <th>Altman Z</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="watchlist-body">
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
+  </div>
+  <div class="panel">
+    <div style="overflow-x:auto"><table class="q" id="qt"><thead><tr>
+      <th data-k="ticker">Symbol</th><th data-k="current_price">Price</th><th data-k="livechg">Day</th><th data-k="fair_value_mid">Fair Val</th><th data-k="upside">Upside</th><th data-k="pe_ratio">P/E</th><th data-k="piotroski">Safety</th><th data-k="verdict">Rating</th><th>Actions</th>
+    </tr></thead><tbody id="qb"></tbody></table></div>
+    <div class="empty" id="qempty" style="display:none"><div class="big">&#9734; No starred tickers yet</div>Star anything from the <a href="/">home holdings table</a>, or type a ticker above and hit ADD.<br/><span style="font-size:12px">Your list is saved in this browser.</span></div>
+  </div>
 </div>
-
+<div class="foot">Stocker Finance &mdash; personal terminal. Starred tickers persist locally; prices refresh every 30s.</div>
 <script>
-    const WATCHLIST_KEY = 'stocker_watchlist';
-
-    function getWatchlist() {
-        try { return JSON.parse(localStorage.getItem(WATCHLIST_KEY)) || []; }
-        catch(e) { return []; }
-    }
-
-    function removeFromWatchlist(ticker) {
-        const wl = getWatchlist().filter(t => t !== ticker);
-        localStorage.setItem(WATCHLIST_KEY, JSON.stringify(wl));
-        renderPage();
-    }
-
-    function clearWatchlist() {
-        if (!confirm('Remove all tickers from your watchlist?')) return;
-        localStorage.setItem(WATCHLIST_KEY, JSON.stringify([]));
-        renderPage();
-    }
-
-    function getVerdictClass(verdict) {
-        const v = (verdict || '').toUpperCase();
-        if (v.includes('BUY')) return 'badge-buy';
-        if (v.includes('SELL')) return 'badge-sell';
-        return 'badge-hold';
-    }
-
-    function getZoneClass(label) {
-        const l = (label || '').toLowerCase();
-        if (l.includes('safe')) return 'badge-safe';
-        if (l.includes('grey') || l.includes('gray')) return 'badge-grey';
-        return 'badge-distress';
-    }
-
-    function fmtPiotroski(val) {
-        if (val === undefined || val === null || val === 'N/A') return 'N/A';
-        const n = parseInt(val);
-        const color = n >= 7 ? '#10b981' : n >= 4 ? '#f59e0b' : '#ef4444';
-        return `<span style="font-family:'JetBrains Mono',monospace; font-weight:700; color:${color};">${n}/9</span>`;
-    }
-
-    async function renderPage() {
-        const wl = getWatchlist();
-        const countEl  = document.getElementById('watchlist-count');
-        const emptyEl  = document.getElementById('watchlist-empty');
-        const gridEl   = document.getElementById('watchlist-grid');
-        const tbody    = document.getElementById('watchlist-body');
-
-        if (countEl) countEl.innerText = `${wl.length} ticker${wl.length !== 1 ? 's' : ''}`;
-
-        if (wl.length === 0) {
-            emptyEl.style.display = 'block';
-            gridEl.style.display  = 'none';
-            return;
-        }
-
-        emptyEl.style.display = 'none';
-        gridEl.style.display  = 'block';
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px; color:var(--text-muted,#555);">Loading watchlist data…</td></tr>';
-
-        try {
-            const res  = await fetch('/api/stocks');
-            const data = await res.json();
-            const allStocks = data.stocks || [];
-            const watchedStocks = allStocks.filter(s => wl.includes(s.ticker));
-
-            if (watchedStocks.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:24px; color:var(--text-muted,#555); font-style:italic;">
-                    None of your watchlist tickers (${wl.join(', ')}) have been analyzed yet.<br>
-                    Run the analysis pipeline from the hub first.
-                </td></tr>`;
-                return;
-            }
-
-            tbody.innerHTML = watchedStocks.map(s => {
-                const upVal    = (s.upside || 0) * 100;
-                const upColor  = upVal >= 0 ? '#10b981' : '#ef4444';
-                const upText   = `${upVal >= 0 ? '+' : ''}${upVal.toFixed(1)}%`;
-                const zVal     = parseFloat(s.altman_z || 0);
-                const zLabel   = s.altman_z_label || 'N/A';
-                const confText = (s.confidence !== 'N/A' && s.confidence !== undefined) ? `${s.confidence}%` : 'N/A';
-
-                return `
-                    <tr>
-                        <td class="wl-ticker-cell">${s.ticker}</td>
-                        <td>${s.company_name}</td>
-                        <td style="font-size:0.8rem; color:var(--text-muted,#777);">${s.sector}</td>
-                        <td><span class="wl-badge ${getVerdictClass(s.verdict)}">${s.verdict}</span></td>
-                        <td style="font-family:'JetBrains Mono',monospace; font-size:0.82rem;">${confText}</td>
-                        <td style="font-family:'JetBrains Mono',monospace; font-weight:600;">$${(s.current_price || 0).toFixed(2)}</td>
-                        <td style="font-weight:700; color:${upColor}; font-family:'JetBrains Mono',monospace;">${upText}</td>
-                        <td>${fmtPiotroski(s.piotroski_f)}</td>
-                        <td>
-                            <span class="wl-badge ${getZoneClass(zLabel)}" style="font-size:0.68rem;">
-                                ${isNaN(zVal) ? 'N/A' : zVal.toFixed(2)} — ${zLabel}
-                            </span>
-                        </td>
-                        <td>
-                            <div class="wl-action-cell">
-                                <a href="/dashboard/${s.ticker}" class="wl-btn-sm wl-btn-open">Open</a>
-                                <button class="wl-btn-sm wl-btn-remove" onclick="removeFromWatchlist('${s.ticker}')">Remove</button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-
-        } catch (err) {
-            tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#ef4444;">
-                Failed to load watchlist data: ${err.message}
-            </td></tr>`;
-        }
-    }
-
-    // Initial render
-    renderPage();
+var $=function(id){return document.getElementById(id)};
+var KEY="stocker_watchlist", stocks=[], liveMap={}, sortK="upside", sortD=-1;
+function getWL(){try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return[]}}
+function setWL(w){localStorage.setItem(KEY,JSON.stringify(w))}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function fmtM(v){if(v==null||isNaN(v))return "--";var a=Math.abs(v);if(a>=1e12)return (v/1e12).toFixed(2)+"T";if(a>=1e9)return (v/1e9).toFixed(2)+"B";if(a>=1e6)return (v/1e6).toFixed(1)+"M";return Number(v).toFixed(2)}
+function fmtP(v){if(v==null||isNaN(v))return "--";return Number(v).toFixed(2)}
+function pill(v){v=(v||"HOLD").toUpperCase();var c=v.indexOf("BUY")>=0?"buy":(v.indexOf("SELL")>=0?"sell":"hold");return '<span class="pill '+c+'">'+esc(v)+"</span>"}
+function safety(s){var f=s.piotroski_f,z=parseFloat(s.altman_z);if(f==null&&isNaN(z))return '<span class="flat">--</span>';var t="F"+(f!=null?f:"-");if(!isNaN(z))t+=" / Z"+z.toFixed(1);var c=(!isNaN(z)&&z<1.8)||(s.piotroski_f!=null&&s.piotroski_f<=3)?"dn":((!isNaN(z)&&z>2.6)?"up":"flat");return '<span class="'+c+'">'+t+"</span>"}
+function isLive(q){return q&&q.price&&q.source&&q.source.charCodeAt(0)===121}function effChg(s){var l=liveMap[s.ticker];if(isLive(l)&&s.current_price)return (l.price-s.current_price)/s.current_price*100;return null}
+function render(){
+  var wl=getWL(), rows=stocks.filter(function(s){return wl.indexOf(s.ticker)>=0});
+  var missing=wl.filter(function(t){return !stocks.some(function(s){return s.ticker===t})});
+  $("wcount").textContent=wl.length+" ticker"+(wl.length===1?"":"s")+" • live • auto 30s";
+  var tb=$("qb");
+  if(!wl.length){tb.innerHTML="";$("qempty").style.display="block";return}
+  $("qempty").style.display="none";
+  rows.sort(function(a,b){var x=sortK==="livechg"?(effChg(a)==null?-9999:effChg(a)):(sortK==="verdict"?(a.verdict||""):(sortK==="piotroski"?(a.piotroski_f||0):(a[sortK]||0)));var y=sortK==="livechg"?(effChg(b)==null?-9999:effChg(b)):(sortK==="verdict"?(b.verdict||""):(sortK==="piotroski"?(b.piotroski_f||0):(b[sortK]||0)));return (x>y?1:x<y?-1:0)*sortD});
+  var h=rows.map(function(s){
+    var l=liveMap[s.ticker],liv=isLive(l),px=liv?l.price:s.current_price,ch=effChg(s);
+    var cls=ch==null?"flat":(ch>0.05?"up":(ch<-0.05?"dn":"flat")),arrow=ch==null?"•":(ch>0.05?"▲":(ch<-0.05?"▼":"•"));
+    var up=(s.upside||0)*100;
+    return '<tr data-t="'+esc(s.ticker)+'"><td><div class="sym">'+esc(s.ticker)+'</div><div class="co">'+esc(s.company_name||"")+'</div></td>'+
+    "<td>$"+fmtP(px)+'</td><td class="'+cls+'">'+(ch==null?'--':(arrow+" "+Math.abs(ch).toFixed(2)+"%"))+'</td>'+
+    "<td>$"+fmtP(s.fair_value_mid)+'</td><td class="'+(s.upside>=0?"up":"dn")+'">'+(s.upside>=0?"+":"")+up.toFixed(1)+'%</td>'+
+    "<td>"+fmtP(s.pe_ratio)+"</td><td>"+safety(s)+"</td><td>"+pill(s.verdict)+'</td>'+
+    '<td><button class="mini" data-open="'+esc(s.ticker)+'">OPEN</button> <button class="mini rm" data-rm="'+esc(s.ticker)+'">✕</button></td></tr>';
+  }).join("");
+  if(missing.length)h+='<tr><td colspan="9" style="text-align:center;color:var(--dim);font-family:Inter;font-size:12px">Not yet analyzed: '+missing.map(esc).join(", ")+' — <a href="/" style="color:var(--purple)">analyze from home</a></td></tr>';
+  tb.innerHTML=h;
+  var trs=tb.querySelectorAll("tr[data-t]");for(var i=0;i<trs.length;i++){trs[i].onclick=function(e){if(e.target.tagName==="BUTTON")return;location.href="/dashboard/"+this.getAttribute("data-t")}}
+  var opens=tb.querySelectorAll("[data-open]");for(var a=0;a<opens.length;a++){opens[a].onclick=function(e){e.stopPropagation();location.href="/dashboard/"+this.getAttribute("data-open")}}
+  var rms=tb.querySelectorAll("[data-rm]");for(var r=0;r<rms.length;r++){rms[r].onclick=function(e){e.stopPropagation();var t=this.getAttribute("data-rm");setWL(getWL().filter(function(x){return x!==t}));render()}}
+}
+async function load(){try{var r=await fetch("/api/stocks");var j=await r.json();stocks=j.stocks||[];render()}catch(e){}}
+async function live(){try{var r=await fetch("/api/stocks/live-quotes");var j=await r.json();liveMap={};(j.quotes||[]).forEach(function(q){liveMap[q.ticker]=q});render()}catch(e){}}
+function addT(){var v=$("add").value.trim().toUpperCase().replace(/[^A-Z0-9.\^-]/g,"").slice(0,12);if(!v)return;var wl=getWL();if(wl.indexOf(v)<0){wl.push(v);setWL(wl);render()}$("add").value="";$("add").focus()}
+$("addbtn").onclick=addT;$("add").addEventListener("keydown",function(e){if(e.key==="Enter")addT()});
+$("clearbtn").onclick=function(){var b=this;if(!getWL().length)return;if(b.getAttribute("data-arm")){b.removeAttribute("data-arm");b.textContent="CLEAR ALL";setWL([]);render();if(window.showToast)showToast("Watchlist cleared","success")}else{b.setAttribute("data-arm","1");b.textContent="SURE?";setTimeout(function(){b.removeAttribute("data-arm");b.textContent="CLEAR ALL"},3000)}};
+var th=document.querySelectorAll("#qt th[data-k]");for(var ti=0;ti<th.length;ti++){th[ti].onclick=function(){var k=this.getAttribute("data-k");if(sortK===k)sortD*=-1;else{sortK=k;sortD=-1}render()}}
+var qT=null;
+$("q").addEventListener("input",function(){clearTimeout(qT);var v=$("q").value.trim();if(v.length<1){$("sdrop").style.display="none";return}
+  qT=setTimeout(function(){fetch("/api/query/search?q="+encodeURIComponent(v)).then(function(r){return r.json()}).then(function(j){var r2=j.results||[];if(!r2.length){$("sdrop").style.display="none";return}
+    $("sdrop").innerHTML=r2.slice(0,7).map(function(x){return '<a href="'+esc(x.link||("/dashboard/"+x.ticker))+'"><span class="tk">'+esc(x.ticker||"")+'</span><span class="co">'+esc(x.title||x.company||"")+"</span></a>"}).join("");$("sdrop").style.display="block"}).catch(function(){})},220)});
+document.addEventListener("click",function(e){if(!$("sdrop").contains(e.target)&&e.target!==$("q"))$("sdrop").style.display="none"});
+$("q").addEventListener("keydown",function(e){if(e.key==="Enter"){var v=$("q").value.trim().toUpperCase();if(v)location.href="/dashboard/"+encodeURIComponent(v)}});
+function tick(){try{var f=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});$("clock").textContent=f.format(new Date())+" ET"}catch(e){}}
+tick();setInterval(tick,1000);
+load();live();setInterval(live,30000);
 </script>
-    <script src="{{ url_for('static', filename='js/toast.js') }}"></script>
+<script src="/static/js/toast.js"></script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 ## Architecture
 - Backend: Flask Server (app/server.py), AI Engine (app/ai_engine.py), Data Fetcher (app/data_fetcher.py) with yfinance+SEC+AlphaVantage, DCF/WACC registry
 - Frontend: Bloomberg terminal 3-col layout HTML/CSS/JS in app/templates and app/static (dashboard_new.css, theme.css, hub.js, dashboard.js)
-- Database: Local JSON cache -> Supabase optional mirror (app/supabase_db.py) + output/database/*.json, local portfolio.json
+- Database: Local JSON only (app/local_db.py) + output/database/*.json, local portfolio.json
 - External: Yahoo Finance, Groq/OpenRouter/Gemini (config.py), Notion optional, SEC EDGAR
 
 ## Code Layout
@@ -27,7 +27,7 @@
 | 3 | Frontend Polish | 8 modules work, safeDisplay/esc guards, toast.js on all pages, price flash live 30s, fetch retry on 429, skeleton loaders, Notion subnav, responsive Bloomberg CSS | DONE 2026-09-01 |
 | 4 | E2E Suite | Pass Tiers 1-4 (conftest STOCKER_TEST_MODE, Playwright) — 3 core tests pass; TEST_MODE fast paths for history/live-quote | DONE 2026-09-01 |
 | 5 | Adversarial Hardening | Tier 5 malformed tickers, empty DB, rate-limit soak — is_valid_ticker hardened (12 char, no traversal), financials/history/live-quote validate 400, SEC/yf retry hardened, 13 adversarial tests | DONE 2026-09-01 |
-| 6 | Polish A-Z (2026-09-01) | Security: removed hardcoded Groq keys, .env.example, .flask_secret gitignored, CORS no credentials; Infra: duckduckgo-search pinned, start.cmd quiet, NUL removed, dashboard_new.css price-flash+toast+shimmer; Docs: Supabase REST note, Bloomberg UX contracts | DONE |
+| 6 | Polish A-Z (2026-09-01) | Security: removed hardcoded Groq keys, .env.example, .flask_secret gitignored, CORS no credentials; Infra: duckduckgo-search pinned, start.cmd quiet, NUL removed, dashboard_new.css price-flash+toast+shimmer; Docs: local-DB note, Bloomberg UX contracts | DONE |
 
 ## Interface Contracts
 ### Frontend <-> Backend

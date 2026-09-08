@@ -8,6 +8,7 @@ requests>=2.31.0
 python-dotenv>=1.0.0
 flask>=3.0.0
 beautifulsoup4>=4.12.0
+lxml>=5.0.0
 numpy>=1.26.0
 groq>=0.11.0
 anthropic>=0.34.0
@@ -15,4 +16,4 @@ werkzeug>=3.0.0
 flask-cors>=4.0.0
 # Optional: used by news_engine DDGS fallback (graceful if missing)
 duckduckgo-search>=5.0.0
-# supabase_db uses REST via requests — no supabase-py needed
+# local_db is pure stdlib JSON — no database driver needed

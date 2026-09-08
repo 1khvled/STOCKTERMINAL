@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>404 — StockerAI Terminal</title>
+    <title>404 — Stocker Finance</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
     <style>
-        body { display: flex; flex-direction: column; min-height: 100vh; }
+        body { display: flex; flex-direction: column; min-height: 100vh; background: #0a0a0f; color: #f4f5f7; }:root{--surface-3:#17181f;--border:#22242e;--text-primary:#f4f5f7;--text-secondary:#9aa0ae;--text-muted:#9aa0ae;}
         .err-header {
             background: #000;
             border-bottom: 1px solid var(--border);
@@ -110,6 +109,11 @@
             color: var(--emerald);
             background: rgba(48,209,88,0.06);
         }
+        @media (max-width: 560px) {
+            .err-header { flex-wrap: wrap; gap: 10px; padding: 12px 16px; }
+            .err-main { padding: 28px 16px; }
+            .err-actions .btn { flex: 1 1 100%; text-align: center; }
+        }
     </style>
 </head>
 <body>
@@ -118,10 +122,10 @@
     <div class="err-header">
         <div style="display: flex; align-items: center; gap: 16px;">
             <span style="font-family: var(--font-mono); font-weight: 700; font-size: 0.85rem; background: #fff; color: #000; padding: 2px 8px; border-radius: 3px;">S_AI</span>
-            <span style="font-size: 1rem; font-weight: 700; color: #fff;">StockerAI Terminal</span>
+            <span style="font-size: 1rem; font-weight: 700; color: #fff;">Stocker Finance</span>
             <span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--ruby); background: rgba(255,69,58,0.08); border: 1px solid rgba(255,69,58,0.2); padding: 2px 6px; border-radius: 3px;">404</span>
         </div>
-        <a href="/" class="btn btn-ghost btn-sm">← Return to Hub</a>
+        <a href="/" class="btn btn-ghost btn-sm">← Return Home</a>
     </div>
 
     <!-- Main Error Content -->
@@ -131,12 +135,12 @@
             <div class="err-label">Not Found</div>
             <div class="err-title">Route Doesn't Exist</div>
             <div class="err-desc">
-                The page, ticker record, or endpoint you requested does not exist in the StockerAI database. 
-                If you were looking for a specific stock analysis, run it from the hub first.
+                The page, ticker record, or endpoint you requested does not exist in the Stocker Finance database.
+                If you were looking for a specific stock analysis, run it from home first.
             </div>
 
             <div class="err-actions">
-                <a href="/" class="btn btn-primary">← Return to Hub</a>
+                <a href="/" class="btn btn-primary">← Return Home</a>
                 <a href="/compare" class="btn btn-ghost">Peer Compare</a>
                 <a href="/guide" class="btn btn-ghost">Reference Guide</a>
             </div>

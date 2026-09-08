@@ -24,8 +24,8 @@ def _db_path(ticker):
 
 
 def _load_stock(ticker):
-    import supabase_db
-    return supabase_db.load_stock_record(ticker)
+    import local_db
+    return local_db.load_stock_record(ticker)
 
 
 def _save_json(path, data):
@@ -533,6 +533,13 @@ def get_sec_filings(ticker, force=False):
     cik = str((stock.get("sec_data") or {}).get("cik") or (stock.get("key_metrics") or {}).get("cik") or "").zfill(10)
     if not cik.strip("0"):
         cik = _lookup_cik(ticker)
+    else:
+        try:
+            live_cik = _lookup_cik(ticker)
+            if live_cik and live_cik != cik:
+                cik = live_cik
+        except Exception:
+            pass
 
     filings = []
     if cik:
@@ -622,13 +629,13 @@ def _lookup_cik(ticker):
 
 
 def load_portfolio():
-    import supabase_db
-    return supabase_db.load_portfolio()
+    import local_db
+    return local_db.load_portfolio()
 
 
 def save_portfolio(positions):
-    import supabase_db
-    return supabase_db.save_portfolio(positions)
+    import local_db
+    return local_db.save_portfolio(positions)
 
 
 def portfolio_summary():

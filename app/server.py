@@ -44,7 +44,7 @@ try:
     from config import OUTPUT_DIR
 except ImportError:
     from .config import OUTPUT_DIR
-import supabase_db
+import local_db
 
 if os.environ.get("STOCKER_TEST_MODE") == "1":
     try:
@@ -55,6 +55,8 @@ if os.environ.get("STOCKER_TEST_MODE") == "1":
 
 app = Flask(__name__, template_folder="templates")
 CORS(app, supports_credentials=False, resources={r"/api/*": {"origins": ["http://127.0.0.1:*", "http://localhost:*", "http://127.0.0.1:5001", "http://localhost:5001"]}})  # local-only, no credentials
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.jinja_env.auto_reload = True
 OUTPUT_ROOT = Path(OUTPUT_DIR)
 DB_DIR = OUTPUT_ROOT / "database"
 # Persistent secret for personal single-user use — stable across restarts
@@ -75,7 +77,7 @@ else:
         pass
     app.secret_key = _secret
 ALLOWED_PERIODS = {"1d","5d","1mo","3mo","6mo","1y","2y","5y","10y","ytd","max"}
-MODULES = {"dashboard", "analysis", "charting", "screener", "query", "resources", "settings"}
+MODULES = {"screener"}
 VERDICT_BUCKETS = {
     "BUY": {"BUY", "STRONG BUY", "ACCUMULATE", "OUTPERFORM"},
     "HOLD": {"HOLD", "NEUTRAL", "UNDER_REVIEW", "WATCH"},
@@ -112,7 +114,7 @@ def _db_path(ticker):
 def _load_stock_record(ticker):
     if not is_valid_ticker(ticker):
         return None
-    return supabase_db.load_stock_record(ticker)
+    return local_db.load_stock_record(ticker)
 
 def _calc_upside_from_record(data):
     metrics = data.get("key_metrics", {})
@@ -162,7 +164,7 @@ def _catalog_row(data):
     }
 
 def _catalog_rows():
-    return supabase_db.catalog_rows()
+    return local_db.catalog_rows()
 
 def _verdict_matches(actual, expected):
     if not expected:
@@ -590,7 +592,13 @@ def serve_pro_page():
         "system": ("SYSTEM", "Cache, API, and runtime health"),
     }
     title, eyebrow = titles.get(page, ("TERMINAL", "Command center"))
+    if page == "watchlist":
+        return render_template("watchlist.html")
     return render_template("pro_page.html", page=page, title=title, eyebrow=eyebrow, cache_size=get_cache_size_str())
+
+@app.route("/earnings")
+def serve_earnings():
+    return render_template("earnings.html")
 
 
 @app.route("/news-impact")
@@ -610,6 +618,8 @@ def serve_intel_page():
         "portfolio": ("PORTFOLIO", "Position risk command center"),
     }
     title, eyebrow = titles.get(page, ("INTEL", "AI terminal"))
+    if page == "portfolio":
+        return render_template("portfolio.html")
     return render_template("intel_page.html", page=page, title=title, eyebrow=eyebrow)
 
 
@@ -740,7 +750,7 @@ def get_stock(ticker):
     ticker = ticker.upper().strip()
     if not is_valid_ticker(ticker):
         return {"error": "Invalid ticker format"}, 400
-    data = supabase_db.load_stock_record(ticker)
+    data = local_db.load_stock_record(ticker)
     if data is None:
         return {"error": f"Ticker {ticker} not found in database"}, 404
     return data
@@ -752,7 +762,7 @@ def get_stock_financials(ticker):
     ticker = ticker.upper().strip()
     if not is_valid_ticker(ticker):
         return {"error": "Invalid ticker format"}, 400
-    data = supabase_db.load_stock_record(ticker)
+    data = local_db.load_stock_record(ticker)
     if not data:
         return {"error": f"Ticker {ticker} not found in database"}, 404
         
@@ -783,7 +793,7 @@ def get_stock_history(ticker):
     # In test mode, skip live yfinance (would timeout) and use DB fallback directly
     if os.environ.get("STOCKER_TEST_MODE") == "1":
         # Fast path for tests — no network
-        data = supabase_db.load_stock_record(ticker)
+        data = local_db.load_stock_record(ticker)
         if data and data.get("price_history_compact"):
             try:
                 compact = data.get("price_history_compact")
@@ -817,7 +827,7 @@ def get_stock_history(ticker):
         logger.info(f"Yfinance history fetch failed for {ticker}: {e}")
         
     # Fallback to database compact history
-    data = supabase_db.load_stock_record(ticker)
+    data = local_db.load_stock_record(ticker)
     if data:
         try:
             compact = data.get("price_history_compact")
@@ -846,7 +856,7 @@ def recalculate_stock(ticker):
     ticker = ticker.upper().strip()
     if not is_valid_ticker(ticker):
         return {"error": "Invalid ticker format"}, 400
-    data = supabase_db.load_stock_record(ticker)
+    data = local_db.load_stock_record(ticker)
     if not data:
         return {"error": f"Ticker {ticker} not found in database"}, 404
         
@@ -926,7 +936,7 @@ def recalculate_stock(ticker):
         data["analysis"] = _enforce_valuation_coherence(data["analysis"], data)
         
         # Save back to database
-        supabase_db.save_stock_record(ticker, data)
+        local_db.save_stock_record(ticker, data)
             
         # Re-generate Excel file dynamically
         try:
@@ -1010,17 +1020,20 @@ def get_stock_news(ticker):
     ticker = ticker.upper().strip()
     import yfinance as yf
     try:
-        raw_news = yf.Ticker(ticker).news
+        raw_news = yf.Ticker(ticker).news or []
         news = []
         for n in raw_news:
-            if "content" in n:
-                c = n["content"]
-                news.append({
-                    "title": c.get("title", "News"),
-                    "link": c.get("clickThroughUrl", {}).get("url", "#"),
-                    "publisher": c.get("provider", {}).get("displayName", "Wire"),
-                    "pubDate": c.get("pubDate", "")
-                })
+            c = (n or {}).get("content") or {}
+            if not c:
+                continue
+            cu = c.get("clickThroughUrl") or {}
+            pv = c.get("provider") or {}
+            news.append({
+                "title": c.get("title", "News"),
+                "link": cu.get("url", "#"),
+                "publisher": pv.get("displayName", "Wire"),
+                "pubDate": c.get("pubDate", "")
+            })
         return {"status": "success", "news": news[:15]}
     except Exception as e:
         return {"error": str(e)}, 500
@@ -1119,6 +1132,252 @@ def api_live_quote(ticker):
     return {"ticker": ticker, "price": price, "change": 0, "pct": 0, "source": "local_database"}
 
 
+@app.route("/api/stock/<ticker>/earnings-preview")
+def api_earnings_preview(ticker):
+    ticker = ticker.upper().strip()
+    if not is_valid_ticker(ticker):
+        return {"error": "Invalid ticker"}, 400
+    out = {"ticker": ticker, "next_date": None, "eps_avg": None, "eps_low": None, "eps_high": None, "surprises": [],
+           "rev_avg": None, "rev_low": None, "rev_high": None, "analysts": None, "quarters": []}
+    try:
+        import yfinance as yf
+        cal = yf.Ticker(ticker).calendar or {}
+        dates = cal.get("Earnings Date") or []
+        if dates:
+            d = dates[0]
+            out["next_date"] = d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d)[:10]
+        out["eps_avg"] = _safe_float(cal.get("Earnings Average"), None)
+        out["eps_low"] = _safe_float(cal.get("Earnings Low"), None)
+        out["eps_high"] = _safe_float(cal.get("Earnings High"), None)
+        out["rev_avg"] = _safe_float(cal.get("Revenue Average"), None)
+        out["rev_low"] = _safe_float(cal.get("Revenue Low"), None)
+        out["rev_high"] = _safe_float(cal.get("Revenue High"), None)
+    except Exception as e:
+        logger.info(f"Earnings preview (calendar) failed for {ticker}: {e}")
+    try:
+        import yfinance as yf
+        ed = yf.Ticker(ticker).get_earnings_dates(limit=12)
+        if ed is not None and not ed.empty:
+            for idx, row in ed.iterrows():
+                try:
+                    rep = row.get("Reported EPS")
+                    import math
+                    if rep is None or (isinstance(rep, float) and math.isnan(rep)):
+                        continue
+                    ds = idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)[:10]
+                    out["surprises"].append({
+                        "date": ds,
+                        "estimate": _safe_float(row.get("EPS Estimate"), None),
+                        "reported": _safe_float(rep, None),
+                        "surprise_pct": _safe_float(row.get("Surprise(%)"), None)})
+                except Exception:
+                    continue
+            out["surprises"] = out["surprises"][:8]
+    except Exception as e:
+        logger.info(f"Earnings preview (history) failed for {ticker}: {e}")
+    try:
+        rec = _load_stock_record(ticker) or {}
+        m = rec.get("key_metrics", {})
+        out["analysts"] = m.get("numberOfAnalystOpinions")
+        qf = rec.get("q_financials") or {}
+        rows, cols = qf.get("rows") or [], qf.get("columns") or []
+        if rows and len(cols) > 1:
+            labK = list(rows[0].keys())[0]
+            rev = next((r for r in rows if str(r.get(labK) or "").lower() == "total revenue"), None)
+            net = next((r for r in rows if str(r.get(labK) or "").lower() == "net income"), None)
+            for c in cols[1:][-4:]:
+                out["quarters"].append({
+                    "date": c,
+                    "revenue": _safe_float(rev.get(c), None) if rev else None,
+                    "net_income": _safe_float(net.get(c), None) if net else None})
+    except Exception as e:
+        logger.info(f"Earnings preview (local) failed for {ticker}: {e}")
+    return out
+
+@app.route("/api/stock/<ticker>/ratings-trend")
+def api_ratings_trend(ticker):
+    ticker = ticker.upper().strip()
+    if not is_valid_ticker(ticker):
+        return {"error": "Invalid ticker"}, 400
+    out = {"ticker": ticker, "periods": []}
+    try:
+        import yfinance as yf
+        rec = yf.Ticker(ticker).get_recommendations()
+        if rec is not None and not rec.empty:
+            for _, row in rec.iterrows():
+                def _ci(v):
+                    try:
+                        f = float(v)
+                        import math
+                        return int(f) if not math.isnan(f) else 0
+                    except Exception:
+                        return 0
+                out["periods"].append({
+                    "period": str(row.get("period", "")),
+                    "strongBuy": _ci(row.get("strongBuy")),
+                    "buy": _ci(row.get("buy")),
+                    "hold": _ci(row.get("hold")),
+                    "sell": _ci(row.get("sell")),
+                    "strongSell": _ci(row.get("strongSell"))})
+    except Exception as e:
+        logger.info(f"Ratings trend failed for {ticker}: {e}")
+    return out
+
+ESTIMATES_CACHE_FILE = DB_DIR / "_estimates_cache.json"
+ESTIMATES_CACHE_TTL_HOURS = 24
+_estimates_lock = threading.Lock()
+prewarm_state = {"running": False, "total": 0, "done": [], "failed": []}
+
+
+def _fetch_live_estimates(ticker):
+    out = {"ticker": ticker, "earnings": [], "revenue": [], "growth": []}
+
+    def _rows(df, year_ago_col):
+        rows = []
+        try:
+            if df is None or df.empty:
+                return rows
+            for idx, row in df.iterrows():
+                rows.append({
+                    "period": str(idx),
+                    "avg": _safe_float(row.get("avg"), None),
+                    "low": _safe_float(row.get("low"), None),
+                    "high": _safe_float(row.get("high"), None),
+                    "analysts": _safe_float(row.get("numberOfAnalysts"), None),
+                    "growth": _safe_float(row.get("growth"), None),
+                    "year_ago": _safe_float(row.get(year_ago_col), None)})
+        except Exception:
+            pass
+        return rows
+
+    try:
+        import yfinance as yf
+        tk = yf.Ticker(ticker)
+        try:
+            out["earnings"] = _rows(tk.get_earnings_estimate(), "yearAgoEps")
+        except Exception as e:
+            logger.info(f"Estimates (earnings) failed for {ticker}: {e}")
+        try:
+            out["revenue"] = _rows(tk.get_revenue_estimate(), "yearAgoRevenue")
+        except Exception as e:
+            logger.info(f"Estimates (revenue) failed for {ticker}: {e}")
+        try:
+            g = tk.get_growth_estimates()
+            if g is not None and not g.empty:
+                for idx, row in g.iterrows():
+                    out["growth"].append({
+                        "period": str(idx),
+                        "stock": _safe_float(row.get("stockTrend"), None),
+                        "index": _safe_float(row.get("indexTrend"), None)})
+        except Exception as e:
+            logger.info(f"Estimates (growth) failed for {ticker}: {e}")
+    except Exception as e:
+        logger.info(f"Estimates failed for {ticker}: {e}")
+    return out
+
+
+def _read_estimates_cache():
+    try:
+        with open(ESTIMATES_CACHE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f) or {}
+    except Exception:
+        return {}
+
+
+def _write_estimates_cache(cache):
+    try:
+        ESTIMATES_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(ESTIMATES_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(cache, f, indent=1)
+    except Exception as e:
+        logger.info(f"[Estimates] failed to persist cache: {e}")
+
+
+@app.route("/api/stock/<ticker>/estimates")
+def api_stock_estimates(ticker):
+    ticker = ticker.upper().strip()
+    if not is_valid_ticker(ticker):
+        return {"error": "Invalid ticker"}, 400
+    import time as _time
+    try:
+        entry = _read_estimates_cache().get(ticker) or {}
+        if entry.get("fetched_at") and (_time.time() - float(entry["fetched_at"])) < ESTIMATES_CACHE_TTL_HOURS * 3600 and entry.get("data"):
+            cached = dict(entry["data"])
+            cached["cached"] = True
+            return cached
+    except Exception:
+        pass
+    out = _fetch_live_estimates(ticker)
+    out["cached"] = False
+    try:
+        with _estimates_lock:
+            cache = _read_estimates_cache()
+        if out["earnings"] or out["revenue"]:
+            with _estimates_lock:
+                fresh = _read_estimates_cache()
+                fresh[ticker] = {"fetched_at": _time.time(), "data": out}
+                _write_estimates_cache(fresh)
+        elif (cache.get(ticker) or {}).get("data"):
+            stale = dict(cache[ticker]["data"])
+            stale["cached"] = True
+            stale["stale"] = True
+            return stale
+    except Exception:
+        pass
+    return out
+
+
+@app.route("/api/system/estimates/prewarm", methods=["GET", "POST"])
+def api_estimates_prewarm():
+    if request.method == "GET":
+        try:
+            cache = _read_estimates_cache()
+            return {"running": prewarm_state["running"], "total": prewarm_state["total"],
+                    "done": prewarm_state["done"], "failed": prewarm_state["failed"],
+                    "cached_tickers": sorted(cache.keys()), "cached_count": len(cache)}
+        except Exception as e:
+            return {"error": str(e)}, 500
+    if prewarm_state["running"]:
+        return {"status": "already_running", "done": prewarm_state["done"]}
+
+    def _bg():
+        import time as _t
+        prewarm_state["running"] = True
+        try:
+            rows = _catalog_rows()
+            tickers = [r["ticker"] for r in rows]
+            try:
+                have = set(_read_estimates_cache().keys())
+                tickers = [tk for tk in tickers if tk not in have] or [r["ticker"] for r in rows]
+            except Exception:
+                pass
+            prewarm_state["total"] = len(tickers)
+            prewarm_state["done"] = []
+            prewarm_state["failed"] = []
+            for tk in tickers:
+                try:
+                    out = _fetch_live_estimates(tk)
+                    if out["earnings"] or out["revenue"]:
+                        out["cached"] = False
+                        with _estimates_lock:
+                            cache = _read_estimates_cache()
+                            cache[tk] = {"fetched_at": _t.time(), "data": out}
+                            _write_estimates_cache(cache)
+                        prewarm_state["done"].append(tk)
+                    else:
+                        prewarm_state["failed"].append(tk)
+                except Exception as e:
+                    prewarm_state["failed"].append(tk)
+                    logger.info(f"[Estimates] prewarm {tk} failed: {e}")
+                _t.sleep(3)
+        finally:
+            prewarm_state["running"] = False
+
+    import threading as _th
+    _th.Thread(target=_bg, daemon=True).start()
+    return {"status": "started"}
+
+
 @app.route("/api/stocks/live-quotes")
 def api_live_quotes():
     tickers = [t.strip().upper() for t in request.args.get("tickers", "").split(",") if t.strip()]
@@ -1213,44 +1472,167 @@ def rate_limited(e):
         return {"error": "Rate limited, retry later"}, 429
     return "Rate limited", 429
 
-def _should_auto_update_record(data):
-    """Quarterly logic: re-analyze if >85 days old or earnings in last 7 days."""
+EARNINGS_SCHEDULE_FILE = DB_DIR / "_earnings_schedule.json"
+EARNINGS_SCHEDULE_TTL_DAYS = 7
+EARNINGS_POST_WINDOW_DAYS = 4
+_EARNINGS_SCHED = None
+
+
+def _read_earnings_schedule():
+    global _EARNINGS_SCHED
+    if _EARNINGS_SCHED is not None:
+        return _EARNINGS_SCHED
     try:
-        from datetime import datetime, timezone, timedelta
-        gen = data.get("generated_at") or ""
-        # parse generated_at
-        age_days = 999
-        if gen:
+        with open(EARNINGS_SCHEDULE_FILE, "r", encoding="utf-8") as f:
+            _EARNINGS_SCHED = json.load(f) or {}
+    except Exception:
+        _EARNINGS_SCHED = {}
+    return _EARNINGS_SCHED
+
+
+def _write_earnings_schedule(sched):
+    global _EARNINGS_SCHED
+    _EARNINGS_SCHED = sched
+    try:
+        EARNINGS_SCHEDULE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(EARNINGS_SCHEDULE_FILE, "w", encoding="utf-8") as f:
+            json.dump(sched, f, indent=1)
+    except Exception as e:
+        logger.info(f"[Earnings] failed to persist schedule: {e}")
+
+
+def _parse_record_date(gen):
+    from datetime import datetime, timezone
+    try:
+        dt = datetime.fromisoformat(str(gen).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except Exception:
+        return None
+
+
+def _fetch_next_earnings(ticker):
+    import yfinance as yf
+    try:
+        cal = yf.Ticker(ticker).calendar or {}
+        dates = cal.get("Earnings Date") or cal.get("Earnings_Date") or []
+        if isinstance(dates, dict):
+            dates = list(dates.keys())
+        out = []
+        for d in dates:
             try:
-                dt = datetime.fromisoformat(gen.replace("Z", "+00:00"))
-                age_days = (datetime.now(timezone.utc) - dt).days
+                import datetime as _dt
+                if isinstance(d, str):
+                    out.append(_dt.date.fromisoformat(d[:10]))
+                elif hasattr(d, "date"):
+                    out.append(d.date())
+                else:
+                    out.append(_dt.date.fromisoformat(str(d)[:10]))
             except Exception:
-                age_days = 999
+                continue
+        out = sorted(set(out))
+        return out[0] if out else None
+    except Exception as e:
+        logger.info(f"[Earnings] calendar fetch failed for {ticker}: {e}")
+        return None
+
+
+def _refresh_earnings_schedule(tickers):
+    import time
+    from datetime import datetime, timezone
+    sched = _read_earnings_schedule()
+    now = datetime.now(timezone.utc)
+    changed = False
+    for ticker in tickers:
+        entry = sched.get(ticker) or {}
+        checked = entry.get("checked_at") or ""
+        try:
+            cdt = _parse_record_date(checked) if checked else None
+            age = (now - cdt).days if cdt else 999
+        except Exception:
+            age = 999
+        if age < EARNINGS_SCHEDULE_TTL_DAYS and entry.get("next_earnings"):
+            continue
+        nxt = _fetch_next_earnings(ticker)
+        sched[ticker] = {"next_earnings": nxt.isoformat() if nxt else None, "checked_at": now.isoformat()}
+        changed = True
+        time.sleep(2)
+    if changed:
+        _write_earnings_schedule(sched)
+    return sched
+
+
+def _earnings_due_list():
+    out = []
+    try:
+        sched = _read_earnings_schedule()
+        for row in _catalog_rows():
+            rec = _load_stock_record(row["ticker"])
+            if not rec:
+                continue
+            due, reason = _earnings_due(rec, sched)
+            if due:
+                out.append({"ticker": row["ticker"], "reason": reason,
+                            "next_earnings": (sched.get(row["ticker"]) or {}).get("next_earnings")})
+    except Exception as e:
+        logger.info(f"[Earnings] due-list failed: {e}")
+    return out
+
+
+def _earnings_due(data, sched):
+    from datetime import datetime, timezone
+    try:
+        entry = (sched or {}).get((data.get("ticker") or "").upper()) or {}
+        nxt = entry.get("next_earnings")
+        if not nxt:
+            return False, ""
+        eday = datetime.fromisoformat(nxt).date()
+        today = datetime.now(timezone.utc).date()
+        if today < eday or (today - eday).days > EARNINGS_POST_WINDOW_DAYS:
+            return False, ""
+        gen_dt = _parse_record_date(data.get("generated_at") or "")
+        if gen_dt and gen_dt.date() >= eday:
+            return False, ""
+        return True, f"earnings {eday.isoformat()} passed"
+    except Exception:
+        return False, ""
+
+
+def _should_auto_update_record(data):
+    try:
+        from datetime import datetime, timezone
+        gen_dt = _parse_record_date(data.get("generated_at") or "")
+        age_days = (datetime.now(timezone.utc) - gen_dt).days if gen_dt else 999
         if age_days >= 85:
             return True, f"age {age_days}d >=85d"
-        # check earnings_dates proximity
-        ed = data.get("earnings_dates")
-        # earnings_dates may be DataFrame serialized; try to check raw sec_data
-        # For now, also check if next earnings was within last 7 days via yfinance calendar fallback
-        # Simple heuristic: if we have earnings_dates dict and next date is near
+        due, reason = _earnings_due(data, _read_earnings_schedule())
+        if due:
+            return True, reason
         return False, "fresh"
     except Exception as e:
         return False, str(e)
 
+
 def _auto_update_worker():
     import time, threading
     from pathlib import Path
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
     global auto_update_state
+    _first_check_done = False
     while True:
         try:
-            # sleep 24h, but check every hour for due tickers; first run after 60s
-            if auto_update_state["last_run"] is None:
-                time.sleep(60)
-            else:
-                time.sleep(3600)
+            # first check 60s after boot, then hourly
+            time.sleep(60 if not _first_check_done else 3600)
+            _first_check_done = True
+            try:
+                auto_update_state["next_run"] = (_dt.now(_tz.utc) + _td(seconds=3600)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            except Exception:
+                pass
             if auto_update_state["running"]:
                 continue
             rows = _catalog_rows()
+            _refresh_earnings_schedule([r["ticker"] for r in rows])
             due = []
             for row in rows:
                 rec = _load_stock_record(row["ticker"])
@@ -1295,55 +1677,99 @@ def _start_auto_update_thread():
 def api_auto_update_status():
     return {
         "last_run": auto_update_state["last_run"],
+        "next_run": auto_update_state.get("next_run"),
         "running": auto_update_state["running"],
         "queue": auto_update_state["queue"],
         "log": auto_update_state["log"][-20:],
         "total_tracked": len(_catalog_rows()),
-        "live_prices": "poll /api/stocks/live-quotes every 30s frontend; ticker-tape cached 5m"
+        "quarterly_threshold_days": 85,
+        "earnings_post_window_days": EARNINGS_POST_WINDOW_DAYS,
+        "schedule_ttl_days": EARNINGS_SCHEDULE_TTL_DAYS,
+        "live_prices": "poll /api/stocks/live-quotes every 30s frontend; ticker-tape cached 5m",
+        "earnings_schedule": _read_earnings_schedule(),
+        "earnings_due": _earnings_due_list(),
     }
+
+
+@app.route("/api/system/earnings-schedule")
+def api_earnings_schedule():
+    sched = _read_earnings_schedule()
+    return {"schedule": sched, "due": _earnings_due_list(), "post_window_days": EARNINGS_POST_WINDOW_DAYS}
+
+@app.route("/api/system/earnings-schedule/refresh", methods=["POST"])
+def api_earnings_schedule_refresh():
+    body = request.get_json(silent=True) or {}
+    force = bool(body.get("force")) if isinstance(body, dict) else False
+    try:
+        rows = _catalog_rows()
+        tickers = [r["ticker"] for r in rows]
+        if force:
+            sched = _read_earnings_schedule()
+            for tk in tickers:
+                (sched.get(tk) or {}).pop("next_earnings", None)
+            _write_earnings_schedule(sched)
+            _read_earnings_schedule.cache_clear() if hasattr(_read_earnings_schedule, "cache_clear") else None
+        sched = _refresh_earnings_schedule(tickers)
+        return {"status": "refreshed", "count": len(sched), "due": _earnings_due_list()}
+    except Exception as e:
+        return {"error": str(e)}, 500
+
 
 @app.route("/api/system/auto-update/trigger", methods=["POST"])
 def api_auto_update_trigger():
     tickers = request.get_json(silent=True) or {}
-    # if specific tickers provided, use them; else due tickers
+    # if specific tickers provided, use them; else due tickers (age>=85d or just past earnings)
     req_tickers = tickers.get("tickers") if isinstance(tickers, dict) else None
+    force = bool(tickers.get("force")) if isinstance(tickers, dict) else False
     def _bg():
         import time
         from stock_analyzer import analyze
         global auto_update_state
         if not _auto_update_lock.acquire(blocking=False):
+            auto_update_state["log"].append("manual trigger skipped: another update already running")
             return
-        if auto_update_state["running"]:
-            return
-        auto_update_state["running"] = True
         try:
-            if req_tickers:
-                targets = [t.upper().strip() for t in req_tickers if is_valid_ticker(t.upper().strip())]
-            else:
-                # full quarterly scan: due tickers
-                targets = []
-                for row in _catalog_rows():
-                    rec = _load_stock_record(row["ticker"])
-                    if rec and _should_auto_update_record(rec)[0]:
-                        targets.append(row["ticker"])
-                if not targets:
-                    targets = [row["ticker"] for row in _catalog_rows()[:3]]  # demo: top 3 if none due
-            auto_update_state["queue"] = targets
-            for tk in targets:
-                try:
-                    analyze(tk)
-                    time.sleep(60)
-                except Exception as e:
-                    logger.info(f"manual auto-update {tk} failed: {e}")
+            if auto_update_state["running"]:
+                auto_update_state["log"].append("manual trigger skipped: already running")
+                return
+            auto_update_state["running"] = True
+            try:
+                if req_tickers:
+                    targets = [tk.upper().strip() for tk in req_tickers if is_valid_ticker(tk.upper().strip())]
+                else:
+                    _refresh_earnings_schedule([r["ticker"] for r in _catalog_rows()])
+                    targets = []
+                    for row in _catalog_rows():
+                        rec = _load_stock_record(row["ticker"])
+                        if not rec:
+                            continue
+                        need, _reason = _should_auto_update_record(rec)
+                        if need or force:
+                            targets.append(row["ticker"])
+                    if not targets:
+                        auto_update_state["log"].append(f"{time.strftime('%Y-%m-%d %H:%M')} - manual check: nothing due (all records fresh, no post-earnings pending)")
+                        auto_update_state["log"] = auto_update_state["log"][-50:]
+                        return
+                auto_update_state["queue"] = targets
+                auto_update_state["log"].append(f"{time.strftime('%Y-%m-%d %H:%M')} - manual update starting {len(targets)} tickers: {', '.join(targets[:8])}")
+                for tk in targets:
+                    try:
+                        auto_update_state["log"].append(f"  -> {tk}")
+                        analyze(tk)
+                        time.sleep(60)
+                    except Exception as e:
+                        auto_update_state["log"].append(f"  ! {tk} failed: {e}")
+                        logger.info(f"manual auto-update {tk} failed: {e}")
+            finally:
+                auto_update_state["running"] = False
+                auto_update_state["queue"] = []
+                import time as _t
+                auto_update_state["last_run"] = _t.strftime("%Y-%m-%dT%H:%M:%SZ", _t.gmtime())
         finally:
-            auto_update_state["running"] = False
             try:
                 _auto_update_lock.release()
             except Exception:
                 pass
-            auto_update_state["queue"] = []
-            import time as _t
-            auto_update_state["last_run"] = _t.strftime("%Y-%m-%dT%H:%M:%SZ", _t.gmtime())
     import threading
     threading.Thread(target=_bg, daemon=True).start()
     return {"status": "triggered", "running": True}

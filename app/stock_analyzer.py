@@ -344,14 +344,14 @@ def analyze(ticker_symbol):
     except Exception as e:
         print(f"  ❌ Failed to generate Excel Model: {e}")
 
-    # Step 6: Database Serialization (Supabase / Local Fallback)
+    # Step 6: Database Serialization (Local Database)
     print(f"\n[6/6] 🗄️ Saving consolidated records to database...")
     
     import json
     try:
         serialized = serialize_stock_data(stock_data, analysis)
-        import supabase_db
-        saved = supabase_db.save_stock_record(ticker, serialized)
+        import local_db
+        saved = local_db.save_stock_record(ticker, serialized)
         if saved:
             print(f"  ✅ Saved database record for {ticker}")
         else:

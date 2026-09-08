@@ -3,22 +3,76 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>{{ ticker }} // StockerAI - Free Analyzer</title>
+<title>{{ ticker }} - Stocker Finance</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="stylesheet" href="/static/css/dashboard_new.css?v=12"/>
 </head>
 <body>
 <nav>
-  <div class="logo">STOCKER<span>AI</span> <span style="font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted);font-weight:400;margin-left:6px">{{ ticker }}</span></div>
+  <div class="logo">STOCKER<span>FINANCE</span> <span style="font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted);font-weight:400;margin-left:6px">{{ ticker }}</span></div>
   <div id="live-clock" style="font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted)">--:-- UTC • <span id="session">LOADING</span></div>
   <div class="nav-actions">
-    <a href="/" class="btn">HUB</a>
+    <a href="/" class="btn">HOME</a><a href="/watchlist" class="btn">WATCHLIST</a><a href="/module/screener" class="btn">SCREENER</a><a href="/earnings" class="btn">EARNINGS</a>
     <a href="/compare?tickers={{ ticker }}" class="btn">COMPARE</a>
     <a href="/excel/{{ ticker }}" class="btn btn-primary">EXCEL</a>
   </div>
 </nav>
 <div class="wrap">
+  <div class="qh">
+    <div class="qh-top">
+      <div style="min-width:0">
+        <div class="qh-name" id="q-name">Loading...</div>
+        <div class="qh-sub"><span id="q-tick">--</span> &bull; <span id="q-sector">--</span></div>
+      </div>
+      <div class="qh-px">
+        <div class="qh-price" id="q-price">--</div>
+        <div class="qh-chg" id="q-chg">--</div>
+        <div class="qh-ah" id="q-ah"></div>
+      </div>
+    </div>
+    <div class="qh-grid">
+      <div class="qh-chart">
+        <div class="qh-iv" id="q-iv"><button data-r="30" class="on">1M</button><button data-r="90">3M</button><button data-r="180">6M</button><button data-r="YTD">YTD</button><button data-r="365">1Y</button><button data-r="730">2Y</button><button data-r="1825">5Y</button><button data-r="MAX">MAX</button></div>
+        <div class="qh-cv"><canvas id="qchart" height="230"></canvas></div>
+        <div id="qrev-cap" style="font-size:10.5px;color:var(--muted);font-family:JetBrains Mono,monospace;margin:10px 0 4px"></div>
+        <div class="qh-cv" style="height:96px"><canvas id="qrev" height="96"></canvas></div>
+        <div class="qr"><div class="qr-h"><span>Day Range</span><span id="q-daylab">--</span></div><div class="qbar"><i id="q-daybar"></i></div></div>
+        <div class="qr"><div class="qr-h"><span>52-Week Range</span><span id="q-wklab">--</span></div><div class="qbar"><i id="q-wkbar"></i></div></div>
+      </div>
+      <div class="qh-stats">
+        <div class="qh-stats-h">Key Statistics</div>
+        <div id="q-stats"><div class="skeleton" style="width:80%"></div><div class="skeleton" style="width:65%;margin-top:8px"></div><div class="skeleton" style="width:75%;margin-top:8px"></div></div>
+      </div>
+    </div>
+  </div>
+  <style>
+  .qh{border:1px solid var(--border);background:var(--panel);border-radius:14px;padding:18px;margin-bottom:14px}
+  .qh-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+  .qh-name{font-size:21px;font-weight:800;letter-spacing:-.3px}
+  .qh-sub{font-size:12px;color:var(--muted);margin-top:3px;font-family:JetBrains Mono,monospace}
+  .qh-px{text-align:right}
+  .qh-price{font-family:JetBrains Mono,monospace;font-size:30px;font-weight:700}
+  .qh-chg{font-family:JetBrains Mono,monospace;font-size:13px;font-weight:600;margin-top:2px}
+  .qh-ah{font-size:11.5px;color:var(--muted);font-family:JetBrains Mono,monospace;margin-top:2px}
+  .qh-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;margin-top:14px}
+  @media(max-width:900px){.qh-grid{grid-template-columns:1fr}}
+  .qh-iv{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  .qh-iv button{background:transparent;border:1px solid var(--border);color:var(--muted);font-size:11px;font-weight:700;padding:5px 11px;border-radius:999px;cursor:pointer;font-family:JetBrains Mono,monospace}
+  .qh-iv button.on{background:rgba(10,132,255,.15);border-color:rgba(10,132,255,.55);color:#5eb2ff}
+  .qh-cv{position:relative;height:230px}
+  .qr{margin-top:10px}
+  .qr-h{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-family:JetBrains Mono,monospace;margin-bottom:5px}
+  .qbar{position:relative;height:6px;border-radius:99px;background:#1c1e26}
+  .qbar i{position:absolute;top:-3px;width:12px;height:12px;border-radius:50%;background:var(--blue);border:2px solid #0a0a0b;box-shadow:0 0 0 1px var(--blue)}
+  .qh-stats{border-left:1px solid var(--border);padding-left:16px}
+  @media(max-width:900px){.qh-stats{border-left:none;padding-left:0;border-top:1px solid var(--border);padding-top:12px}}
+  .qh-stats-h{font-size:12px;font-weight:700;letter-spacing:.6px;color:var(--muted);margin-bottom:8px}
+  .qkv{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:5.5px 0;border-bottom:1px dashed #1d1f27}
+  .qkv:last-child{border:none}
+  .qkv span{color:var(--muted)}
+  .qkv b{font-family:JetBrains Mono,monospace;font-weight:600;text-align:right}
+  </style>
   <div class="hero">
     <div class="hero-main">
       <div class="kicker" id="kicker">PERSONAL • FCF • DCF • AI PREDICTION</div>
@@ -48,6 +102,7 @@
   <div class="tabs" id="tabs">
     <button class="tab active" data-tab="verdict">VERDICT</button>
     <button class="tab" data-tab="valuation">VALUATION • FCF/DCF</button>
+    <button class="tab" data-tab="stats">STATISTICS</button>
     <button class="tab" data-tab="notion">NOTION RESEARCH</button>
     <button class="tab" data-tab="financials">FINANCIALS</button>
     <button class="tab" data-tab="peers">PEERS</button>
@@ -93,6 +148,8 @@
     <div class="card"><div class="card-title">Valuation Reconciliation</div><div id="reconcile" style="font-size:13px;line-height:1.7"></div></div>
   </div>
 
+  <div id="panel-stats" class="panel"><div id="stats-root"><div class="card"><div class="skeleton" style="width:60%"></div></div></div></div>
+
   <div id="panel-financials" class="panel">
     <div class="card">
       <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -123,6 +180,6 @@
 </div>
 <script>const TICKER="{{ ticker }}";</script>
 <script src="/static/js/toast.js"></script>
-<script src="/static/js/dashboard.js?v=13"></script>
+<script src="/static/js/dashboard.js?v=16"></script>
 </body>
 </html>
