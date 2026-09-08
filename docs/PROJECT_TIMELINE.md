@@ -111,7 +111,11 @@
 ### 2026-09-09 — Financials + SEC Yahoo Level
 - **2b7da9f** `financials+SEC Yahoo level` — Data was rich (47-row income, 68-row balance, quarterly, 8 SEC filings) but rendering was thin. Dashboard FINANCIALS tab rebuilt: curated Yahoo-order rows (Revenue first, not Tax Effects), `$B/$M` formatting, red negatives, YoY column, Annual/Quarterly toggle (`q_financials` etc.), `stmt-note` provenance line (`app/static/js/dashboard.js:155`, `app/templates/dashboard.html:153`). Filings intel page rebuilt: parallel intel+stock fetch, XBRL company-facts panel (revenue/NI/assets/equity/OCF/EPS w/ form+filed), form badges (10-K/10-Q/8-K), OPEN doc links, watch-forms, red-flags side (`app/static/js/intel_pages.js:52`). Verification: `/dashboard/CRM` 200 has freq-toggle, `/filings` 200, `/api/stock/CRM/financials` 47 rows, live filings tape 8 docs.
 
+### 2026-09-09 — Financials Yahoo Stats Block
+- **be9c106** `financials Yahoo stats` — Added Key Statistics grid (Valuation: mcap/EV/P/E fwd/PEG/P/S/P/B/EV; Profitability: margins/ROE/ROA; Balance: cash/debt/D-E/current/quick/book; Cash flow: OCF/FCF/EBITDA/dividend; Price history: beta/52W/consensus; Shares: out/insiders/short/analysts), peer P/E compare table (you vs 5 peers vs 5Y median), growth rates (revenue/earnings/quarterly) + revenue-vs-net-income bar chart (`app/static/js/dashboard.js` renderFinExtra, `app/templates/dashboard.html` panel-financials). Verification: `/dashboard/CRM` 200 has keystats/pe-compare/revChart, all helpers present.
+
 ### 2026-09-09 — Context Timeline (This File)
+
 
 
 - **Pending commit** — Created `docs/PROJECT_TIMELINE.md` full A-Z + mirror `C:\Users\Abdelli\Documents\PROJECT_TIMELINE.md`, embedded rule for future agents to append Timeline + Agent Log after every modification. Files: `docs/PROJECT_TIMELINE.md`, mirror. Verification: `Test-Path docs`, `git status`.
@@ -149,6 +153,7 @@
 | 2026-09-09 | muse-spark-1.3 | Phase C data/AI/Notion | d2ce9f3 | app/config.py, ai_engine.py, data_fetcher.py, notion_integrator.py |
 | 2026-09-09 | muse-spark-1.3 | Phase D infra/tests/docs | ecaa00b | .gitignore, requirements-dev.txt, pytest.ini, start/kill cmds, TEST_INFRA.md |
 | 2026-09-09 | muse-spark-1.3 | Financials+SEC Yahoo level | 2b7da9f | dashboard.js/html, intel_pages.js |
+| 2026-09-09 | muse-spark-1.3 | Financials Yahoo stats | be9c106 | dashboard.js/html |
 
 ---
 
