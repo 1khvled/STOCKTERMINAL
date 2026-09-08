@@ -149,6 +149,7 @@ function render(){
 
   // financials
   loadStmt('income');
+  try{renderFinExtra();}catch(e){console.error('finextra',e);}
   loadCharts();
 }
 
@@ -172,6 +173,52 @@ function stmtMoney(name,v){
   const s=a>=1e12?"$"+(n/1e12).toFixed(2)+"T":a>=1e9?"$"+(n/1e9).toFixed(2)+"B":a>=1e6?"$"+(n/1e6).toFixed(2)+"M":a>=1e3?"$"+(n/1e3).toFixed(1)+"K":"$"+n.toFixed(0);
   return {t:s,neg:n<0};
 }
+function finBig(v){if(v==null||v===""||isNaN(Number(v)))return "--";const n=Number(v),a=Math.abs(n);
+  return a>=1e12?"$"+(n/1e12).toFixed(2)+"T":a>=1e9?"$"+(n/1e9).toFixed(2)+"B":a>=1e6?"$"+(n/1e6).toFixed(2)+"M":"$"+n.toLocaleString();}
+function finPctRaw(v){if(v==null||v===""||isNaN(Number(v)))return "--";return (Number(v)*100).toFixed(2)+"%";}
+function finX(v){return (v==null||v===""||isNaN(Number(v)))?"--":Number(v).toFixed(2)+"x";}
+function renderFinExtra(){
+  const m=DATA.key_metrics||{},peers=DATA.peers_data||[],hm=(DATA.advanced_models||{}).historical_multiples||{};
+  const sec=(t,rows)=>`<div><div style="font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted);letter-spacing:.06em;margin-bottom:6px">${t}</div>`+
+    rows.map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">${k}</span><b>${v}</b></div>`).join("")+`</div>`;
+  const ks=$('keystats');
+  if(ks)ks.innerHTML=
+    sec("VALUATION",[["Market Cap",finBig(m.marketCap)],["Enterprise Value",finBig(m.enterpriseValue)],["Trailing P/E",finX(m.trailingPE)],["Forward P/E",finX(m.forwardPE)],["PEG",finX(m.pegRatio)],["P/Sales",finX(m.priceToSalesTrailing12Months)],["P/Book",finX(m.priceToBook)],["EV/Revenue",finX(m.enterpriseToRevenue)],["EV/EBITDA",finX(m.enterpriseToEbitda)]])+
+    sec("PROFITABILITY",[["Profit Margin",finPctRaw(m.profitMargins)],["Operating Margin",finPctRaw(m.operatingMargins)],["Gross Margin",finPctRaw(m.grossMargins)],["EBITDA Margin",finPctRaw(m.ebitdaMargins)],["ROE",finPctRaw(m.returnOnEquity)],["ROA",finPctRaw(m.returnOnAssets)],["Revenue/Share","$"+fmt(m.revenuePerShare)]])+
+    sec("BALANCE SHEET",[["Total Cash",finBig(m.totalCash)],["Cash/Share","$"+fmt(m.totalCashPerShare)],["Total Debt",finBig(m.totalDebt)],["Debt/Equity",finX(m.debtToEquity)],["Current Ratio",finX(m.currentRatio)],["Quick Ratio",finX(m.quickRatio)],["Book/Share","$"+fmt(m.bookValue)]])+
+    sec("CASH FLOW",[["Operating CF",finBig(m.operatingCashflow)],["Levered FCF",finBig(m.freeCashflow)],["EBITDA",finBig(m.ebitda)],["Dividend Rate","$"+fmt(m.dividendRate)],["Div Yield",finPctRaw(m.dividendYield)],["Payout",finPctRaw(m.payoutRatio)]])+
+    sec("PRICE HISTORY",[["Beta",finX(m.beta)],["52W Change",pct(m.return_1y?m.return_1y/100:m.return_1y)],["52W High",money(m.high_52w)],["52W Low",money(m.low_52w)],["50D vs Price","--"],["200D vs Price","--"]])+
+    sec("SHARES & SENTIMENT",[["Shares Out.",m.sharesOutstanding?(Number(m.sharesOutstanding)/1e9).toFixed(2)+"B":"--"],["Insiders",finPctRaw(m.heldPercentInsiders)],["Institutions",finPctRaw(m.heldPercentInstitutions)],["Short % Float",finPctRaw(m.shortPercentOfFloat)],["Short Ratio",finX(m.shortRatio)],["Analysts",m.numberOfAnalystOpinions||"--"],["Consensus",(m.recommendationKey||"--").toUpperCase()]]);
+  const tb=document.querySelector('#pe-compare tbody');
+  if(tb){
+    const fmtM=v=>(v==null||v==="N/A"||isNaN(Number(v)))?"--":Number(v).toFixed(1)+"x";
+    let h=`<tr style="background:rgba(52,199,89,.06)"><td><b>${TICK} (you)</b></td><td>${fmtM(m.trailingPE)}</td><td>${fmtM(m.forwardPE)}</td><td>${fmtM(m.priceToSalesTrailing12Months)}</td><td>${fmtM(m.priceToBook)}</td></tr>`;
+    peers.slice(0,5).forEach(p=>{h+=`<tr><td>${esc(safeDisplay(p.ticker))}</td><td>${fmtM(p.pe)}</td><td>${fmtM(p.fwd_pe)}</td><td>${fmtM(p.ps)}</td><td>${fmtM(p.pb)}</td></tr>`;});
+    if(hm.median_pe_5y)h+=`<tr><td><b>5Y median (you)</b></td><td>${fmtM(hm.median_pe_5y)}</td><td>--</td><td>${fmtM(hm.avg_ps_5y)}</td><td>--</td></tr>`;
+    tb.innerHTML=h;
+  }
+  const gb=$('growth-box');
+  if(gb){
+    const g=(l,v)=>{if(v==null||isNaN(Number(v)))return "";const p=Number(v)*100;return `<div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">${l}</span><b style="color:${p>=0?'var(--green)':'var(--red)'}">${p>=0?'+':''}${p.toFixed(1)}%</b></div>`;};
+    gb.innerHTML=g("Revenue growth (YoY)",m.revenueGrowth)+g("Earnings growth (YoY)",m.earningsGrowth)+g("Quarterly earnings growth",m.earningsQuarterlyGrowth)+g("Revenue growth %",m.revenueGrowth_pct!=null?m.revenueGrowth_pct/100:null)||'<span style="color:var(--muted)">No growth data</span>';
+  }
+  try{
+    const fin=DATA.financials;
+    const cv=document.getElementById('revChart');
+    if(fin&&fin.columns&&fin.rows&&cv&&typeof Chart!=='undefined'){
+      const cols=fin.columns.slice(1,6);
+      const findRex=re=>fin.rows.find(r=>re.test(String(r[fin.columns[0]]||"")));
+      const rev=findRex(/total revenue/i),ni=findRex(/net income(?!.*per)/i);
+      if(rev){
+        new Chart(cv,{type:'bar',data:{labels:cols,datasets:[
+          {label:'Revenue',data:cols.map(c=>Number(rev[c])||0),backgroundColor:'rgba(52,199,89,.55)'},
+          ...(ni?[{label:'Net Income',data:cols.map(c=>Number(ni[c])||0),backgroundColor:'rgba(10,132,255,.55)'}]:[])]},
+          options:{responsive:true,plugins:{legend:{display:true,labels:{color:'#8a8d93',font:{size:10}}}},scales:{x:{ticks:{color:'#8a8d93',font:{size:9}}},y:{grid:{color:'#1e1f23'},ticks:{color:'#8a8d93',font:{size:9},callback:v=>'$'+(v>=1e9?(v/1e9)+'B':(v/1e6)+'M')}}}}});
+      }
+    }
+  }catch(e){}
+}
+
 function loadStmt(type,btn){
   if(type)stmtType=type;
   if(btn){document.querySelectorAll('#panel-financials .stmt-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');}

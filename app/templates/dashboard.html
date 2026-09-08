@@ -151,6 +151,11 @@
   <div id="panel-stats" class="panel"><div id="stats-root"><div class="card"><div class="skeleton" style="width:60%"></div></div></div></div>
 
   <div id="panel-financials" class="panel">
+    <div class="card"><div class="card-title">Key Statistics (Yahoo-style)</div><div id="keystats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px"></div></div>
+    <div class="grid2">
+      <div class="card"><div class="card-title">P/E &amp; Multiple Compare (you vs peers vs 5Y)</div><div style="overflow:auto"><table class="table" id="pe-compare"><thead><tr><th>Name</th><th>P/E</th><th>Fwd P/E</th><th>P/S</th><th>P/B</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="card"><div class="card-title">Growth</div><div id="growth-box" style="font-size:13px;line-height:1.8"></div><canvas id="revChart" height="150" style="margin-top:8px"></canvas></div>
+    </div>
     <div class="card">
       <div style="display:flex;gap:8px;margin-bottom:10px">
         <button class="btn stmt-btn active" onclick="loadStmt('income',this)">Income</button><button class="btn stmt-btn" onclick="loadStmt('balance',this)">Balance</button><button class="btn stmt-btn" onclick="loadStmt('cashflow',this)">Cashflow</button>
