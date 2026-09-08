@@ -52,20 +52,43 @@
     async function runFilings(ticker) {
         primary.textContent = "PULLING SEC SUBMISSIONS / REVIEWING FILING TAPE...";
         side.textContent = "SEC EDGAR REQUEST ACTIVE...";
-        const data = await safeFetch(`/api/intel/filings/${ticker}`);
-        if (data.error) { primary.innerHTML = `<div class="pro-negative">FETCH FAILED: ${data.error}</div>`; side.innerHTML = ""; return; }
+        const settled = await Promise.allSettled([fetch(`/api/intel/filings/${ticker}`), fetch(`/api/stock/${ticker}`)]);
+        const intel = settled[0].status === "fulfilled" && settled[0].value.ok ? await settled[0].value.json().catch(() => ({})) : { error: "intel fetch failed" };
+        const stock = settled[1].status === "fulfilled" && settled[1].value.ok ? await settled[1].value.json().catch(() => ({})) : {};
+        if (intel.error && !Object.keys(stock).length) { primary.innerHTML = `<div class="pro-negative">FETCH FAILED: ${esc(intel.error)}</div>`; side.innerHTML = ""; return; }
+        const data = intel.error ? {} : intel;
+        const sec = stock.sec_data || {};
+        const facts = sec.facts_summary || {};
+        const fmoney = v => { if (v == null || v.value == null) return "--"; const n = Number(v.value); if (!Number.isFinite(n)) return "--";
+            const a = Math.abs(n); const s = a >= 1e9 ? "$" + (n / 1e9).toFixed(2) + "B" : a >= 1e6 ? "$" + (n / 1e6).toFixed(2) + "M" : "$" + n.toLocaleString();
+            return `${s} <span style="color:var(--dim);font-size:10px">${esc(v.form || "")} ${esc(v.filed || "")}</span>`; };
+        const factRow = (label, key) => facts[key] ? `<div class="ops-row"><span>${label}</span><strong>${fmoney(facts[key])}</strong></div>` : "";
+        const formBadge = f => { const u = String(f || "").toUpperCase();
+            const c = u === "10-K" ? "pro-positive" : u === "10-Q" ? "" : u === "8-K" ? "pro-negative" : "pro-muted";
+            return `<strong class="${c}">${esc(f)}</strong>`; };
         primary.innerHTML = `
-            <div class="ops-row"><span>CIK</span><strong>${esc(data.cik || "N/A")}</strong></div>
-            <div class="ops-row"><span>Filing Risk</span><strong class="${clsImpact(data.filing_risk)}">${esc(data.filing_risk)}</strong></div>
-            <div class="ops-row"><span>Tone</span><strong class="${clsImpact(data.tone)}">${esc(data.tone)}</strong></div>
-            <p class="intel-copy">${esc(data.terminal_summary)}</p>
+            <div class="ops-row"><span>CIK</span><strong>${esc(data.cik || sec.cik || "N/A")}</strong></div>
+            <div class="ops-row"><span>Filing Risk</span><strong class="${clsImpact(data.filing_risk)}">${esc(data.filing_risk || "UNKNOWN")}</strong></div>
+            <div class="ops-row"><span>Tone</span><strong class="${clsImpact(data.tone)}">${esc(data.tone || "NEUTRAL")}</strong></div>
+            <p class="intel-copy">${esc(data.terminal_summary || "SEC filing metadata below. Open any document to read the source filing.")}</p>
+            <div class="pro-title">XBRL Company Facts (direct from filings)</div>
+            ${factRow("Revenue", "revenue")}
+            ${factRow("Net Income", "net_income")}
+            ${factRow("Total Assets", "assets")}
+            ${factRow("Stockholders Equity", "stockholders_equity")}
+            ${factRow("Operating Cash Flow", "operating_cash_flow")}
+            ${factRow("CapEx", "capex")}
+            ${factRow("Diluted EPS", "eps_diluted")}
+            ${factRow("Shares Out.", "shares_outstanding")}
+            <div class="pro-title" style="margin-top:12px">Filing Tape (${(data.filings || []).length})</div>
             ${table(["Form", "Filed", "Report Date", "Document"], (data.filings || []).map(f => `
                 <tr>
-                    <td>${esc(f.form)}</td>
+                    <td>${formBadge(f.form)}</td>
                     <td>${esc(f.filed)}</td>
                     <td>${esc(f.report_date)}</td>
-                    <td><a href="${esc(f.url)}" target="_blank" style="color:var(--orange);">OPEN</a></td>
+                    <td><a href="${esc(f.url)}" target="_blank" rel="noopener" style="color:var(--orange);">OPEN &#8599;</a></td>
                 </tr>`))}
+            ${(data.watch_forms || []).length ? `<div class="pro-title" style="margin-top:12px">Watch Forms</div>` + data.watch_forms.map(w => `<div class="ops-row"><span>${esc(w.form)} ${esc(w.filed || "")}</span><strong>${esc(w.why_it_matters || "")}</strong></div>`).join("") : ""}
         `;
         side.innerHTML = `<div class="pro-title">Red Flags</div>${(data.red_flags || []).map(x => `<div class="ops-row"><span>FLAG</span><strong>${esc(x)}</strong></div>`).join("") || "<div class='pro-muted'>NO AI FLAGS RETURNED</div>"}`;
     }

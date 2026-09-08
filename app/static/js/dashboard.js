@@ -152,29 +152,55 @@ function render(){
   loadCharts();
 }
 
-function loadStmt(type, btn){
-  if(btn){ document.querySelectorAll('#panel-financials .btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
-  const map={income: DATA.financials, balance: DATA.balance_sheet, cashflow: DATA.cashflow};
-  const df=map[type];
-  const tbl=$('stmt-table');
-  if(!df || !df.columns){ tbl.innerHTML='<tr><td>No data</td></tr>'; return; }
-  let h='<thead><tr><th>Breakdown</th>'+df.columns.slice(0,6).map(c=>`<th>${c}</th>`).join('')+'</tr></thead><tbody>';
-  const idx=df.index||[];
-  // df is stored as {columns, rows}? handle both
-  // Our stored financials is _df_to_json_ready output: need to render generic
-  // Fallback simple: iterate rows if available
-  try{
-    const cols=df.columns||[];
-    const rows=df.rows||df.data||[];
-    // rows is array of dicts
-    rows.slice(0,15).forEach(r=>{
-      h+=`<tr><td style="font-weight:600">${r[cols[0]]||r.index||''}</td>`;
-      cols.slice(1,6).forEach(c=>{ const v=r[c]; h+=`<td style="font-family:JetBrains Mono,monospace">${v==null?'--': (Number(v).toLocaleString())}</td>`; });
-      h+='</tr>';
+let stmtType='income', stmtFreq='annual';
+function setFreq(f,btn){
+  stmtFreq=f;
+  document.querySelectorAll('#panel-financials .freq-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  loadStmt(stmtType,null);
+}
+const STMT_PRIORITY={
+income:["total revenue","cost of revenue","gross profit","operating expense","selling general","research development","operating income","ebit ","ebitda","interest expense","pretax","tax provision","net income","basic eps","diluted eps","weighted average shares","shares outstanding"],
+balance:["cash and cash equivalents","total cash","short term investments","net receivables","inventory","total current assets","property plant","goodwill","intangible","total assets","accounts payable","total current liabilities","long term debt","total liabilities","retained earnings","stockholders equity","total equity","shares issued","ordinary shares"],
+cashflow:["operating cash flow","investing cash flow","financing cash flow","capital expenditure","payments to acquire property","free cash flow","dividends paid","repurchase","buyback","issuance of debt","repayment of debt","net change in cash","ending cash","beginning cash"]
+};
+function stmtMoney(name,v){
+  if(v==null||v===""||isNaN(Number(v)))return {t:"--",neg:false};
+  const n=Number(v);
+  if(/eps|per share/i.test(name||""))return {t:"$"+n.toFixed(2),neg:n<0};
+  const a=Math.abs(n);
+  const s=a>=1e12?"$"+(n/1e12).toFixed(2)+"T":a>=1e9?"$"+(n/1e9).toFixed(2)+"B":a>=1e6?"$"+(n/1e6).toFixed(2)+"M":a>=1e3?"$"+(n/1e3).toFixed(1)+"K":"$"+n.toFixed(0);
+  return {t:s,neg:n<0};
+}
+function loadStmt(type,btn){
+  if(type)stmtType=type;
+  if(btn){document.querySelectorAll('#panel-financials .stmt-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');}
+  const src={income:[DATA.financials,DATA.q_financials],balance:[DATA.balance_sheet,DATA.q_balance_sheet],cashflow:[DATA.cashflow,DATA.q_cashflow]}[stmtType];
+  const df=stmtFreq==="quarterly"?src[1]:src[0];
+  const tbl=$('stmt-table'),note=$('stmt-note');
+  if(!df||!df.columns||!df.rows||!df.rows.length){tbl.innerHTML='<tr><td style="color:var(--muted)">No '+(stmtFreq)+' '+stmtType+' data in this analysis run.</td></tr>';if(note)note.innerText='';return;}
+  const cols=df.columns;
+  const periods=cols.slice(1,5);
+  const prio=STMT_PRIORITY[stmtType]||[];
+  const rank=n=>{const l=String(n).toLowerCase();for(let i=0;i<prio.length;i++){if(l.includes(prio[i]))return i;}return 999;};
+  const rows=df.rows.slice().sort((a,b)=>{const ra=rank(a[cols[0]]),rb=rank(b[cols[0]]);return ra!==rb?ra-rb:String(a[cols[0]]).localeCompare(String(b[cols[0]]));});
+  let h='<thead><tr><th style="text-align:left">Breakdown</th>'+periods.map(c=>`<th style="text-align:right">${c}</th>`).join('')+'<th style="text-align:right">YoY</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    const name=r[cols[0]]||'--';
+    h+=`<tr><td style="font-weight:600;text-align:left">${name}</td>`;
+    const vals=periods.map(c=>Number(r[c]));
+    vals.forEach(v=>{
+      const f=stmtMoney(name,isNaN(v)?null:v);
+      h+=`<td style="text-align:right;font-family:JetBrains Mono,monospace;color:${f.neg?'var(--red)':'inherit'}">${f.t}</td>`;
     });
-  }catch(e){ h+=`<tr><td>Error ${e}</td></tr>`; }
+    const last=vals[vals.length-1],prev=vals[vals.length-2];
+    let yoy='--',yc='var(--muted)';
+    if(Number.isFinite(last)&&Number.isFinite(prev)&&prev!==0){const p=(last-prev)/Math.abs(prev)*100;yoy=(p>=0?'+':'')+p.toFixed(1)+'%';yc=p>=0?'var(--green)':'var(--red)';}
+    h+=`<td style="text-align:right;font-family:JetBrains Mono,monospace;color:${yc}">${yoy}</td></tr>`;
+  });
   h+='</tbody>';
   tbl.innerHTML=h;
+  if(note)note.innerText=`${rows.length} rows - ${stmtFreq} - latest ${periods[periods.length-1]||''} - values in $B/$M, YoY = latest vs prior period`;
 }
 
 function loadCharts(){

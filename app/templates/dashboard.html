@@ -153,8 +153,11 @@
   <div id="panel-financials" class="panel">
     <div class="card">
       <div style="display:flex;gap:8px;margin-bottom:10px">
-        <button class="btn active" onclick="loadStmt('income',this)">Income</button><button class="btn" onclick="loadStmt('balance',this)">Balance</button><button class="btn" onclick="loadStmt('cashflow',this)">Cashflow</button>
+        <button class="btn stmt-btn active" onclick="loadStmt('income',this)">Income</button><button class="btn stmt-btn" onclick="loadStmt('balance',this)">Balance</button><button class="btn stmt-btn" onclick="loadStmt('cashflow',this)">Cashflow</button>
+        <span style="flex:1"></span>
+        <button class="btn freq-btn active" onclick="setFreq('annual',this)">Annual</button><button class="btn freq-btn" onclick="setFreq('quarterly',this)">Quarterly</button>
       </div>
+      <div id="stmt-note" style="font-size:11px;color:var(--muted);margin-bottom:8px;font-family:JetBrains Mono,monospace"></div>
       <div style="overflow:auto"><table class="table" id="stmt-table"><tr><td>Loading...</td></tr></table></div>
     </div>
     <div class="card"><div class="card-title">Charts</div><div id="charts" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px"></div></div>
