@@ -47,8 +47,6 @@ scratch/
 .codex/
 node_modules/
 package-lock.json
-pytest.ini
-requirements-dev.txt
 data/
 .flask_secret
 output/cache/

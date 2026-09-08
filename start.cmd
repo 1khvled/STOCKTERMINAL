@@ -31,6 +31,6 @@ if exist requirements.txt (
 
 echo.
 echo [*] Starting the terminal server...
-python app\server.py
+python -u -m app.server
 
 pause

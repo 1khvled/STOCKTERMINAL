@@ -19,7 +19,7 @@ def test_malformed_ticker_rejected(base_url, bad_ticker):
         enc = "%20"  # empty becomes space
     for endpoint in [f"/api/stock/{enc}", f"/api/stock/{enc}/financials", f"/api/stock/{enc}/history"]:
         resp = requests.get(f"{base_url}{endpoint}", timeout=5)
-        assert resp.status_code in (400, 404, 422, 200), f"bad ticker {bad_ticker!r} on {endpoint} gave {resp.status_code}"
+        assert resp.status_code in (400, 404, 422), f"bad ticker {bad_ticker!r} on {endpoint} gave {resp.status_code}"
         # For API routes, if 200 it means ticker was normalized (e.g., lowercase) — ensure it's not 500 and returns JSON
         if resp.status_code == 200:
             j = resp.json()
@@ -51,7 +51,7 @@ def test_api_stocks_always_returns_list(base_url):
 def test_screener_filter_no_crash(base_url):
     for params in [{}, {"sector": "' OR 1=1 --"}, {"verdict": "<svg onload=alert(1)>"}, {"min_pe": "not_a_number"}, {"min_upside": "999999"}]:
         resp = requests.get(f"{base_url}/api/screener/filter", params=params, timeout=5)
-        assert resp.status_code in (200, 400, 500)
+        assert resp.status_code in (200, 400)
         if resp.status_code == 200:
             j = resp.json()
             assert "stocks" in j
@@ -101,10 +101,11 @@ def test_missing_ticker_graceful(base_url):
     assert "MISSING" in body or "not found" in body.lower() or "REDIRECT" in body
 
 def test_dashboard_404_for_unknown_ticker(base_url):
+    resp = requests.get(f"{base_url}/dashboard/ZZZZQ", timeout=5)
+    assert resp.status_code == 404
+    assert "not found" in resp.text.lower()
     resp = requests.get(f"{base_url}/dashboard/ZZZZNOTFOUND123", timeout=5)
-    assert resp.status_code in (200, 404)
-    if resp.status_code == 200:
-        assert "undefined" not in resp.text.lower() or "safeDisplay" in resp.text.lower() or "N/A" in resp.text
+    assert resp.status_code in (400, 404)
 
 def test_api_health(base_url):
     resp = requests.get(f"{base_url}/api/system/health", timeout=5)
