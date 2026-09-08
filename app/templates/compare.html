@@ -15,6 +15,8 @@
 
         .compare-header {
             display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 2rem;
@@ -33,6 +35,7 @@
 
         .ticker-input-group {
             display: flex;
+            flex-wrap: wrap;
             gap: 10px;
         }
 
@@ -407,7 +410,7 @@
 
         // Apply Winner Highlighting and Radar Drawing
         highlightTableRows();
-        drawRadarChart(results);
+        try { drawRadarChart(results); } catch (e) { console.error('radar failed:', e); }
     }
 
     // Formatting helpers
@@ -573,7 +576,7 @@
             const pe = parseFloat(res.pe);
             const roe = parseFloat(res.roe);
             const altman = parseFloat(res.altman_z);
-            const upside = parseFloat(res.upside.replace('%', ''));
+            const upside = parseFloat(String(res.upside ?? '').replace('%', ''));
             const fcf = parseFloat(res.freeCashflow);
 
             return {

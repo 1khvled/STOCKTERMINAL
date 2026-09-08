@@ -86,9 +86,9 @@
     async function renderSystem() {
         const set = (id, txt, cls) => { const el = document.getElementById(id); if (!el) return; el.textContent = txt; if (cls) el.className = cls; };
         try {
-            const res = await Promise.all([fetch("/api/system/auto-update/status"), fetch("/api/system/earnings-schedule")]);
-            const st = await res[0].json();
-            const es = await res[1].json();
+            const settled = await Promise.allSettled([fetch("/api/system/auto-update/status"), fetch("/api/system/earnings-schedule")]);
+            const st = settled[0].status === "fulfilled" && settled[0].value.ok ? await settled[0].value.json().catch(function(){return {};}) : {};
+            const es = settled[1].status === "fulfilled" && settled[1].value.ok ? await settled[1].value.json().catch(function(){return {};}) : {};
             const due = st.earnings_due || es.due || [];
             const qn = (st.queue || []).length;
             set("auto-state", st.running ? ("RUNNING" + (qn ? " - " + qn + " QUEUED" : "")) : "IDLE", st.running ? "pro-positive" : "pro-muted");

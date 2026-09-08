@@ -97,7 +97,9 @@ var tabs=document.querySelectorAll(".tabs a");
 for(var i=0;i<tabs.length;i++){if(tabs[i].textContent===map[document.body.dataset.intelPage])tabs[i].classList.add("on")}
 var nav=document.querySelectorAll(".nav a");
 var pg=document.body.dataset.intelPage;
-for(var j=0;j<nav.length;j++){if(pg==="scenario-lab"&&nav[j].textContent==="Lab")nav[j].classList.add("on")}
+var navMap={"scenario-lab":"Lab"};
+for(var j=0;j<nav.length;j++){if(navMap[pg]&&nav[j].textContent===navMap[pg])nav[j].classList.add("on")}
+var _at=document.querySelector(".tabs a.on");if(_at)_at.setAttribute("aria-current","page")
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 var qt=null;
 function doSearch(v){var d=document.getElementById("sdrop");if(!v){d.style.display="none";return}clearTimeout(qt);qt=setTimeout(function(){fetch("/api/query/search?q="+encodeURIComponent(v)).then(function(r){return r.json()}).then(function(j){var R=j.results||[];if(!R.length){d.style.display="none";return}d.innerHTML=R.slice(0,7).map(function(x){return "<a href='/dashboard/"+esc(x.ticker)+"'><span class='tk'>"+esc(x.ticker)+"</span><span class='co'>"+esc(x.company||x.title||"")+"</span></a>"}).join("");d.style.display="block"}).catch(function(){})},250)}

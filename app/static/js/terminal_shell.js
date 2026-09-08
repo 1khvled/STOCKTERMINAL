@@ -91,7 +91,7 @@
                 window.location.href = "/watchlist";
             } else if (cmd === "REPORTS" || cmd === "FILES") {
                 window.location.href = "/reports";
-            } else if (cmd === "NEWS" || cmd === "FEED") {
+            } else if (cmd === "FEED" || (cmd === "NEWS" && !args[0])) {
                 window.location.href = "/market-feed";
             } else if (cmd === "SYSTEM" || cmd === "SYS") {
                 window.location.href = "/system";

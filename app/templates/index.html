@@ -268,6 +268,7 @@ function run(){var raw=tickerIn.value.trim().toUpperCase();if(!raw){tickerIn.foc
   es.onmessage=function(e){var d=e.data;if(d.indexOf("REDIRECT:")===0){done=true;es.close();curEs=null;var url=d.split("REDIRECT:")[1].trim();logLine("[*] Done -> "+url);if(window.showToast)showToast("Analysis complete: "+t,"success");setTimeout(function(){location.href=url},600)}else logLine(d)};
   es.onerror=function(){es.close();if(curEs===es)curEs=null;if(done)return;btn.disabled=false;logLine("[*] Stream closed. If the analysis finished it will appear in Holdings above; otherwise press ANALYZE to retry.")}}
 loadStocks();refreshLive(true);loadPortfolio();loadSys();setInterval(refreshLive,30000);
+(function(){try{var q=new URLSearchParams(location.search).get('ticker');if(q){tickerIn.value=String(q).toUpperCase().slice(0,12);run();}}catch(e){}})();
 </script>
 <script src="/static/js/toast.js"></script>
 </body>
