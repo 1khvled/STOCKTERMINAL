@@ -78,7 +78,38 @@
 ### 2026-09-08 — Dashboard v3 Notion Research
 - **f7bed79** `dashboard v3: add Notion RESEARCH tab (briefing/earnings/price/risk subpages), render notion html, FCF/DCF valuation polished` — Added `NOTION RESEARCH` tab `app/templates/dashboard.html:48`, `panel-notion` with `notion-subnav`/`notion-content` `app/templates/dashboard.html:105`, CSS `.notion-*` `app/static/css/dashboard_new.css:55`, JS render `subpages` `app/static/js/dashboard.js:98` (`briefing, earnings, price_review, risks` for CRM from `/api/stock/CRM` `notion_data`). Verification: `GET /dashboard/CRM` 9093 B `notion? True tabs? True`, `notion keys: briefing, earnings, overview, price_review, risks`.
 
-### 2026-09-08 — Context Timeline (This File)
+### 2026-09-08 — Polish A-Z Backend/Reliability (pre-existing, backfilled)
+- **dd49ce2** `polish A-Z: backend reliability, frontend, security, infra` — yf retry status-aware + Retry-After + jitter, SEC Host-aware retry, server JSON error boundaries, persistent Flask secret, CORS localhost-only, hardened `is_valid_ticker`, rglob cache size. Verification: per commit message.
+
+### 2026-09-08 — Polish A-Z Terminal/Hardening (pre-existing, backfilled)
+- **d36efb3** `polish A-Z pt2: terminal hardening, stream/test mocks, frontend toast, docs` — Terminal command hardening, SSE TEST_MODE mocks, toast.js error boundaries, docs. Verification: per commit message.
+
+### 2026-09-08 — Audit Follow-up (pre-existing, backfilled)
+- **0e9f328** `audit follow-up: path traversal, cache memo, search limits, period whitelist, auto-update lock` — Path traversal guards (`relative_to` checks on excel/json), estimates cache memo, query search limits, history period whitelist (`ALLOWED_PERIODS`), `_auto_update_lock` introduced, TEST_MODE fast paths. Verification: `pytest` adversarial Tier-5.
+
+### 2026-09-08 — Context Timeline File Committed
+- **ddd93b8** `docs: add full A-Z PROJECT_TIMELINE + agent rule + mirror` — Created this file (canonical `docs/PROJECT_TIMELINE.md`, 13681 B) + mirror `C:\Users\Abdelli\Documents\PROJECT_TIMELINE.md`, embedded mandatory agent rule (read before edit, append Timeline + Agent Log + mirror after every modification). Verification: `Test-Path` both, server health 35 stocks.
+
+### 2026-09-09 — A-Z Overhaul Plan (4-subagent audit)
+- **No commit** — Launched 4 parallel `explore` subagents (backend / frontend / data-AI-Notion / infra-tests-docs, very thorough, research-only). Findings: 60-file uncommitted backlog safe to commit; worker lock race; SSE buffering; estimates TOCTOU; live-quotes uncached; dead `_catalog_row`/`cache_clear`; radar `.replace` crash; shell RUN no-op + dup NEWS; pro_pages `Promise.all`; CSS dup; Qwen model ids invalid (all AI on fallback); dead `llama-3.1-8b`/`nemotron` fallbacks; fragile Notion imports; non-atomic pickle; 11-ticker peer map; ignored test infra; stale TEST_INFRA/TIMELINE. Plan: Phase 0 triage → A backend → B frontend → C data/AI → D infra/docs → E verify. Verification: 4 audit reports on file.
+
+### 2026-09-09 — Phase 0 Triage Commit
+- **279765b** `triage: commit previous-AI backlog (local_db migration, Qwen 3.8-27b, frontend cull -12k)` — 62 files `+1957/-12311`: `supabase_db.py` deleted → new `app/local_db.py` (pure-stdlib, same schema), Qwen reasoning params, −12k lines dead CSS/JS/templates, new `app/templates/earnings.html`. Fixed 6 `git diff --check` whitespace errors first. Verification: `py_compile` 16 files 0 errors, `pytest --collect-only` 29 tests, secrets scan clean (only `gsk_...` placeholder in `.env.example` diff), `.env`/`output/.flask_secret` ignored + unstaged.
+
+### 2026-09-09 — Phase A Backend Reliability
+- **9afb935** `phase A backend: worker lock, SSE headers, estimates single-lock, live-quotes cache, dedup, trigger cap, CIK cache` — `_auto_update_worker` now `acquire(blocking=False)` + release on both paths (`app/server.py:1617`); SSE `Cache-Control:no-cache` + `X-Accel-Buffering:no` on mock + live streams (`app/server.py:319`); estimates single-lock read-modify-write (`app/server.py:1305`); `live_quotes_cache` 30s keyed (`app/server.py:1381`); `_db_path` delegates to `local_db.DB_DIR`, deleted dead 39-line `_catalog_row` + `cache_clear` no-op; trigger targets validated `list[str]` + capped 10; `terminal_commands.py:6` absolute `OUTPUT_DIR` via `config`; CIK 7d cache (`app/intelligence_terminal.py:537`). Verification: `test_client` health 200/39 stocks, SSE headers present, dashboard 200, `_db_path` delegates True, `py_compile` clean.
+
+### 2026-09-09 — Phase B Frontend Fixes
+- **1d37f5a** `phase B frontend: radar guard, shell RUN autorun, allSettled, wraps, dedup, aria, TOC` — `compare.html:576` `String(res.upside ?? '')` guard + call-site try/catch; shell `RUN X` works via hub `?ticker=` autorun (`index.html`), dup `NEWS` branch → `FEED`-only; `pro_pages.js:89` `Promise.all→allSettled` partial degrade; compare header/input `flex-wrap`; removed dup `.skeleton`/`shimmer` (`dashboard_new.css`); intel nav map + `aria-current`; guide TOC static capped strip on mobile (was `display:none`). Dropped B8 (theme vars all exist — non-issue). Verification: all 10 routes 200 via `test_client`, hub autorun present.
+
+### 2026-09-09 — Phase C Data/AI (model emergency fixed by live probe)
+- **d2ce9f3** `phase C data/AI: pin verified-live gpt-oss-120b, drop legacy, json mode, notion imports, atomic pickle, 39-ticker peers` — Probed Groq with both user keys: `llama-3.3-70b`, `qwen/qwen3-32b`, `qwen/qwen3.8-27b`, `llama-4-maverick`, `kimi-k2`, `qwen3-235b-thinking`, `deepseek-r1-distill` ALL dead (404 retired/decommissioned); only `openai/gpt-oss-120b` + `openai/gpt-oss-20b` LIVE. Pinned `GROQ_MODEL=openai/gpt-oss-120b` (`app/config.py:36`, `.env`), fallbacks → `gpt-oss-20b`, deleted 128-line `_call_llm_legacy` (+`nemotron-ultra`), `response_format=json_object` for OpenCode + OpenRouter, prompt headers → gpt-oss (Qwen params stay `_is_qwen`-gated), Notion dual `config`/`ai_engine` imports + server fallback, atomic tmp+rename pickle ×2, peer map 11→39 tickers (kills OpenRouter discovery call for all held stocks), `.env.example` SEC real-email note. Verification: live JSON `{"ok":true}` via Groq direct AND full `_call_llm` chain; `py_compile` clean.
+
+### 2026-09-09 — Phase D Infra/Tests/Docs
+- **ecaa00b** `phase D infra: un-ignore+pin test deps, module launch, Get-CimInstance, TEST_INFRA rewrite, harden asserts, drop Node/scratch` — Removed `pytest.ini` + `requirements-dev.txt` from `.gitignore`, pinned `pytest==9.0.3/pytest-playwright==0.8.0/playwright==1.60.0/requests==2.34.2`; `start.cmd` → `python -u -m app.server`; `kill_server.cmd` `wmic` (removed Win11 24H2) → `Get-CimInstance` + kept netstat fallback; rewrote `TEST_INFRA.md` (29-test reality, port 5005 vs 5001, TEST_MODE fast paths, hardening contract); hardened `test_adversarial.py` (malformed → 400/404/422 never 200/500; screener never 500; `ZZZZQ` → 404 + overlong → 400/404 — old test expected 200/404 for 14-char ticker, outdated after 12-char hardening); deleted `node_modules/` + `package.json`/`package-lock.json`/`debug.log`/`scratch/` from disk (README: Node not required; all gitignored except package.json which is now `D`). Full-suite 300s timeout diagnosed as port-5005 orphan + browser first-launch; per-file runs green. Verification: adversarial **26 passed in 1.65s**, dummy 3 passed in 4.65s.
+
+### 2026-09-09 — Context Timeline (This File)
+
 - **Pending commit** — Created `docs/PROJECT_TIMELINE.md` full A-Z + mirror `C:\Users\Abdelli\Documents\PROJECT_TIMELINE.md`, embedded rule for future agents to append Timeline + Agent Log after every modification. Files: `docs/PROJECT_TIMELINE.md`, mirror. Verification: `Test-Path docs`, `git status`.
 
 ---
@@ -106,7 +137,13 @@
 | 2026-09-08 | muse-spark-1.2 | Live prices + quarterly auto-update | 5bb99db | app/server.py, dashboard.js, index.html |
 | 2026-09-08 | muse-spark-1.2 | Rebuild dashboard from scratch | e07fc64 | dashboard.html/js/css |
 | 2026-09-08 | muse-spark-1.2 | Dashboard v3 Notion | f7bed79 | dashboard.html/js/css |
-| 2026-09-08 | muse-spark-1.2 | Context timeline creation | pending | docs/PROJECT_TIMELINE.md + mirror |
+| 2026-09-08 | muse-spark-1.2 | Context timeline creation | ddd93b8 | docs/PROJECT_TIMELINE.md + mirror |
+| 2026-09-09 | muse-spark-1.3 | A-Z overhaul plan (4-subagent audit) | no commit | audit reports |
+| 2026-09-09 | muse-spark-1.3 | Phase 0 triage commit | 279765b | 62 files, local_db migration |
+| 2026-09-09 | muse-spark-1.3 | Phase A backend reliability | 9afb935 | app/server.py, terminal_commands.py, intelligence_terminal.py |
+| 2026-09-09 | muse-spark-1.3 | Phase B frontend fixes | 1d37f5a | compare.html, intel_page.html, guide.html, index.html, terminal_shell.js, pro_pages.js, dashboard_new.css |
+| 2026-09-09 | muse-spark-1.3 | Phase C data/AI/Notion | d2ce9f3 | app/config.py, ai_engine.py, data_fetcher.py, notion_integrator.py |
+| 2026-09-09 | muse-spark-1.3 | Phase D infra/tests/docs | ecaa00b | .gitignore, requirements-dev.txt, pytest.ini, start/kill cmds, TEST_INFRA.md |
 
 ---
 
