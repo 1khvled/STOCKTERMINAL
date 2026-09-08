@@ -31,9 +31,10 @@ else:
     GROQ_API_KEY = ""
 
 GROQ_BASE_URL = "https://api.groq.com/openai/v1/chat/completions"
-# Qwen 3.8 27B via Groq - frontier reasoning (thinking/default) + 131K context
-# Preview model qwen/qwen3.8-27b: 450+ tps, multimodal, tool-use, reasoning_format hidden|parsed
-GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+# Primary Groq model - VERIFIED LIVE 2026-09-08 via chat-completions probe on both keys.
+# (llama-3.3-70b-versatile, qwen/qwen3-32b, qwen/qwen3.8-27b all 404 retired.)
+# Override anytime with GROQ_MODEL in .env; Qwen-only reasoning params stay gated by _is_qwen.
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 GROQ_MAX_TOKENS = int(os.getenv("GROQ_MAX_TOKENS", "6000"))
 GROQ_TEMPERATURE = float(os.getenv("GROQ_TEMPERATURE", "0.35"))
 GROQ_REASONING_EFFORT = os.getenv("GROQ_REASONING_EFFORT", "default")  # low|medium|default|high|none

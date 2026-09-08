@@ -226,8 +226,10 @@ def _load_ticker_cache(ticker_upper, name, ttl_seconds):
 def _save_ticker_cache(ticker_upper, name, payload):
     try:
         path = _cache_root() / f"{ticker_upper}_{name}.pkl"
-        with open(path, "wb") as f:
+        tmp = path.with_suffix(".pkl.tmp")
+        with open(tmp, "wb") as f:
             pickle.dump(payload, f)
+        tmp.replace(path)  # atomic on same fs - no torn cache on kill
     except Exception as e:
         logger.info(f"   [Cache Warning] Failed to save {name} cache: {e}")
 
@@ -1383,8 +1385,10 @@ def fetch_peers_data(ticker_symbol, company_name):
 
     try:
         ticker_upper = ticker_symbol.upper().strip()
+        # Static peers for every locally tracked ticker - avoids one OpenRouter
+        # discovery call per fresh ticker (cost-free, Yahoo-queryable symbols).
         PEER_OVERRIDES = {
-            "MU": ["AVGO", "MRVL", "INTC", "NXPI", "ON"],
+            "MU": ["AVGO", "MRVL", "INTC", "NXPI"],
             "AAPL": ["MSFT", "GOOGL", "META", "AVGO"],
             "MSFT": ["AAPL", "GOOGL", "ORCL", "AMZN"],
             "NVDA": ["AMD", "INTC", "AVGO", "QCOM"],
@@ -1393,8 +1397,36 @@ def fetch_peers_data(ticker_symbol, company_name):
             "TSLA": ["F", "GM", "LCID", "RIVN"],
             "AMZN": ["WMT", "EBAY", "BABA", "TGT"],
             "GOOGL": ["MSFT", "META", "AMZN", "NFLX"],
+            "GOOG": ["MSFT", "META", "AMZN", "NFLX"],
             "META": ["GOOGL", "SNAP", "MSFT", "PINS"],
-            "NFLX": ["DIS", "WBD", "PARA"]
+            "NFLX": ["DIS", "WBD", "PARA"],
+            "ADBE": ["CRM", "NOW", "MSFT", "ORCL"],
+            "ADI": ["TXN", "NXPI", "AVGO", "MU"],
+            "AMAT": ["LRCX", "KLAC", "ASML", "ON"],
+            "APP": ["PLTR", "SNOW", "DDOG", "NET"],
+            "ARM": ["NVDA", "AMD", "INTC", "QCOM"],
+            "ASML": ["AMAT", "KLAC", "LRCX", "AVGO"],
+            "AVGO": ["NVDA", "AMD", "QCOM", "MRVL"],
+            "BABA": ["AMZN", "JD", "PDD", "BIDU"],
+            "COST": ["WMT", "TGT", "BJ", "DG"],
+            "CRM": ["NOW", "WDAY", "HUBS", "MSFT"],
+            "CRWD": ["PANW", "ZS", "FTNT", "OKTA"],
+            "CSCO": ["ANET", "JNPR", "MSFT", "IBM"],
+            "CVNA": ["KMX", "LAD", "PAG", "AN"],
+            "DELL": ["HPE", "HPQ", "NTAP", "IBM"],
+            "F": ["GM", "STLA", "TM", "HMC"],
+            "GLW": ["COHR", "APH", "TEL", "FN"],
+            "GME": ["BBY", "WMT", "TGT", "EBAY"],
+            "HLIT": ["CIEN", "FN", "CALX", "COMM"],
+            "KLAC": ["AMAT", "LRCX", "ASML", "ONTO"],
+            "KO": ["PEP", "MNST", "KDP", "MDLZ"],
+            "LLY": ["NVO", "JNJ", "MRK", "PFE"],
+            "NOK": ["ERIC", "CIEN", "CSCO", "ANET"],
+            "NOW": ["CRM", "WDAY", "SNOW", "MSFT"],
+            "ORCL": ["MSFT", "SAP", "IBM", "CRM"],
+            "QCOM": ["AVGO", "ARM", "NXPI", "TXN"],
+            "SNDK": ["MU", "WDC", "STX", "NXPI"],
+            "WMT": ["COST", "TGT", "AMZN", "DG"],
         }
 
         peers = []
@@ -1976,10 +2008,12 @@ def fetch_stock_data(ticker_symbol, raw_output_dir=None):
         "options_sentiment": options_sentiment,
     })
 
-    # Save to cache
+    # Save to cache (atomic tmp+rename - no torn cache on kill)
     try:
-        with open(cache_file, "wb") as f:
+        _tmp = cache_file.with_suffix(".pkl.tmp")
+        with open(_tmp, "wb") as f:
             pickle.dump(stock_data, f)
+        _tmp.replace(cache_file)
         logger.info(f"   [Cache Save] Cached raw data for {ticker_upper} to local disk cache.")
     except Exception as ce:
         logger.info(f"   [Cache Warning] Failed to write cache file: {ce}")

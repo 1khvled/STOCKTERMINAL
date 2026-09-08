@@ -966,7 +966,10 @@ def sync_notion(ticker):
     """Trigger a Notion workspace sync for a ticker."""
     ticker = ticker.upper().strip()
     try:
-        from notion_integrator import auto_generate_notion_page
+        try:
+            from notion_integrator import auto_generate_notion_page
+        except ImportError:
+            from app.notion_integrator import auto_generate_notion_page
         result_id = auto_generate_notion_page(ticker)
         if result_id:
             return {"status": "success", "notion_id": result_id}

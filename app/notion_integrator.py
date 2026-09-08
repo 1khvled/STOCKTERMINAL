@@ -5,7 +5,10 @@ from the user's Notion board to embed into the Quant Terminal HTML Dashboard.
 import requests
 import json
 import logging
-from config import NOTION_TOKEN, NOTION_PAGE_ID
+try:
+    from config import NOTION_TOKEN, NOTION_PAGE_ID
+except ImportError:
+    from .config import NOTION_TOKEN, NOTION_PAGE_ID
 
 logger = logging.getLogger("notion_integrator")
 
@@ -338,7 +341,10 @@ def auto_generate_notion_page(ticker):
     """
     import yfinance as yf
     import re
-    from ai_engine import _call_llm
+    try:
+        from ai_engine import _call_llm
+    except ImportError:
+        from app.ai_engine import _call_llm
     
     print(f"\n[!] Notion page for '{ticker}' not found. Automatically drafting qualitative research via AI...")
     

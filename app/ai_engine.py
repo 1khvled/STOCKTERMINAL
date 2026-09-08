@@ -1,5 +1,5 @@
 """
-AI Engine -- Institutional analysis via Groq Qwen3.8-27B (thinking/default, 131K, 450 tps)
+AI Engine -- Institutional analysis via Groq gpt-oss-120b (verified live 2026-09-08; Qwen params gated)
 Fundamentals + Macro/Sentiment/Risk + CRO red-team. Qwen thinking mode for deep reasoning, fallback to Llama/OpenRouter.
 """
 import json
@@ -292,134 +292,6 @@ def _parse_json_response(content):
     raise ValueError("Model response did not contain a valid JSON object")
 
 
-def _call_llm_legacy(messages, model=None, max_tokens=None, max_retries=1, system_prompt=None):
-    """
-    Unified LLM caller that routes to OpenCode (North Mini Code Free) first,
-    then Anthropic (Claude), OpenRouter, or Groq as fallbacks.
-    """
-    from config import ANTHROPIC_API_KEY, OPENROUTER_API_KEY, GROQ_MODEL, GROQ_MAX_TOKENS, GROQ_TEMPERATURE, OPENCODE_API_KEY, OPENCODE_BASE_URL, OPENCODE_MODEL
-    import re
-
-    # 0. OpenCode API (North Mini Code Free) - Primary Route
-    if OPENCODE_API_KEY:
-        m_model = OPENCODE_MODEL
-        logger.info(f"  > [OpenCode] Calling {m_model}...")
-        headers = {
-            "Authorization": f"Bearer {OPENCODE_API_KEY}",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "model": m_model,
-            "messages": messages,
-            "max_tokens": max_tokens or 6000,
-            "temperature": 0.25,
-        }
-        try:
-            resp = requests.post(OPENCODE_BASE_URL, headers=headers, json=payload, timeout=90)
-            resp.raise_for_status()
-            content = resp.json()["choices"][0]["message"]["content"]
-            match = re.search(r'(\{.*\})', content, re.DOTALL)
-            if match:
-                content = match.group(1)
-            content = content.replace("```json", "").replace("```", "").strip()
-            return json.loads(content)
-        except Exception as e:
-            logger.info(f"  [!] OpenCode API call failed: {e} - falling back...")
-
-
-    # 1. OpenRouter Fallback (Nemotron Ultra)
-    if OPENROUTER_API_KEY:
-        m_model = "nvidia/nemotron-ultra-253b-v1:free"
-        logger.info(f"  > [OpenRouter Fallback] Calling Nemotron ({m_model})...")
-
-        headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "http://localhost:5000",
-            "X-Title": "StockerAI Workstation"
-        }
-        payload = {
-            "model": m_model,
-            "messages": messages,
-            "max_tokens": max_tokens or 6000,
-            "temperature": 0.25,
-        }
-        try:
-            resp = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=90)
-            resp.raise_for_status()
-            content = resp.json()["choices"][0]["message"]["content"]
-            match = re.search(r'(\{.*\})', content, re.DOTALL)
-            if match:
-                content = match.group(1)
-            content = content.replace("```json", "").replace("```", "").strip()
-            return json.loads(content)
-        except Exception as e:
-            logger.info(f"  [!] OpenRouter Nemotron fallback failed: {e} - falling back to Groq...")
-
-    # 2. Groq Last Resort
-
-        now = time.time()
-        keys = GROQ_API_KEYS if GROQ_API_KEYS else ([GROQ_API_KEY] if GROQ_API_KEY else [])
-        if not keys:
-            logger.info("  [X] No Groq API keys available.")
-            return None
-
-        m_model = model or GROQ_MODEL
-        m_tokens = max_tokens or GROQ_MAX_TOKENS
-
-        for key_idx, current_key in enumerate(keys):
-            # Check cooldown status for this key
-            with _COOLDOWN_LOCK:
-                cooldown_until = _RATE_LIMITED_KEYS.get(current_key, 0)
-            
-            if now < cooldown_until:
-                remaining = int(cooldown_until - now)
-                key_masked = current_key[:8] + "..." + current_key[-6:] if len(current_key) > 14 else "..."
-                logger.info(f"  [!] Key {key_idx+1}/{len(keys)} ({key_masked}) is on cooldown for {remaining}s. Skipping...")
-                continue
-
-            headers = {"Authorization": f"Bearer {current_key}", "Content-Type": "application/json"}
-            payload = {
-                "model": m_model, "messages": messages,
-                "max_tokens": m_tokens, "temperature": GROQ_TEMPERATURE,
-                "response_format": {"type": "json_object"},
-            }
-            
-            key_masked = current_key[:8] + "..." + current_key[-6:] if len(current_key) > 14 else "..."
-            if len(keys) > 1:
-                logger.info(f"  > Trying Groq API with Key {key_idx+1}/{len(keys)} ({key_masked}) for model {m_model}...")
-
-            rotated = False
-            for attempt in range(max_retries):
-                try:
-                    resp = requests.post(GROQ_BASE_URL, headers=headers, json=payload, timeout=30)
-                    if resp.status_code == 429:
-                        logger.info(f"  [!] Groq 429 Rate Limit hit on key {key_idx+1}. Cooling down key for 300s...")
-                        with _COOLDOWN_LOCK:
-                            _RATE_LIMITED_KEYS[current_key] = time.time() + 300
-                        rotated = True
-                        break
-                    content = resp.json()["choices"][0]["message"]["content"]
-                    match = re.search(r'(\{.*\})', content, re.DOTALL)
-                    if match:
-                        content = match.group(1)
-                    content = content.replace("```json", "").replace("```", "").strip()
-                    return json.loads(content)
-                except Exception as e:
-                    logger.info(f"  [!] API failed for key {key_idx+1} on attempt {attempt+1}: {e}")
-                    if attempt < max_retries - 1:
-                        time.sleep(2**attempt * 2)
-                    else:
-                        logger.info(f"  [!] API failed permanently for key {key_idx+1}. Cooling down key for 300s...")
-                        with _COOLDOWN_LOCK:
-                            _RATE_LIMITED_KEYS[current_key] = time.time() + 300
-                        rotated = True
-                        break
-            if rotated:
-                continue
-        return None
-
-
 def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_prompt=None, reasoning_effort=None):
     """Call configured providers in order and return one validated JSON object."""
     import os
@@ -484,7 +356,7 @@ def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_promp
         }
         if response_format:
             payload["response_format"] = {"type": "json_object"}
-        # Qwen3.8-27B thinking mode - Groq recommends reasoning_effort + reasoning_format
+        # Qwen thinking mode - Groq reasoning_effort + reasoning_format (only when a Qwen model is configured)
         if _is_qwen(provider_model):
             try:
                 from config import GROQ_REASONING_EFFORT as _cfg_eff, GROQ_REASONING_FORMAT as _cfg_fmt
@@ -538,6 +410,7 @@ def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_promp
             OPENCODE_MODEL,
             90,
             0.15,
+            response_format=True,
         )
         if result is not None:
             return result
@@ -555,6 +428,7 @@ def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_promp
                 openrouter_model,
                 OPENROUTER_TIMEOUT,
                 OPENROUTER_TEMPERATURE,
+                response_format=True,
                 extra_headers={
                     "HTTP-Referer": "http://127.0.0.1:5001",
                     "X-Title": "StockerAI Workstation",
@@ -649,7 +523,7 @@ from datetime import datetime
 import logging
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT_1 = """You are Qwen3.8-27B - senior buy-side equity analyst at a $20B long/short fund, running in THINKING mode (reasoning_effort=default, 131K context, 450 tps).
+SYSTEM_PROMPT_1 = """You are gpt-oss-120b - senior buy-side equity analyst at a $20B long/short fund, running in THINKING mode (reasoning_effort=default, 131K context, 450 tps).
 
 THINKING PROTOCOL (internal, NOT in output):
 - Think step-by-step: decompose each metric, cross-check math (DuPont = NetMargin x AssetTurnover x Leverage must foot), reconcile DCF against consensus target and regression trend, flag missing evidence before writing.
@@ -698,7 +572,7 @@ RULES:
 """
 
 
-SYSTEM_PROMPT_2 = """You are Qwen3.8-27B - senior portfolio risk & macro strategist (thinking mode). Skeptical, evidence-first. Separate FACTS vs MODEL IMPLICATION vs UNKNOWN. Do not invent regulation, geography, positioning, guidance, filings, dates, or catalysts.
+SYSTEM_PROMPT_2 = """You are gpt-oss-120b - senior portfolio risk & macro strategist (thinking mode). Skeptical, evidence-first. Separate FACTS vs MODEL IMPLICATION vs UNKNOWN. Do not invent regulation, geography, positioning, guidance, filings, dates, or catalysts.
 
 THINKING PROTOCOL: Use hidden reasoning to stress-test: rates/FX pass-through to this company's model, sector capex cycle position, and whether sentiment is crowded. Map each headwind/tailwind to a P&L or multiple mechanism.
 
@@ -751,7 +625,7 @@ RULES:
 - NO FILLER: Same banned list as Prompt 1. Institutional shorthand only.
 """
 
-SYSTEM_PROMPT_3 = """You are Qwen3.8-27B - Chief Risk Officer (thinking mode) red-teaming the thesis. Audit reasoning, data quality, valuation sensitivity, contradictions. Be adversarial but evidence-based - do not invent failure modes.
+SYSTEM_PROMPT_3 = """You are gpt-oss-120b - Chief Risk Officer (thinking mode) red-teaming the thesis. Audit reasoning, data quality, valuation sensitivity, contradictions. Be adversarial but evidence-based - do not invent failure modes.
 
 THINKING PROTOCOL: Identify the single weakest evidenced assumption, the metric that would falsify it, and the valuation delta if wrong. Check for: DCF vs consensus divergence, regression overbought, stale target, leverage blind spot, moat overstatement.
 
@@ -975,19 +849,19 @@ def generate_analysis(stock_data):
     from config import GROQ_MODEL
 
     def run_part_1():
-        logger.info(f"  > Attempting AI Part 1/2 Qwen3.8-27B Fundamentals & Valuation (thinking=default)...")
+        logger.info(f"  > Attempting AI Part 1/2 gpt-oss-120b Fundamentals & Valuation (thinking=default)...")
         res = _call_groq(messages_1, model=GROQ_MODEL, max_tokens=4000)
         if res is None:
             logger.info("  ⚠️ Part 1 failed or rate-limited. Falling back to fast secondary model...")
-            res = _call_groq(messages_1, model="llama-3.1-8b-instant", max_tokens=4000)
+            res = _call_groq(messages_1, model="openai/gpt-oss-20b", max_tokens=4000)
         return res
 
     def run_part_2():
-        logger.info(f"  > Attempting AI Part 2/2 Qwen3.8-27B Macro/Sentiment/Risk (thinking=default)...")
+        logger.info(f"  > Attempting AI Part 2/2 gpt-oss-120b Macro/Sentiment/Risk (thinking=default)...")
         res = _call_groq(messages_2, model=GROQ_MODEL, max_tokens=4000)
         if res is None:
             logger.info("  ⚠️ Part 2 failed or rate-limited. Falling back to fast secondary model...")
-            res = _call_groq(messages_2, model="llama-3.1-8b-instant", max_tokens=4000)
+            res = _call_groq(messages_2, model="openai/gpt-oss-20b", max_tokens=4000)
         return res
 
     logger.info(f"  > Executing AI analysis sequentially to conserve tokens and prevent parallel rate limit hits...")
@@ -1015,7 +889,7 @@ def generate_analysis(stock_data):
 
     # Run Part 3: Chief Risk Officer Red Team
     def run_part_3(base_analysis):
-        logger.info(f"  > Executing AI Part 3/3 Qwen3.8-27B CRO Red Team (thinking=default)...")
+        logger.info(f"  > Executing AI Part 3/3 gpt-oss-120b CRO Red Team (thinking=default)...")
         messages_3 = [
             {"role": "system", "content": SYSTEM_PROMPT_3},
             {"role": "user", "content": f"Review this analysis and provide your Red Team Audit:\n\n{json.dumps(base_analysis, indent=2)}"}
@@ -1023,7 +897,7 @@ def generate_analysis(stock_data):
         # CRO red-team uses high reasoning effort for deepest adversarial reasoning
         res = _call_llm(messages_3, model=GROQ_MODEL, max_tokens=2500, system_prompt=SYSTEM_PROMPT_3, reasoning_effort="high")
         if res is None:
-            res = _call_groq(messages_3, model="llama-3.1-8b-instant", max_tokens=1000)
+            res = _call_groq(messages_3, model="openai/gpt-oss-20b", max_tokens=1000)
         return res
 
     res3 = run_part_3(result)
