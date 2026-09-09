@@ -1785,3 +1785,235 @@ def _fallback(sd):
         "bear_case_target": m.get("targetLowPrice", curr_price * 0.8),
         "position_sizing": "Start with a small starter position pending further analysis.",
     }
+
+
+# ---------------------------------------------------------------------------
+# AI MACRO-IMPACT LAYER (append-only; single-ticker rates/Fed regime impact)
+# Chain: OpenCode -> OpenRouter -> Anthropic -> Groq via _call_llm
+# (response_format=True is enforced inside the chain per provider).
+# STOCKER_TEST_MODE=1 makes _call_llm return None -> rules fallback, no network.
+# ---------------------------------------------------------------------------
+
+SYSTEM_PROMPT_MACRO = """You are gpt-oss-120b - senior macro strategist (thinking mode) translating rates/Fed/inflation regime into single-ticker impact. Skeptical, evidence-first. Separate FACTS vs MODEL IMPLICATION vs UNKNOWN. Do not invent yields, CPI prints, FOMC dates, guidance, filings, geography, or positioning.
+
+THINKING PROTOCOL (internal, NOT in output):
+- Map the regime to THIS ticker only through three channels: duration (long-dated growth cash flows vs near-term cash cow), funding (leverage, refi wall, floating-rate share), demand (housing/auto turnover, capex deferral, NIM for banks, fuel pass-through for energy).
+- Cross-check discount-rate math against the supplied DCF WACC: higher-for-longer lifts WACC and compresses the justified multiple; cuts do the reverse. Direction + rough magnitude only, never a false-precision target.
+- If a yield, gauge, Fed stance, or company field is absent from MACRO SNAPSHOT / DATASET, write DATA UNAVAILABLE + the print or filing that would confirm it. Never interpolate missing macro data.
+
+OUTPUT - ONLY valid JSON (first char `{`, last `}`), no markdown fences, no filler:
+{
+  "regime_read": "1-2 sentences: current rates/Fed/inflation regime (higher-for-longer, cutting cycle, on-hold, re-acceleration) grounded ONLY in the supplied snapshot.",
+  "rate_sensitivity": {"level": "HIGH", "why": "Duration + leverage mechanism specific to this ticker (e.g. long-duration growth multiple + floating refi wall)."},
+  "winners_losers_mechanism": "Why this ticker's sector wins, loses, or is mixed under the stated regime (pass-through, NIM, capex deferral, housing turnover, ad budgets).",
+  "earnings_impact": "P&L path: revenue, margins, interest expense, buyback capacity. Name the line item or mark DATA UNAVAILABLE.",
+  "valuation_impact": "Discount-rate math: current DCF WACC vs regime-implied direction, justified-multiple expansion/compression. No new price target.",
+  "positioning": "What to watch: next CPI prints, FOMC decision/statement, 10Y-2Y curve shape, plus the ticker-specific invalidation metric.",
+  "risk_flags": ["Concrete macro risk 1 with transmission", "Concrete macro risk 2"]
+}
+
+RULES:
+- ENUMS: rate_sensitivity.level in {HIGH,MED,LOW}
+- TYPES: regime_read/winners_losers_mechanism/earnings_impact/valuation_impact/positioning = string; rate_sensitivity = object with level + why; risk_flags = array of strings (empty array allowed, never null)
+- GROUNDING: Every regime claim cites the snapshot (yield level, gauge, or Fed stance) or is labeled inference. Absent fields -> DATA UNAVAILABLE.
+- NO FILLER: BANNED: "In conclusion","It's important to note","delve","testament to","navigating","dynamic","ever-changing","robust","solid","landscape". Institutional shorthand only.
+"""
+
+
+def _macro_base_sensitivity(sector):
+    """Map sector -> (level, why). Energy/Financials are LOW (mixed/beneficiary of higher rates)."""
+    s = str(sector or "").lower()
+    if any(k in s for k in ("utilit", "real estate", "reit", "consumer defensive", "staple")):
+        return ("HIGH", "Defensive yield-proxy sector: dividend yield competes directly with risk-free rates, so higher-for-longer compresses justified multiples; REITs/utilities also carry regulated-capex funding needs.")
+    if any(k in s for k in ("energy", "oil", "gas", "coal", "uranium")):
+        return ("LOW", "Energy is mixed-to-beneficiary under higher rates: inflation/higher-for-longer typically coincides with firm commodity prices and pricing power, partly offsetting discount-rate drag.")
+    if any(k in s for k in ("financial", "bank", "insurance")):
+        return ("LOW", "Financials are mixed-to-beneficiary of higher rates via net interest margin expansion, offset by credit-loss/mark-to-market risk if the curve inverts or stays high.")
+    return ("MED", "MED-HIGH in practice: duration-sensitive cash flows (growth multiple, capex cycle, ad/subscription demand) transmit rate moves to both earnings and the discount rate.")
+
+
+def _macro_apply_amplifiers(level, beta, debt_to_equity):
+    """Shift base level one notch per amplifier. debtToEquity >10 assumed percent-scale (/100)."""
+    order = ["LOW", "MED", "HIGH"]
+    idx = order.index(level) if level in order else 1
+    notes = []
+    try:
+        b = float(beta) if beta is not None else None
+    except (TypeError, ValueError):
+        b = None
+    try:
+        d = float(debt_to_equity) if debt_to_equity is not None else None
+    except (TypeError, ValueError):
+        d = None
+    if d is not None and d > 10:
+        d = d / 100.0
+    if b is not None and b >= 1.3 and idx < 2:
+        idx += 1
+        notes.append(f"Beta {b:.2f} amplifies market-rate beta: lifting one notch.")
+    elif b is not None and b <= 0.7 and idx > 0:
+        idx -= 1
+        notes.append(f"Beta {b:.2f} dampens market-rate beta: lowering one notch.")
+    if d is not None and d >= 1.0 and idx < 2:
+        idx += 1
+        notes.append(f"Debt/Equity {d:.2f}x forces refi at higher coupons: lifting one notch.")
+    return order[idx], notes
+
+
+def _normalize_macro_payload(result, ticker):
+    src = result if isinstance(result, dict) else {}
+    rs = src.get("rate_sensitivity", {})
+    if not isinstance(rs, dict):
+        rs = {"level": rs, "why": ""}
+
+    def _s(v, default="DATA UNAVAILABLE"):
+        t = str(v or "").strip()
+        return t if t else default
+
+    flags = src.get("risk_flags", [])
+    if isinstance(flags, str):
+        flags = [flags]
+    try:
+        flags = [str(f).strip() for f in (flags or []) if str(f).strip()][:8]
+    except Exception:
+        flags = []
+    return {
+        "ticker": ticker,
+        "source": "llm",
+        "regime_read": _s(src.get("regime_read")),
+        "rate_sensitivity": {
+            "level": _enum_value(rs.get("level"), {"HIGH", "MED", "LOW"}, "MED"),
+            "why": _s(rs.get("why"), "See regime and sector mechanism."),
+        },
+        "winners_losers_mechanism": _s(src.get("winners_losers_mechanism")),
+        "earnings_impact": _s(src.get("earnings_impact")),
+        "valuation_impact": _s(src.get("valuation_impact")),
+        "positioning": _s(src.get("positioning")),
+        "risk_flags": flags,
+    }
+
+
+def _macro_rule_fallback(sd, snap):
+    """Deterministic rules fallback: sector map + beta/debtToEquity amplifiers. Never raises."""
+    try:
+        m = sd.get("key_metrics", {}) if isinstance(sd.get("key_metrics"), dict) else {}
+    except Exception:
+        m = {}
+    try:
+        ticker = str(sd.get("ticker") or m.get("symbol") or "UNKNOWN").upper()
+    except Exception:
+        ticker = "UNKNOWN"
+    sector = m.get("sector") or "Unknown"
+    industry = m.get("industry") or "Unknown"
+    beta = m.get("beta")
+    dte = m.get("debtToEquity")
+    dcf = sd.get("dcf_data", {}) if isinstance(sd.get("dcf_data"), dict) else {}
+    wacc = dcf.get("wacc") if isinstance(dcf, dict) else None
+
+    base_level, base_why = _macro_base_sensitivity(sector)
+    level, amp_notes = _macro_apply_amplifiers(base_level, beta, dte)
+    why = base_why + (" " + " ".join(amp_notes) if amp_notes else "")
+
+    snap = snap if isinstance(snap, dict) else {}
+    regime = snap.get("regime") or snap.get("fed_stance") or snap.get("fedStance")
+    yields = snap.get("yields")
+    if regime or yields:
+        regime_read = f"Snapshot regime: {regime or 'DATA UNAVAILABLE (regime/fed_stance)'}; yields: {yields if yields is not None else 'DATA UNAVAILABLE'}. Transmission to {ticker} via the duration/funding/demand channels below."
+    else:
+        regime_read = "DATA UNAVAILABLE: macro snapshot missing (need yields, gauges, fed_stance from app/macro_fetcher.py get_macro_snapshot()). Sector-mechanism read below is unconditional."
+
+    # Mechanism text keys off the SECTOR bucket (base_level); amplifiers move only
+    # rate_sensitivity.level, with the reason recorded in its `why`.
+    if base_level == "HIGH":
+        wl = f"{sector} ({industry}) loses under higher-for-longer: yield-proxy dividend competes with cash, funded capex/refi reprices higher; benefits when the cutting cycle resumes."
+        earn = "Earnings path: interest expense up on refi/floating tranches, dividend/buyback capacity squeezed; revenue softens if rate-sensitive demand (housing, auto, SMB capex) defers. Confirm interest expense and maturity wall in filings."
+    elif base_level == "LOW":
+        wl = f"{sector} ({industry}) is mixed-to-beneficiary of higher rates: banks/insurers gain net interest margin, energy keeps commodity pricing power; pain arrives via credit losses or demand destruction if rates overshoot."
+        earn = "Earnings path: net interest income / realized commodity prices support the top line; watch credit-loss provisions (financials) or volume decline (energy) as offsets. Confirm NIM and provision line items."
+    else:
+        wl = f"{sector} ({industry}) is MED-HIGH in practice: growth-multiple duration plus cyclical demand (capex, advertising, subscriptions) makes it a rates loser at the margin, with AI/cloud secular demand as partial offset."
+        earn = "Earnings path: enterprise/SMB budget scrutiny slows revenue; margin via opex discipline; buybacks funded with dearer debt. Confirm segment growth and net interest expense."
+
+    if wacc is not None:
+        try:
+            val = f"Discount-rate math vs DCF WACC {float(wacc):.2f}%: each +100bps regime lift on WACC compresses justified value; cuts do the reverse. Re-run DCF at WACC +/-100bps to size {ticker} multiple impact. No new price target set here."
+        except (TypeError, ValueError):
+            val = "DATA UNAVAILABLE: DCF WACC not numeric; directionally, higher-for-longer lifts WACC and compresses justified multiples, cuts reverse it."
+    else:
+        val = "DATA UNAVAILABLE: DCF WACC not in record; directionally, higher-for-longer lifts WACC and compresses justified multiples, cuts reverse it. Re-run DCF to size it."
+
+    flags = [
+        f"Curve risk: 10Y-2Y inversion/re-steepening reprices {ticker} duration before earnings adjust.",
+        f"Refi wall: Debt/Equity {dte if dte is not None else 'DATA UNAVAILABLE'} rolling into higher coupons lifts interest expense.",
+    ]
+    if isinstance(beta, (int, float)) and beta >= 1.3:
+        flags.append(f"High beta ({beta:.2f}): drawdown amplifies if CPI/FOMC surprises hawkish.")
+    if not snap:
+        flags.append("Snapshot risk: macro_fetcher offline; regime_read is unconditional until yields/gauges/fed_stance land.")
+
+    return {
+        "ticker": ticker,
+        "source": "rules",
+        "regime_read": regime_read,
+        "rate_sensitivity": {"level": level, "why": why},
+        "winners_losers_mechanism": wl,
+        "earnings_impact": earn,
+        "valuation_impact": val,
+        "positioning": f"What to watch for {ticker}: next CPI prints, FOMC decision/statement, 10Y-2Y curve; invalidation metric: {industry} demand + net interest expense trend.",
+        "risk_flags": flags,
+    }
+
+
+def get_macro_impact(stock_data, macro_snapshot=None):
+    """Single-ticker macro impact. LLM first (~1500 tokens), deterministic rules fallback. Never raises."""
+    sd = stock_data if isinstance(stock_data, dict) else {}
+    try:
+        m = sd.get("key_metrics", {}) if isinstance(sd.get("key_metrics"), dict) else {}
+    except Exception:
+        m = {}
+    try:
+        ticker = str(sd.get("ticker") or m.get("symbol") or "UNKNOWN").upper()
+    except Exception:
+        ticker = "UNKNOWN"
+
+    snap = macro_snapshot
+    if snap is None:
+        try:
+            try:
+                from macro_fetcher import get_macro_snapshot
+            except ImportError:
+                from app.macro_fetcher import get_macro_snapshot
+            snap = get_macro_snapshot()
+        except Exception as exc:
+            logger.info("  [!] macro snapshot unavailable: %s", exc)
+            snap = {}
+    if not isinstance(snap, dict):
+        snap = {"value": snap}
+
+    try:
+        try:
+            snap_text = json.dumps(snap, default=str)[:2000]
+        except Exception:
+            snap_text = "DATA UNAVAILABLE"
+        dcf = sd.get("dcf_data", {}) if isinstance(sd.get("dcf_data"), dict) else {}
+        user_content = (
+            f"Produce the single-ticker MACRO IMPACT for '{ticker}'.\n\n"
+            f"DATASET: sector={m.get('sector', 'DATA UNAVAILABLE')} | industry={m.get('industry', 'DATA UNAVAILABLE')} | "
+            f"beta={m.get('beta', 'DATA UNAVAILABLE')} | debtToEquity={m.get('debtToEquity', 'DATA UNAVAILABLE')} | "
+            f"current_price={m.get('current_price', 'DATA UNAVAILABLE')} | DCF WACC={dcf.get('wacc', 'DATA UNAVAILABLE')} | "
+            f"DCF implied={dcf.get('implied_price', 'DATA UNAVAILABLE')}\n\n"
+            f"MACRO SNAPSHOT (yields/gauges/fed_stance/regime; DATA UNAVAILABLE where absent):\n{snap_text}"
+        )
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT_MACRO},
+            {"role": "user", "content": user_content},
+        ]
+        res = _call_llm(messages, model=GROQ_MODEL, max_tokens=1500, system_prompt=SYSTEM_PROMPT_MACRO)
+        if isinstance(res, dict) and res:
+            return _normalize_macro_payload(res, ticker)
+        return _macro_rule_fallback(sd, snap)
+    except Exception as exc:
+        logger.info("  [!] get_macro_impact failed, using rules fallback: %s", exc)
+        try:
+            return _macro_rule_fallback(sd, snap if isinstance(snap, dict) else {})
+        except Exception:
+            return _macro_rule_fallback({}, {})

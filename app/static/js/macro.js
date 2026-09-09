@@ -1,0 +1,251 @@
+/* Macro page: rates, Fed stance & regime. Dependency-free except Chart.js. */
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var TEST = (typeof window.TEST_MODE !== "undefined") && !!window.TEST_MODE;
+  var SNAP_URL = "/api/macro/snapshot";
+  var INTEL_URL = function (t) { return "/api/intel/macro/" + encodeURIComponent(t); };
+  var POLL_MS = 5 * 60 * 1000;
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function num(v) {
+    if (v == null || v === "" || isNaN(Number(v))) return null;
+    return Number(v);
+  }
+  function fmtV(v, digits) {
+    var n = num(v);
+    if (n == null) return "--";
+    return n.toFixed(digits == null ? 2 : digits);
+  }
+  function fmtChg(v) {
+    var n = num(v);
+    if (n == null) return { t: "--", c: "flat" };
+    var s = (n >= 0 ? "+" : "") + n.toFixed(2) + "%";
+    return { t: s, c: n > 0.005 ? "up" : (n < -0.005 ? "dn" : "flat") };
+  }
+  function toast(m, t) {
+    try { if (typeof showToast === "function") showToast(m, t || "info"); } catch (e) {}
+  }
+
+  /* Normalize a gauge entry: backend may send a bare number or an object. */
+  function normGauge(raw) {
+    if (raw == null) return { value: null, chg: null };
+    if (typeof raw === "number" || typeof raw === "string") {
+      return { value: num(raw), chg: null };
+    }
+    return {
+      value: num(raw.value != null ? raw.value : (raw.price != null ? raw.price : raw.level)),
+      chg: num(raw.change_pct != null ? raw.change_pct : (raw.change != null ? raw.change : (raw.day_change != null ? raw.day_change : raw.chg)))
+    };
+  }
+  function pick(obj, keys) {
+    for (var i = 0; i < keys.length; i++) {
+      if (obj && obj[keys[i]] != null) return obj[keys[i]];
+    }
+    return null;
+  }
+
+  var GAUGES = [
+    { keys: ["vix"], label: "VIX", invert: true },
+    { keys: ["dollar", "dxy", "dx_y"], label: "Dollar", invert: false },
+    { keys: ["gold", "gold_price", "xau"], label: "Gold", invert: false },
+    { keys: ["oil", "wti", "crude", "brent"], label: "Oil", invert: false },
+    { keys: ["hyg_tlt", "credit", "hyg", "tlt", "credit_proxy"], label: "HYG/TLT", invert: false }
+  ];
+
+  function renderRegime(regime) {
+    var label = $("mc-regime-label"), score = $("mc-regime-score"), list = $("mc-regime-reasons");
+    if (!regime) {
+      label.textContent = "Regime unavailable";
+      score.textContent = "";
+      list.innerHTML = "";
+      return;
+    }
+    label.textContent = regime.label || "Unknown regime";
+    var sc = num(regime.score);
+    score.textContent = sc == null ? "" : ("score " + sc.toFixed(1) + " / 100");
+    var rs = regime.reasons || [];
+    list.innerHTML = rs.length
+      ? rs.map(function (r) { return "<li>" + esc(r) + "</li>"; }).join("")
+      : "<li>Watch rate direction and credit spreads for confirmation.</li>";
+  }
+
+  function renderFed(fed) {
+    var label = $("mc-fed-label"), list = $("mc-fed-reasons");
+    if (!fed) {
+      label.textContent = "--";
+      list.innerHTML = "<li>Fed stance unavailable.</li>";
+      return;
+    }
+    label.textContent = fed.label || "--";
+    var rs = fed.reasons || [];
+    list.innerHTML = rs.length
+      ? rs.map(function (r) { return "<li>" + esc(r) + "</li>"; }).join("")
+      : "<li>No stated reasons.</li>";
+  }
+
+  function curveSpread(points) {
+    var y3m = null, y10 = null, i;
+    for (i = 0; i < points.length; i++) {
+      var l = String(points[i].label || "").toUpperCase().replace(/\s/g, "");
+      if (l === "3M" || l === "3MO") y3m = num(points[i].yield);
+      if (l === "10Y" || l === "10YR") y10 = num(points[i].yield);
+    }
+    if (y3m == null || y10 == null) return null;
+    return y10 - y3m;
+  }
+
+  function renderCurve(yields) {
+    var cv = $("mc-curve"), badge = $("mc-inv"), spread = $("mc-spread"), empty = $("mc-curve-empty");
+    var pts = (yields && yields.points) || [];
+    pts = pts.filter(function (p) { return num(p.yield) != null; });
+    if (!pts.length) {
+      empty.style.display = "block";
+      badge.textContent = "--";
+      badge.className = "mc-badge";
+      spread.textContent = "10Y-3M spread: --";
+      return;
+    }
+    empty.style.display = "none";
+    var inv = !!(yields && yields.inverted);
+    var sp = curveSpread(pts);
+    if (sp != null && !inv && sp < 0) inv = true;
+    badge.textContent = inv ? "INVERTED" : "NORMAL";
+    badge.className = "mc-badge " + (inv ? "inv" : "norm");
+    spread.textContent = "10Y-3M spread: " + (sp == null ? "--" : ((sp >= 0 ? "+" : "") + sp.toFixed(2) + " pp"));
+    if (typeof Chart === "undefined" || !cv) return;
+    try {
+      if (window._mcCurve) window._mcCurve.destroy();
+      window._mcCurve = new Chart(cv, {
+        type: "line",
+        data: {
+          labels: pts.map(function (p) { return String(p.label); }),
+          datasets: [{
+            label: "Yield %",
+            data: pts.map(function (p) { return num(p.yield); }),
+            borderColor: inv ? "#ff9f0a" : "#34c759",
+            backgroundColor: inv ? "rgba(255,159,10,.12)" : "rgba(52,199,89,.12)",
+            fill: true, tension: 0.25, pointRadius: 3
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: "#8a8d93", font: { size: 10 } } } },
+          scales: {
+            x: { ticks: { color: "#8a8d93", font: { size: 10 } }, grid: { color: "#1e1f23" } },
+            y: { ticks: { color: "#8a8d93", font: { size: 10 }, callback: function (v) { return v + "%"; } }, grid: { color: "#1e1f23" } }
+          }
+        }
+      });
+    } catch (e) { toast("Curve chart failed", "warn"); }
+  }
+
+  function renderGauges(gauges) {
+    var box = $("mc-gauges");
+    var g = gauges || {};
+    box.innerHTML = GAUGES.map(function (def) {
+      var raw = pick(g, def.keys);
+      var n = normGauge(raw);
+      var ch = fmtChg(n.chg);
+      var cls = ch.c;
+      if (def.invert && n.chg != null) cls = n.chg > 0.005 ? "dn" : (n.chg < -0.005 ? "up" : "flat");
+      return '<div class="mc-gauge"><div class="g-l">' + esc(def.label) + '</div>' +
+        '<div class="g-v">' + esc(fmtV(n.value)) + '</div>' +
+        '<div class="g-c ' + cls + '">' + esc(ch.t) + '</div></div>';
+    }).join("");
+  }
+
+  async function loadSnapshot() {
+    try {
+      var r = await fetch(SNAP_URL);
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      var j = await r.json();
+      renderRegime(j.regime);
+      renderCurve(j.yields);
+      renderGauges(j.gauges);
+      renderFed(j.fed_stance);
+      $("mc-generated").textContent = j.generated_at ? ("snapshot " + String(j.generated_at)) : "snapshot loaded";
+    } catch (e) {
+      $("mc-generated").textContent = "snapshot unavailable";
+      renderRegime(null);
+      renderCurve(null);
+      $("mc-gauges").innerHTML = '<div class="mc-empty">Gauges unavailable.</div>';
+      renderFed(null);
+    }
+  }
+
+  var FIELDS = [
+    ["regime_read", "Regime read"],
+    ["rate_sensitivity", "Rate sensitivity"],
+    ["winners_losers_mechanism", "Winners / losers"],
+    ["earnings_impact", "Earnings impact"],
+    ["valuation_impact", "Valuation impact"],
+    ["positioning", "Positioning"]
+  ];
+
+  async function lookup(ticker) {
+    var t = String(ticker || "").trim().toUpperCase();
+    var msg = $("mc-impact-msg"), box = $("mc-impact");
+    if (!t) return;
+    if (!/^[A-Z0-9.\^-]{1,12}$/.test(t)) { toast("Invalid ticker", "error"); return; }
+    msg.textContent = "Loading " + t + "...";
+    try {
+      var r = await fetch(INTEL_URL(t));
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      var j = await r.json();
+      $("mc-impact-head").textContent = t + " in this regime";
+      var fmtV = function (v) {
+        if (v == null || v === "") return "--";
+        if (typeof v === "object") {
+          if (v.level) return v.level + (v.why ? " \u2014 " + v.why : "");
+          if (v.text) return v.text;
+          try { return JSON.stringify(v); } catch (e) { return "--"; }
+        }
+        return v;
+      };
+      $("mc-impact-rows").innerHTML = FIELDS.map(function (f) {
+        return '<div class="mc-kv"><span>' + esc(f[1]) + '</span><div>' + esc(fmtV(j[f[0]])) + '</div></div>';
+      }).join("");
+      var risks = j.risk_flags || [];
+      $("mc-impact-risks").innerHTML = risks.length
+        ? risks.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("")
+        : "<li>None flagged.</li>";
+      box.style.display = "block";
+      msg.textContent = t + " loaded.";
+      try {
+        var u = new URL(location.href);
+        u.searchParams.set("ticker", t);
+        history.replaceState({}, "", u);
+      } catch (e) {}
+    } catch (e) {
+      box.style.display = "none";
+      msg.textContent = "Impact lookup failed for " + t + ".";
+      toast("Macro intel fetch failed", "error");
+    }
+  }
+
+  function init() {
+    loadSnapshot();
+    if (!TEST) {
+      try { setInterval(loadSnapshot, POLL_MS); } catch (e) {}
+    }
+    var go = $("mc-go"), inp = $("mc-ticker");
+    go.onclick = function () { lookup(inp.value); };
+    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") lookup(inp.value); });
+    $("mc-copylink").onclick = async function () {
+      try { await navigator.clipboard.writeText(location.href); toast("Link copied", "success"); }
+      catch (e) { toast(location.href, "info"); }
+    };
+    try {
+      var q = new URLSearchParams(location.search).get("ticker");
+      if (q) { inp.value = String(q).toUpperCase().slice(0, 12); lookup(inp.value); }
+    } catch (e) {}
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+})();

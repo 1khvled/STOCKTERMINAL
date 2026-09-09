@@ -1681,6 +1681,78 @@ def api_stock_profile(ticker):
         return base
 
 
+@app.route("/macro")
+def serve_macro():
+    return render_template("macro.html")
+
+
+@app.route("/api/macro/snapshot")
+def api_macro_snapshot():
+    """Combined macro snapshot (cached 1h in macro_fetcher). Adapts keys for page + tests."""
+    try:
+        try:
+            import macro_fetcher
+        except ImportError:
+            from app import macro_fetcher
+        force = request.args.get("force", "").strip().lower() in {"1", "true", "yes"}
+        s = macro_fetcher.get_macro_snapshot(force=force)
+        return {"yields": s.get("yields") or {}, "gauges": s.get("risk") or {},
+                "regime": s.get("regime") or {}, "fed_stance": s.get("fed") or {},
+                "generated_at": s.get("asof"), "cached": s.get("cached"),
+                "source": s.get("source")}
+    except Exception as e:
+        logger.exception(f"/api/macro/snapshot failed: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/macro/yields")
+def api_macro_yields():
+    try:
+        try:
+            import macro_fetcher
+        except ImportError:
+            from app import macro_fetcher
+        return {"yields": macro_fetcher.get_yield_curve()}
+    except Exception as e:
+        logger.exception(f"/api/macro/yields failed: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/macro/regime")
+def api_macro_regime():
+    try:
+        try:
+            import macro_fetcher
+        except ImportError:
+            from app import macro_fetcher
+        return {"regime": macro_fetcher.get_regime()}
+    except Exception as e:
+        logger.exception(f"/api/macro/regime failed: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/intel/macro/<ticker>")
+def api_macro_impact(ticker):
+    ticker = ticker.upper().strip()
+    if not is_valid_ticker(ticker):
+        return {"error": "Invalid ticker format"}, 400
+    data = local_db.load_stock_record(ticker)
+    if not data:
+        return {"error": f"Ticker {ticker} not found in database"}, 404
+    try:
+        from ai_engine import get_macro_impact
+    except ImportError:
+        from app.ai_engine import get_macro_impact
+    impact = get_macro_impact(data) or {}
+    # normalize for page + contract tests (dicts, never null)
+    rr = impact.get("regime_read")
+    impact["regime_read"] = {"text": str(rr)} if not isinstance(rr, dict) else rr
+    rs = impact.get("rate_sensitivity")
+    impact["rate_sensitivity"] = {"level": "MED", "why": str(rs)} if not isinstance(rs, dict) else rs
+    impact["ticker"] = ticker
+    return impact
+
+
 @app.route("/compare")
 def serve_compare():
     return render_template("compare.html")

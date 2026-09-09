@@ -67,6 +67,35 @@ nav{height:52px;display:flex;align-items:center;gap:14px;padding:0 16px;border-b
 .notion-btn{padding:6px 10px;border:1px solid var(--border);background:var(--panel);color:var(--muted);border-radius:999px;font-family:JetBrains Mono,monospace;font-size:11px;cursor:pointer}
 .notion-btn.active{border-color:var(--green);color:var(--green);background:rgba(52,199,89,.08)}
 
+/* ---- statement tables (notion + statements) ---- */
+.table-container{overflow-x:auto;margin:10px 0;border:1px solid var(--border);border-radius:8px}
+.statement-table{width:100%;border-collapse:collapse;font-size:12px;min-width:560px}
+.statement-table th{font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--panel2,#15171a);position:sticky;top:0;z-index:1}
+.statement-table td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+.statement-table tbody tr:nth-child(even){background:rgba(255,255,255,.018)}
+.statement-table tbody tr:hover{background:rgba(52,199,89,.05)}
+/* ---- notion blocks ---- */
+.notion-indented{margin-left:14px;border-left:1px solid var(--border);padding-left:12px}
+.notion-spacer{height:10px}
+.notion-todo{display:flex;gap:8px;align-items:flex-start;margin:6px 0}
+.notion-details{border:1px solid var(--border);border-radius:8px;margin:8px 0;background:var(--panel)}
+.notion-details summary{cursor:pointer;padding:8px 12px;font-weight:600;list-style:none}
+.notion-details summary::-webkit-details-marker{display:none}
+.notion-details summary::before{content:"+ ";color:var(--green);font-family:JetBrains Mono,monospace}
+.notion-details[open] summary::before{content:"- "}
+.notion-details-content{padding:0 12px 10px}
+.notion-hr{border:none;border-top:1px solid var(--border);margin:14px 0}
+.notion-img-container{margin:10px 0;text-align:center}
+.notion-img{max-width:100%;height:auto;border-radius:8px;border:1px solid var(--border)}
+.notion-img-caption{font-size:11px;color:var(--muted);margin-top:4px}
+/* ---- notion reader chrome ---- */
+.notion-toc{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:none}
+.notion-toc button{flex:0 0 auto;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:5px 10px;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:999px;font-size:11px;cursor:pointer}
+.notion-toc button:hover{color:var(--text);border-color:var(--border2,#2a2c31)}
+#notion-search{flex:1;min-width:140px;background:#0a0a0b;border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:8px;font-family:JetBrains Mono,monospace;font-size:12px;outline:none}
+#notion-search:focus{border-color:var(--green)}
+#notion-content mark{background:rgba(255,159,10,.45);color:inherit;border-radius:2px;padding:0 1px}
+#notion-content mark.cur{background:rgba(52,199,89,.55)}
 /* Price flash for live updates */
 .price-flash-up{ animation: flashUp 0.6s ease; }
 .price-flash-down{ animation: flashDown 0.6s ease; }
@@ -83,3 +112,11 @@ nav{height:52px;display:flex;align-items:center;gap:14px;padding:0 16px;border-b
 @keyframes slideIn{ from{ opacity:0; transform:translateX(12px)} to{opacity:1; transform:translateX(0)} }
 .toast-dismiss{ background:transparent; border:none; color:var(--muted); cursor:pointer; font-size:16px; line-height:1; }
 @media(max-width:900px){nav{height:auto;flex-wrap:wrap;padding:10px 16px;row-gap:8px}.nav-actions{margin-left:0;flex-wrap:wrap}}
+
+/* Macro page (namespaced mc-) */
+.mc-wrap{max-width:1180px;margin:0 auto;padding:18px 16px}
+.mc-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}
+@media(max-width:900px){.mc-grid{grid-template-columns:1fr}}
+.mc-gauges{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+@media(max-width:1000px){.mc-gauges{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:640px){.mc-gauges{grid-template-columns:repeat(2,1fr)}}

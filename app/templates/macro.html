@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Macro - Rates, Fed &amp; Regime // STOCKER-AI</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="/static/css/dashboard_new.css?v=12"/>
+<style>
+.mc-wrap{max-width:1180px;margin:0 auto;padding:18px 16px}
+.mc-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:14px 0 4px}
+.mc-head h1{margin:0;font-size:21px;font-weight:800;letter-spacing:-.3px}
+.mc-head .sub{font-size:12px;color:var(--muted);font-family:JetBrains Mono,monospace}
+.mc-banner{border:1px solid var(--border);background:linear-gradient(135deg,#0f1720 0%,#1b2533 60%,#233347 100%);border-radius:14px;padding:18px;margin:12px 0}
+.mc-banner .lbl{font-size:24px;font-weight:800;letter-spacing:-.3px}
+.mc-banner .score{font-family:JetBrains Mono,monospace;font-size:12px;color:var(--muted);margin-top:4px}
+.mc-reasons{margin:10px 0 0;padding-left:20px;line-height:1.65;font-size:13px;color:#d6d8db}
+.mc-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}
+@media(max-width:900px){.mc-grid{grid-template-columns:1fr}}
+.mc-gauges{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+@media(max-width:1000px){.mc-gauges{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:640px){.mc-gauges{grid-template-columns:repeat(2,1fr)}}
+.mc-gauge{border:1px solid var(--border);background:var(--panel);border-radius:12px;padding:12px}
+.mc-gauge .g-l{font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.mc-gauge .g-v{margin-top:6px;font-family:JetBrains Mono,monospace;font-size:17px;font-weight:700}
+.mc-gauge .g-c{margin-top:4px;font-family:JetBrains Mono,monospace;font-size:12px;font-weight:600}
+.up{color:var(--green)}.dn{color:var(--red)}.flat{color:var(--muted)}
+.mc-badge{display:inline-block;padding:4px 10px;border-radius:999px;font-family:JetBrains Mono,monospace;font-size:11px;font-weight:700;border:1px solid var(--border2);color:var(--muted)}
+.mc-badge.inv{color:var(--orange);border-color:rgba(255,159,10,.4);background:rgba(255,159,10,.08)}
+.mc-badge.norm{color:var(--green);border-color:rgba(52,199,89,.4);background:rgba(52,199,89,.08)}
+.mc-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.mc-inp{flex:1;min-width:200px;background:#0a0a0b;border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:10px;font-family:JetBrains Mono,monospace;font-size:13px;outline:none}
+.mc-inp:focus{border-color:var(--green)}
+.mc-kv{display:grid;grid-template-columns:170px 1fr;gap:8px;font-size:12.5px;padding:7px 0;border-bottom:1px dashed #1d1f27;line-height:1.6}
+.mc-kv:last-child{border:none}
+.mc-kv span{color:var(--muted);font-family:JetBrains Mono,monospace;font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding-top:2px}
+.mc-chart{position:relative;height:240px}
+.mc-risk{margin:8px 0 0;padding-left:20px;line-height:1.65;font-size:13px;color:#f0b4ae}
+.mc-empty{color:var(--muted);font-size:13px;text-align:center;padding:20px}
+.mc-meta{font-family:JetBrains Mono,monospace;font-size:11px;color:var(--dim);margin-top:8px}
+</style>
+</head>
+<body>
+<nav>
+  <div class="logo">STOCKER<span>AI</span> <span style="font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted);font-weight:400;margin-left:6px">MACRO</span></div>
+  <div class="nav-actions">
+    <a href="/" class="btn">HUB</a>
+    <a href="javascript:history.back()" class="btn">BACK</a>
+  </div>
+</nav>
+<div class="mc-wrap">
+  <div class="mc-head">
+    <h1>Macro - Rates, Fed &amp; Regime</h1>
+    <span class="sub" id="mc-generated">loading snapshot...</span>
+  </div>
+
+  <div class="mc-banner" id="mc-regime">
+    <div class="lbl" id="mc-regime-label">Loading regime...</div>
+    <div class="score" id="mc-regime-score"></div>
+    <ul class="mc-reasons" id="mc-regime-reasons"></ul>
+  </div>
+
+  <div class="mc-grid">
+    <div class="card">
+      <div class="card-title">Yield Curve <span style="margin-left:auto;display:flex;gap:8px;align-items:center"><span class="mc-badge" id="mc-inv">--</span></span></div>
+      <div class="mc-chart"><canvas id="mc-curve" height="240"></canvas></div>
+      <div class="mc-meta" id="mc-spread">10Y-3M spread: --</div>
+      <div class="mc-empty" id="mc-curve-empty" style="display:none">Yield data unavailable.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Fed Stance</div>
+      <div style="font-size:17px;font-weight:800" id="mc-fed-label">--</div>
+      <ul class="mc-reasons" id="mc-fed-reasons"><li class="mc-empty">Loading Fed stance...</li></ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Risk Gauges</div>
+    <div class="mc-gauges" id="mc-gauges"><div class="mc-empty">Loading gauges...</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Ticker Impact in This Regime</div>
+    <div class="mc-row">
+      <input id="mc-ticker" class="mc-inp" placeholder="Ticker: AAPL + Enter" autocomplete="off" spellcheck="false" maxlength="12" style="text-transform:uppercase"/>
+      <button id="mc-go" class="btn btn-primary">CHECK</button>
+      <button id="mc-copylink" class="btn">COPY LINK</button>
+    </div>
+    <div class="mc-meta" id="mc-impact-msg">Enter a ticker to see rate sensitivity, earnings and valuation impact.</div>
+    <div id="mc-impact" style="display:none;margin-top:8px">
+      <div style="font-size:15px;font-weight:800" id="mc-impact-head">--</div>
+      <div id="mc-impact-rows"></div>
+      <div style="margin-top:10px;font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Risk flags</div>
+      <ul class="mc-risk" id="mc-impact-risks"></ul>
+    </div>
+  </div>
+</div>
+<script src="/static/js/toast.js"></script>
+<script>if(typeof showToast==="undefined"){function showToast(m){alert(m);}}</script>
+<script src="/static/js/macro.js?v=1"></script>
+</body>
+</html>
