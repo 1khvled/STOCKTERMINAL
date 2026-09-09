@@ -139,7 +139,7 @@ table.q tbody tr:hover{background:#181a23}
   <div class="main">
     <div>
       <div class="panel">
-        <div class="phead"><span class="livepulse"></span><h2>Holdings</h2><span class="sub" id="live-label">live &bull; auto 30s</span>
+        <div class="phead"><span class="livepulse"></span><h2>Holdings</h2><span class="sub" id="live-label">live &bull; auto 15s</span>
           <div class="views" id="views">
             <button class="vbtn on" data-v="all">All</button><button class="vbtn" data-v="buy">Buys</button><button class="vbtn" data-v="up">Top upside</button><button class="vbtn" data-v="sell">Sells</button>
           </div>
@@ -201,10 +201,10 @@ function render(){
   tb.innerHTML=rows.slice(0,40).map(function(s){
     var l=rowLive(s.ticker),liv=isLive(l),px=liv?l.price:s.current_price,ch=effChg(s);
     var cls=ch==null?"flat":(ch>0.05?"up":(ch<-0.05?"dn":"flat")),arrow=ch==null?"•":(ch>0.05?"▲":(ch<-0.05?"▼":"•"));
-    var up=(s.upside||0)*100,ucls=s.upside>=0?"up":"dn";
+    var upRaw=(liv&&s.fair_value_mid&&l.price)?((s.fair_value_mid-l.price)/l.price):(s.upside||0);var up=upRaw*100,ucls=upRaw>=0?"up":"dn";
     return '<tr data-t="'+esc(s.ticker)+'"><td>'+starBtn(s.ticker)+'</td><td><div class="sym">'+esc(s.ticker)+'</div><div class="co">'+esc(s.company_name||"")+'</div></td>'+
     "<td>$"+fmtP(px)+'</td><td class="'+cls+'">'+(ch==null?'--':(arrow+" "+Math.abs(ch).toFixed(2)+"%"))+'</td>'+
-    "<td>$"+fmtP(s.fair_value_mid)+'</td><td class="'+ucls+'">'+(s.upside>=0?"+":"")+up.toFixed(1)+'%</td>'+
+    "<td>$"+fmtP(s.fair_value_mid)+'</td><td class="'+ucls+'">'+(upRaw>=0?"+":"")+up.toFixed(1)+'%</td>'+
     "<td>"+fmtP(s.pe_ratio)+"</td><td>$"+fmtM(s.marketCap)+"</td><td>"+pill(s.verdict)+"</td></tr>";
   }).join("");
   var trs=tb.querySelectorAll("tr");for(var i=0;i<trs.length;i++){trs[i].onclick=function(e){if(e.target.closest("button"))return;location.href="/dashboard/"+this.getAttribute("data-t")}}var sts=tb.querySelectorAll("[data-star]");for(var g=0;g<sts.length;g++){sts[g].onclick=function(e){e.stopPropagation();var x=this.getAttribute("data-star");var w=getWL();var ix=w.indexOf(x);if(ix>=0){w.splice(ix,1);if(window.showToast)showToast("Removed "+x+" from watchlist")}else{w.push(x);if(window.showToast)showToast("Starred "+x)}setWL(w);render()}}

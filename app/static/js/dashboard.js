@@ -51,7 +51,7 @@ async function fetchData(){
       DATA=await r.json();
       if(!DATA || !DATA.ticker) throw new Error('Empty response');
       render();
-      try{ pollLive(); setInterval(pollLive,30000);}catch(e){}
+      try{ pollLive(); setInterval(pollLive,15000);}catch(e){}
       return;
     }catch(e){
       if(attempt===maxRetries){

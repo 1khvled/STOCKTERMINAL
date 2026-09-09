@@ -292,7 +292,9 @@ def _parse_json_response(content):
     raise ValueError("Model response did not contain a valid JSON object")
 
 
-def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_prompt=None, reasoning_effort=None):
+def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_prompt=None, reasoning_effort=None,
+               route="hard"):
+    """route='easy' -> Groq first (fast parse/format jobs); route='hard' -> OpenCode/Muse Spark first."""
     """Call configured providers in order and return one validated JSON object."""
     import os
     if os.environ.get("STOCKER_TEST_MODE") == "1":
@@ -408,36 +410,44 @@ def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_promp
         logger.info("  [!] %s failed: %s", provider, last_error)
         return None
 
-    now = time.time()
-    keys = GROQ_API_KEYS if GROQ_API_KEYS else ([GROQ_API_KEY] if GROQ_API_KEY else [])
-    for key_index, current_key in enumerate(keys):
-        with _COOLDOWN_LOCK:
-            cooldown_until = _RATE_LIMITED_KEYS.get(current_key, 0)
-        if now < cooldown_until:
-            logger.info(
-                "  [!] Groq key %s/%s cooling down for %ss",
-                key_index + 1,
-                len(keys),
-                int(cooldown_until - now),
-            )
-            continue
 
-        logger.info("  > [Groq primary] %s (key %s/%s)...", model or GROQ_MODEL, key_index + 1, len(keys))
-        result = call_openai_compatible(
-            "Groq",
-            GROQ_BASE_URL,
-            current_key,
-            model or GROQ_MODEL,
-            45,
-            GROQ_TEMPERATURE,
-            response_format=True,
-            extra_headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
-        )
-        if result is not None:
-            return result
-        with _COOLDOWN_LOCK:
-            _RATE_LIMITED_KEYS[current_key] = time.time() + 120
+    _route = "easy" if str(route or "").lower() == "easy" else "hard"
+    logger.info("  [route:%s] dispatching %s", _route, model or GROQ_MODEL)
+    def _attempt_groq():
+            now = time.time()
+            keys = GROQ_API_KEYS if GROQ_API_KEYS else ([GROQ_API_KEY] if GROQ_API_KEY else [])
+            for key_index, current_key in enumerate(keys):
+                with _COOLDOWN_LOCK:
+                    cooldown_until = _RATE_LIMITED_KEYS.get(current_key, 0)
+                if now < cooldown_until:
+                    logger.info(
+                        "  [!] Groq key %s/%s cooling down for %ss",
+                        key_index + 1,
+                        len(keys),
+                        int(cooldown_until - now),
+                    )
+                    continue
 
+                logger.info("  > [Groq primary] %s (key %s/%s)...", model or GROQ_MODEL, key_index + 1, len(keys))
+                result = call_openai_compatible(
+                    "Groq",
+                    GROQ_BASE_URL,
+                    current_key,
+                    model or GROQ_MODEL,
+                    45,
+                    GROQ_TEMPERATURE,
+                    response_format=True,
+                    extra_headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+                )
+                if result is not None:
+                    return result
+                with _COOLDOWN_LOCK:
+                    _RATE_LIMITED_KEYS[current_key] = time.time() + 120
+            return None
+    if _route == "easy":
+        _early = _attempt_groq()
+        if _early is not None:
+            return _early
     if OPENCODE_API_KEY:
         # Zen endpoint requires a browser UA (CF 1010 without one) and accepts
         # reasoning_effort medium|high (verified 2026-09-09: no 400s on either).
@@ -521,11 +531,15 @@ def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_promp
             logger.info("  [!] Anthropic failed: %s", exc)
 
 
+    if _route != "easy":
+        _late = _attempt_groq()
+        if _late is not None:
+            return _late
     logger.info("  [X] All configured AI providers failed or are unavailable.")
     return None
 
 
-def _call_groq(messages, model=None, max_tokens=None, max_retries=1, reasoning_effort=None):
+def _call_groq(messages, model=None, max_tokens=None, max_retries=1, reasoning_effort=None, route="hard"):
     # Simply redirect to unified _call_llm
     # We will pass the system prompt if we can extract it to support Anthropic
     system_prompt = None
@@ -533,7 +547,7 @@ def _call_groq(messages, model=None, max_tokens=None, max_retries=1, reasoning_e
         if msg.get("role") == "system":
             system_prompt = msg.get("content")
             break
-    return _call_llm(messages, model=model, max_tokens=max_tokens, max_retries=max_retries, system_prompt=system_prompt, reasoning_effort=reasoning_effort)
+    return _call_llm(messages, model=model, max_tokens=max_tokens, max_retries=max_retries, system_prompt=system_prompt, reasoning_effort=reasoning_effort, route=route)
 
 
 from datetime import datetime
@@ -867,7 +881,7 @@ def generate_analysis(stock_data):
 
     def run_part_1():
         logger.info(f"  > Attempting AI Part 1/2 gpt-oss-120b Fundamentals & Valuation (thinking=default)...")
-        res = _call_groq(messages_1, model=GROQ_MODEL, max_tokens=4000)
+        res = _call_groq(messages_1, model=GROQ_MODEL, max_tokens=4000, route="hard")
         if res is None:
             logger.info("  ⚠️ Part 1 failed or rate-limited. Falling back to fast secondary model...")
             res = _call_groq(messages_1, model="openai/gpt-oss-20b", max_tokens=4000)
@@ -875,7 +889,7 @@ def generate_analysis(stock_data):
 
     def run_part_2():
         logger.info(f"  > Attempting AI Part 2/2 gpt-oss-120b Macro/Sentiment/Risk (thinking=default)...")
-        res = _call_groq(messages_2, model=GROQ_MODEL, max_tokens=4000)
+        res = _call_groq(messages_2, model=GROQ_MODEL, max_tokens=4000, route="hard")
         if res is None:
             logger.info("  ⚠️ Part 2 failed or rate-limited. Falling back to fast secondary model...")
             res = _call_groq(messages_2, model="openai/gpt-oss-20b", max_tokens=4000)
@@ -912,7 +926,7 @@ def generate_analysis(stock_data):
             {"role": "user", "content": f"Review this analysis and provide your Red Team Audit:\n\n{json.dumps(base_analysis, indent=2)}"}
         ]
         # CRO red-team uses high reasoning effort for deepest adversarial reasoning
-        res = _call_llm(messages_3, model=GROQ_MODEL, max_tokens=2500, system_prompt=SYSTEM_PROMPT_3, reasoning_effort="high")
+        res = _call_llm(messages_3, model=GROQ_MODEL, max_tokens=2500, system_prompt=SYSTEM_PROMPT_3, reasoning_effort="high", route="hard")
         if res is None:
             res = _call_groq(messages_3, model="openai/gpt-oss-20b", max_tokens=1000)
         return res
@@ -2024,7 +2038,7 @@ def get_macro_impact(stock_data, macro_snapshot=None):
             {"role": "system", "content": SYSTEM_PROMPT_MACRO},
             {"role": "user", "content": user_content},
         ]
-        res = _call_llm(messages, model=GROQ_MODEL, max_tokens=1500, system_prompt=SYSTEM_PROMPT_MACRO)
+        res = _call_llm(messages, model=GROQ_MODEL, max_tokens=1500, system_prompt=SYSTEM_PROMPT_MACRO, route="hard")
         if isinstance(res, dict) and res:
             return _normalize_macro_payload(res, ticker)
         return _macro_rule_fallback(sd, snap)

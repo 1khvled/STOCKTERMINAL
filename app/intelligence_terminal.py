@@ -53,6 +53,7 @@ def _call_ai_json(prompt, fallback):
             ],
             max_tokens=1200,
             max_retries=1,
+            route="hard",
         )
         return result if isinstance(result, dict) else deepcopy(fallback)
     except Exception:

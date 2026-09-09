@@ -415,7 +415,7 @@ def screener_ai():
     ]
     try:
         from ai_engine import _call_llm
-        filter_criteria = _call_llm(messages, max_tokens=500, temperature=0.0) or {}
+        filter_criteria = _call_llm(messages, max_tokens=500, temperature=0.0, route="easy") or {}
     except Exception as e:
         logger.info(f"Screener AI parser failed, using deterministic parser: {e}")
 
@@ -1386,7 +1386,7 @@ def _fetch_quotes_concurrent(tickers, with_vol=False):
 def api_live_quotes():
     tickers = [t.strip().upper() for t in request.args.get("tickers", "").split(",") if t.strip()]
     if not tickers:
-        tickers = [row["ticker"] for row in _catalog_rows()[:25]]
+        tickers = [row["ticker"] for row in _catalog_rows()]
     tickers = [t for t in tickers[:50] if is_valid_ticker(t)]
     if os.environ.get("STOCKER_TEST_MODE") == "1":
         quotes = []

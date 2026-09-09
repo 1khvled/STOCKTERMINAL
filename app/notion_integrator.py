@@ -377,7 +377,7 @@ def auto_generate_notion_page(ticker):
     ]
     
     # Retrieve qualitative draft
-    res_json = _call_llm(messages, max_tokens=3000, system_prompt=system_prompt)
+    res_json = _call_llm(messages, max_tokens=3000, system_prompt=system_prompt, route="hard")
     if not res_json or not isinstance(res_json, dict):
         print(f"  [-] Failed to generate AI qualitative research for '{ticker}'. Skipping Notion page creation.")
         return None
