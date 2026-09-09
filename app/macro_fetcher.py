@@ -248,7 +248,7 @@ def get_yield_curve():
         return fallback
 
 
-def _build_risk_gauges(vix, dollar, gold, oil, hyg, tlt, lqd, spx, source="yfinance"):
+def _build_risk_gauges(vix, dollar, gold, oil, hyg, tlt, lqd, spx, changes=None, source="yfinance"):
     """Pure builder: identical keys/shape to get_risk_gauges success path. No network."""
     try:
         hyg_tlt = round(float(hyg) / float(tlt), 4) if tlt else round(FALLBACK_HYG / FALLBACK_TLT, 4)
@@ -274,10 +274,32 @@ def _build_risk_gauges(vix, dollar, gold, oil, hyg, tlt, lqd, spx, source="yfina
         "hyg_tlt_ratio": hyg_tlt,
         "hyg_lqd_ratio": hyg_lqd,
         "credit_spread_proxy": spread_proxy,
+        "changes": changes if isinstance(changes, dict) else {},
         "note": "credit_spread_proxy = LQD/HYG (rises when high-yield lags investment-grade).",
         "source": source,
         "asof": _utcnow_iso(),
     }
+
+
+def _fetch_day_change(symbol):
+    """Decimal day change for a Yahoo symbol via 5d history. None on any failure."""
+    try:
+        import yfinance as yf
+        try:
+            hist = yf.Ticker(symbol).history(period="5d", auto_adjust=False)
+        except TypeError:
+            hist = yf.Ticker(symbol).history(period="5d")
+        if hist is None or hist.empty or "Close" not in hist.columns:
+            return None
+        closes = hist["Close"].dropna()
+        if len(closes) < 2:
+            return None
+        cur, prev = float(closes.iloc[-1]), float(closes.iloc[-2])
+        if not (math.isfinite(cur) and math.isfinite(prev)) or not prev:
+            return None
+        return (cur - prev) / prev
+    except Exception:
+        return None
 
 
 def get_risk_gauges():
@@ -302,7 +324,18 @@ def get_risk_gauges():
             tlt = f_tlt.result()
             lqd = f_lqd.result()
             spx = f_spx.result()
-        return _build_risk_gauges(vix, dollar, gold, oil, hyg, tlt, lqd, spx, source="yfinance")
+            syms = {"vix": "^VIX", "dollar": "DX-Y.NYB", "gold": "GC=F", "oil": "CL=F",
+                    "hyg": "HYG", "tlt": "TLT", "lqd": "LQD", "spx": "^GSPC"}
+            fc = {k: ex.submit(_fetch_day_change, s) for k, s in syms.items()}
+            changes = {}
+            for k, f in fc.items():
+                try:
+                    v = f.result()
+                    if v is not None and math.isfinite(v):
+                        changes[k] = round(v, 4)
+                except Exception:
+                    pass
+        return _build_risk_gauges(vix, dollar, gold, oil, hyg, tlt, lqd, spx, changes=changes, source="yfinance")
     except Exception as e:
         logger.info(f"[macro] get_risk_gauges failed: {e}")
         fallback = _mock_risk_gauges()

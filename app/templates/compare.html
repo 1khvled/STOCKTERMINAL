@@ -99,6 +99,14 @@ async function load(){
   const full={};
   await Promise.allSettled(rows.map(s=>fetch("/api/stock/"+s.ticker).then(r=>r.ok?r.json():null).then(d=>{if(d)full[s.ticker]=d;})));
   const data=rows.map(s=>({sum:s,det:(full[s.ticker]||{}).key_metrics||{}}));
+  try{
+    const lr=await fetch("/api/stocks/live-quotes?tickers="+tickers.join(","));const lj=await lr.json();
+    const lm={};(lj.quotes||[]).forEach(q=>{lm[q.ticker]=q;});
+    data.forEach(s=>{const q=lm[s.sum.ticker];
+      if(q&&q.price&&q.source&&q.source.charCodeAt(0)===121){
+        s.sum=Object.assign({},s.sum,{current_price:q.price,
+          upside:(s.sum.fair_value_mid&&q.price)?((s.sum.fair_value_mid-q.price)/q.price):s.sum.upside});}});
+  }catch(e){}
   if(!data.length){
     $("empty").style.display="block";$("result").style.display="none";
     $("msg").innerText="None of these are analyzed yet. Go to the hub and ANALYZE first: "+missing.join(", ");
@@ -158,7 +166,8 @@ function renderRadar(data){
   const cv=$("cmp-radar");if(!cv||typeof Chart==="undefined")return;
   const norm=(arr)=>{const ns=arr.filter(v=>typeof v==="number"&&Number.isFinite(v));if(ns.length<2)return arr.map(()=>50);
     const mn=Math.min(...ns),mx=Math.max(...ns);if(mx===mn)return arr.map(()=>50);
-    return arr.map(v=>(typeof v!=="number"||!Number.isFinite(v))?0:Math.round((v-mn)/(mx-mn)*100));};
+    const srt=[...ns].sort((a,b)=>a-b),med=srt[Math.floor(srt.length/2)],medN=Math.round((med-mn)/(mx-mn)*100);
+    return arr.map(v=>(typeof v!=="number"||!Number.isFinite(v))?medN:Math.round((v-mn)/(mx-mn)*100));};
   const ups=data.map(s=>s.sum.upside),roe=data.map(s=>s.sum.returnOnEquity),gr=data.map(s=>s.sum.revenueGrowth),
         alt=data.map(s=>num(s.sum.altman_z)),pio=data.map(s=>s.sum.piotroski_f);
   if(window._cmpRadar)window._cmpRadar.destroy();

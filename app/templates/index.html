@@ -185,7 +185,7 @@ function isBuy(v){return (v||"").toUpperCase().indexOf("BUY")>=0}
 function isSell(v){return (v||"").toUpperCase().indexOf("SELL")>=0}
 var liveMap={};
 function rowLive(t){return liveMap[t]}
-function isLive(q){return q&&q.price&&q.source&&q.source.charCodeAt(0)===121}function effChg(s){var l=rowLive(s.ticker);if(isLive(l)&&s.current_price)return (l.price-s.current_price)/s.current_price*100;return null}
+function isLive(q){return q&&q.price&&q.source&&q.source.charCodeAt(0)===121}function effChg(s){var l=rowLive(s.ticker);if(isLive(l)&&l.pct!=null&&isFinite(l.pct))return l.pct*100;return null}
 function getWL(){try{return JSON.parse(localStorage.getItem("stocker_watchlist"))||[]}catch(e){return[]}}
 function setWL(w){try{localStorage.setItem("stocker_watchlist",JSON.stringify(w))}catch(e){}}
 function starLit(x){return getWL().indexOf(x)>=0}
@@ -209,10 +209,11 @@ function render(){
     "<td>"+fmtP(s.pe_ratio)+"</td><td>$"+fmtM(s.marketCap)+"</td><td>"+pill(s.verdict)+"</td></tr>";
   }).join("");
   var trs=tb.querySelectorAll("tr");for(var i=0;i<trs.length;i++){trs[i].onclick=function(e){if(e.target.closest("button"))return;location.href="/dashboard/"+this.getAttribute("data-t")}}var sts=tb.querySelectorAll("[data-star]");for(var g=0;g<sts.length;g++){sts[g].onclick=function(e){e.stopPropagation();var x=this.getAttribute("data-star");var w=getWL();var ix=w.indexOf(x);if(ix>=0){w.splice(ix,1);if(window.showToast)showToast("Removed "+x+" from watchlist")}else{w.push(x);if(window.showToast)showToast("Starred "+x)}setWL(w);render()}}
+  var liveUp=function(s){var l=rowLive(s.ticker);if(isLive(l)&&l.price&&s.fair_value_mid)return (s.fair_value_mid-l.price)/l.price;return (s.upside||0);};
   var buys=stocks.filter(function(s){return isBuy(s.verdict)}).length;
-  var avg=stocks.length?stocks.reduce(function(a,s){return a+(s.upside||0)},0)/stocks.length:0;
+  var avg=stocks.length?stocks.reduce(function(a,s){return a+liveUp(s)},0)/stocks.length:0;
   $("st-cov").textContent=stocks.length;$("st-buy").textContent=buys;$("st-up").textContent=(avg>=0?"+":"")+(avg*100).toFixed(1)+"%";
-  var picks=stocks.filter(function(s){return isBuy(s.verdict)}).sort(function(a,b){return (b.upside||0)-(a.upside||0)});
+  var picks=stocks.filter(function(s){return isBuy(s.verdict)}).sort(function(a,b){return liveUp(b)-liveUp(a)});
   var pk=picks[0]||stocks.slice().sort(function(a,b){return (b.upside||0)-(a.upside||0)})[0];
   if(pk)$("pick").innerHTML='<a href="/dashboard/'+esc(pk.ticker)+'"><div class="bigpick"><div style="display:flex;justify-content:space-between;align-items:center"><span class="pt">'+esc(pk.ticker)+'</span>'+pill(pk.verdict)+'</div><div style="font-size:12px;color:var(--muted);margin:4px 0">'+esc(pk.company_name||"")+'</div><div style="font-family:var(--mono);font-size:12px">Fair <b>$'+fmtP(pk.fair_value_mid)+'</b> &nbsp;Upside <b class="'+(pk.upside>=0?"up":"dn")+'">'+(pk.upside>=0?"+":"")+((pk.upside||0)*100).toFixed(1)+'%</b> &nbsp;Conf <b>'+(pk.confidence||"--")+'%</b></div></div></a>';
 }
@@ -240,7 +241,7 @@ async function refreshLive(first){
   try{
     var mv=$("movers");
     var g=stocks.slice().sort(function(a,b){return ((effChg(b)==null?-9999:effChg(b))-(effChg(a)==null?-9999:effChg(a)))});
-    if(g.length){mv.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 18px">'+g.slice(0,8).map(function(s,i){var e=effChg(s),c=e==null?"flat":(e>=0?"up":"dn"),d=e==null?'--':((e>=0?"+":"")+e.toFixed(2)+"%");return "<div> #"+(i+1)+' <a href="/dashboard/'+esc(s.ticker)+'" style="font-family:var(--mono);font-weight:700">'+esc(s.ticker)+'</a> <span class="'+c+'">'+d+'</span> <span style="color:var(--dim)">| upside '+(((s.upside||0)*100).toFixed(0))+'%'+'</span></div>'}).join("")+"</div>"}
+    if(g.length){mv.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 18px">'+g.slice(0,8).map(function(s,i){var e=effChg(s),c=e==null?"flat":(e>=0?"up":"dn"),d=e==null?'--':((e>=0?"+":"")+e.toFixed(2)+"%");return "<div> #"+(i+1)+' <a href="/dashboard/'+esc(s.ticker)+'" style="font-family:var(--mono);font-weight:700">'+esc(s.ticker)+'</a> <span class="'+c+'">'+d+'</span> <span style="color:var(--dim)">| upside '+((function(){var l=rowLive(s.ticker);if(isLive(l)&&l.price&&s.fair_value_mid)return ((s.fair_value_mid-l.price)/l.price*100);return ((s.upside||0)*100);})().toFixed(0))+'%'+'</span></div>'}).join("")+"</div>"}
   }catch(e3){}
   try{render();}catch(e4){console.error("render failed",e4);}
   try{
@@ -289,7 +290,7 @@ loadStocks();refreshLive(true);loadPortfolio();loadSys();setInterval(refreshLive
 async function movers(){try{
   var r=await fetch("/api/market/movers");var j=await r.json();
   function col(t,rows){return '<div><div style="font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:4px">'+t+'</div>'+
-    rows.map(function(q){var up=q.pct>=0;return '<div><a href="/dashboard/'+q.ticker+'" style="font-family:var(--mono);font-weight:700">'+q.ticker+'</a> <span class="'+(up?"up":"dn")+'">'+(up?"+":"")+q.pct.toFixed(2)+'%</span></div>';}).join("")+'</div>';}
+    rows.map(function(q){var up=q.pct>=0;return '<div><a href="/dashboard/'+q.ticker+'" style="font-family:var(--mono);font-weight:700">'+q.ticker+'</a> <span class="'+(up?"up":"dn")+'">'+(up?"+":"")+(q.pct*100).toFixed(2)+'%</span></div>';}).join("")+'</div>';}
   if((j.gainers||[]).length){mv.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 18px">'+col("GAINERS",j.gainers)+col("LOSERS",j.losers)+col("ACTIVE",j.actives)+'</div>';}
 }catch(e){}}
 movers();setInterval(movers,60000);

@@ -1388,7 +1388,7 @@ def fetch_peers_data(ticker_symbol, company_name):
         # Static peers for every locally tracked ticker - avoids one OpenRouter
         # discovery call per fresh ticker (cost-free, Yahoo-queryable symbols).
         PEER_OVERRIDES = {
-            "MU": ["AVGO", "MRVL", "INTC", "NXPI"],
+            "MU": ["SNDK", "WDC", "STX", "005930.KS", "000660.KS"],
             "AAPL": ["MSFT", "GOOGL", "META", "AVGO"],
             "MSFT": ["AAPL", "GOOGL", "ORCL", "AMZN"],
             "NVDA": ["AMD", "INTC", "AVGO", "QCOM"],
@@ -1425,7 +1425,7 @@ def fetch_peers_data(ticker_symbol, company_name):
             "NOW": ["CRM", "WDAY", "SNOW", "MSFT"],
             "ORCL": ["MSFT", "SAP", "IBM", "CRM"],
             "QCOM": ["AVGO", "ARM", "NXPI", "TXN"],
-            "SNDK": ["MU", "WDC", "STX", "NXPI"],
+            "SNDK": ["MU", "WDC", "STX", "000660.KS", "005930.KS"],
             "WMT": ["COST", "TGT", "AMZN", "DG"],
         }
 
@@ -1468,21 +1468,28 @@ def fetch_peers_data(ticker_symbol, company_name):
 
         peer_data = []
         for p in peers:
-            t = yf.Ticker(p)
+            i = {}
             try:
-                i = t.info
-            except Exception:
+                i = _yf_with_retry(lambda p=p: yf.Ticker(p).info, label=f"peer {p}")
+                if not isinstance(i, dict) or not i.get("shortName"):
+                    i = {}
+            except Exception as e:
+                logger.info(f"  [!] Peer {p} info failed after retries: {e}")
                 i = {}
+            try:
+                time.sleep(1)
+            except Exception:
+                pass
             peer_data.append({
                 "ticker": p,
-                "name": i.get("shortName", p),
-                "pe": i.get("trailingPE", "N/A"),
-                "fwd_pe": i.get("forwardPE", "N/A"),
-                "ps": i.get("priceToSalesTrailing12Months", "N/A"),
-                "pb": i.get("priceToBook", "N/A"),
-                "margins": i.get("profitMargins", "N/A"),
-                "rev_growth": i.get("revenueGrowth", "N/A"),
-                "rev_growth_pct": (i.get("revenueGrowth") * 100) if isinstance(i.get("revenueGrowth"), (int, float)) else "N/A"
+                "name": i.get("shortName") or p,
+                "pe": i.get("trailingPE"),
+                "fwd_pe": i.get("forwardPE"),
+                "ps": i.get("priceToSalesTrailing12Months"),
+                "pb": i.get("priceToBook"),
+                "margins": i.get("profitMargins"),
+                "rev_growth": i.get("revenueGrowth"),
+                "rev_growth_pct": (i.get("revenueGrowth") * 100) if isinstance(i.get("revenueGrowth"), (int, float)) else None
             })
         return peer_data
     except Exception as e:

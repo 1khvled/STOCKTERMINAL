@@ -92,7 +92,7 @@
     { keys: ["dollar", "dxy", "dx_y"], label: "Dollar", invert: false },
     { keys: ["gold", "gold_price", "xau"], label: "Gold", invert: false },
     { keys: ["oil", "wti", "crude", "brent"], label: "Oil", invert: false },
-    { keys: ["hyg_tlt", "credit", "hyg", "tlt", "credit_proxy"], label: "HYG/TLT", invert: false }
+    { keys: ["hyg_tlt_ratio", "hyg_tlt", "credit", "hyg", "tlt", "credit_proxy"], label: "HYG/TLT", invert: false }
   ];
 
   function renderRegime(regime) {
@@ -105,7 +105,7 @@
     }
     setText(label, regime.label || "Unknown regime");
     var sc = num(regime.score);
-    setText(score, sc == null ? "" : ("score " + sc.toFixed(1) + " / 100"));
+    setText(score, sc == null ? "" : ("votes " + sc.toFixed(0) + " (heuristic)"));
     var rs = regime.reasons || [];
     if (list) {
       list.innerHTML = rs.length
@@ -134,7 +134,7 @@
     var y3m = null, y10 = null, i;
     for (i = 0; i < points.length; i++) {
       var l = String(points[i].label || "").toUpperCase().replace(/\s/g, "");
-      if (l === "3M" || l === "3MO") y3m = num(points[i].yield);
+      if (l === "3M" || l === "3MO" || l === "13W" || l === "13WK") y3m = num(points[i].yield);
       if (l === "10Y" || l === "10YR") y10 = num(points[i].yield);
     }
     if (y3m == null || y10 == null) return null;
@@ -149,7 +149,7 @@
       if (empty) empty.style.display = "block";
       setText(badge, "--");
       try { if (badge) badge.className = "mc-badge"; } catch (e) {}
-      setText(spread, "10Y-3M spread: --");
+      setText(spread, "10Y-13W spread: --");
       return;
     }
     if (empty) empty.style.display = "none";
@@ -158,7 +158,7 @@
     if (sp != null && !inv && sp < 0) inv = true;
     setText(badge, inv ? "INVERTED" : "NORMAL");
     try { if (badge) badge.className = "mc-badge " + (inv ? "inv" : "norm"); } catch (e) {}
-    setText(spread, "10Y-3M spread: " + (sp == null ? "--" : ((sp >= 0 ? "+" : "") + sp.toFixed(2) + " pp")));
+    setText(spread, "10Y-13W spread: " + (sp == null ? "--" : ((sp >= 0 ? "+" : "") + sp.toFixed(2) + " pp")));
     if ((typeof Chart === "undefined") || !cv) return;
     try {
       if (window._mcCurve) window._mcCurve.destroy();
@@ -192,6 +192,9 @@
     var g = gauges || {};
     box.innerHTML = GAUGES.map(function (def) {
       var raw = pick(g, def.keys);
+      if (raw != null && typeof raw !== "object" && g.changes) {
+        for (var _gk in g.changes) { if (g[_gk] === raw) { raw = { value: raw, change_pct: g.changes[_gk] }; break; } }
+      }
       var n = normGauge(raw);
       var ch = fmtChg(n.chg);
       var cls = ch.c;
