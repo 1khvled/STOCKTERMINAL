@@ -120,7 +120,11 @@
 ### 2026-09-09 — Compare Page Rebuild (was 100% broken)
 - **6f34200** `compare rebuild` — Root cause: JS read `data.results`/`data.status`, API sends `{stocks}` → page ALWAYS error-toasted, plus purple PREMIUM theme + `dY"` mojibake buttons + hand-drawn canvas radar. Rebuilt dashboard-native (green StockerAI, `dashboard_new.css`): ticker chips + add/remove (max 6) + URL sync, grouped matrix (Valuation/Multiples incl. live trail+fwd P/E via `/api/stock` enrich/Quality+Growth/Risk) with green winner-highlight per row, Chart.js quality radar (normalized), fair-vs-price bars, missing-ticker chips with hub guidance, showToast guard. Verification: `/compare?tickers=AAPL,MSFT,CRM` 200, no PREMIUM, radar present.
 
+### 2026-09-09 — Yahoo Gaps Batch (Options/Insiders/Holders/Earnings/ESG/Movers)
+- **7383882** `yahoo gaps batch` — New endpoints: `/api/stock/<t>/insiders` (live top-15, schema-proof, Start-Date fix), `/holders` (institutions/funds/major), `/earnings` (calendar + surprise history), `/esg` (scores or empty), `/api/market/movers` (live gainers/losers/actives across catalog). New FLOWS tab (options put/call+IV read, earnings surprise table, insiders table, holders, ESG bars). Screener +4 criteria (ROA/rev-growth/op-margin/current-ratio, backend + UI wired). Hub movers upgraded to 3-way split (append-only script). Fixed NaN closes (dropna, was breaking JSON.parse) in live-quotes + movers. Skipped per user: daily OHLCV history, transcripts. Verification: all endpoints 200 live (insiders Conway/Harris sales, Vanguard holders, CRM earnings 2026-12-02, movers no NaN).
+
 ### 2026-09-09 — Context Timeline (This File)
+
 
 
 
@@ -164,6 +168,7 @@
 | 2026-09-09 | muse-spark-1.3 | Financials Yahoo stats | be9c106 | dashboard.js/html |
 | 2026-09-09 | muse-spark-1.3 | Financials mega div/earn/peers | b0df0c9 | server.py, dashboard.js/html |
 | 2026-09-09 | muse-spark-1.3 | Compare rebuild | 6f34200 | compare.html |
+| 2026-09-09 | muse-spark-1.3 | Yahoo gaps batch | 7383882 | server.py, dashboard.js/html, index.html, screener.html |
 
 ---
 
