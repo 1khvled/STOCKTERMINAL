@@ -155,7 +155,11 @@
 ### 2026-09-09 — All-Dashboards Stuck Loading (One Missing Paren)
 - **b23307c** `fix all-dashboards stuck loading` — Follow-up: stuck loading hit EVERY ticker, not just FIG. Proved via headless chromium console capture: `PAGEERROR: missing ) after argument list`, zero failed requests. Root cause: dropped `)` in earnings-trend chart datasets (`:[]}` instead of `:[])}`) killed the whole 856-line script at parse time. Fixed (1 char), masked-esprima parse now SYNTAX OK, FIG+AAPL heroes render with zero console errors. Lesson: JS edits need a parse gate (esprima masked for `?.`/`??`) before commit.
 
+### 2026-09-09 — Frozen Prices Were Browser Cache (Proven Live 40/40)
+- **58e3ba0** `no-store on HTML pages` — User still saw static prices while headless-chromium proof showed label `live 40/40`, MU $1000.26 live +4.62% day, upside +54.5% vs live, zero page errors. Root cause: no-store hook covered `/api/*` only; hub/dashboard HTML (inline JS, no versioning) was served from browser cache running the OLD top-25-era code. Extended hook to all `text/html` responses (static assets keep caching). Restart used listener-socket discipline (killed 21596 only). Verification: HUB 200 CC:no-store, 43 passed.
+
 ### 2026-09-09 — Context Timeline (This File)
+
 
 
 
@@ -221,6 +225,7 @@
 | 2026-09-09 | lead | Live-everywhere hardening | a6b6e1d | server.py, index.html, test_perf.py |
 | 2026-09-09 | lead | Stuck-loading + ports | cbb8922 | server.py, dashboard.js, kill_server.cmd, test_adversarial.py |
 | 2026-09-09 | lead | All-dashboards paren fix | b23307c | dashboard.js |
+| 2026-09-09 | lead | HTML no-store vs cache | 58e3ba0 | server.py |
 
 ---
 
