@@ -167,7 +167,11 @@
 ### 2026-09-09 — Interactive Lab + AI Peers (Local Only, No Push)
 - **1f0cd05** `lab interactive + AI peer insight` + **65e2308** `peers-ai test` — LAB was static/stale: now live price join, WACC/growth/terminal sliders posting to recalculate with proportional case rescale + persistent confirmation, bear-bull range bar with price/base markers, dcf_inputs in API. AI peers: new `GET /api/peers/ai/<t>` (Muse Spark first via hard route, rules fallback, 1h cache) ranking peers + picking focus metrics; dashboard PEERS tab shows the AI card. Debugging saga: recalc looked dead but handler worked - re-render wiped its own message (fixed by re-setting after render). NO PUSH per user order (commits local only; remote untouched). Verification: headless chromium full loop (live $1000.26, recalc $248.63->$187.40 rescaled, peer insight rendered, zero page errors), 45 green.
 
+### 2026-09-09 — External Audit Fixes P1-P2 (Local Only)
+- **06d6b29** `audit fixes P1-P2` — Independent browser audit worked through: P1 portfolio Add VERIFIED working live (200) but waited on full LLM call: mutations now instant sync (`include_ai=False`), AI via on-demand review button + `?ai=` param, Add has pending/disabled states + 1-100 validation + labels; roundtrip proven, test AAPL residue removed. P1 stream: boot print first (was silent 5-15s on imports), nonzero exit on empty result (kills NOTATICKER redirect loop), dup-ticker guard, upfront yfinance existence probe (delist-aware, network blips proceed), 10-min watchdog, Cancel button (server already killed on disconnect), clearer crash message. P2/trust/UX: hub clock ET + yfinance-15s disclosure, sortable headers with arrows/aria/keyboard, RUN button labeled, compare h1, prominent ESTIMATED badge on earnings page. Out of scope noted: full job queue (single-user SSE+cancel suffices), portfolio analytics expansion, mobile layouts, transcripts. Verification: 45 green, NOTATICKER fails fast friendly, add 0.1s.
+
 ### 2026-09-09 — Context Timeline (This File)
+
 
 
 
@@ -241,6 +245,7 @@
 | 2026-09-09 | lead | Research split pages | a948f6f | server.py, research.html, dashboard.js/html, test_adversarial.py |
 | 2026-09-09 | 2 subagents + lead | Fake-numbers purge x24 | a92a1af | data/macro_fetcher, dashboard.js, macro.js, compare.html, index.html |
 | 2026-09-09 | lead | Interactive lab + AI peers | 1f0cd05, 65e2308 | intelligence_terminal.py, server.py, intel_pages.js, dashboard.js/html |
+| 2026-09-09 | lead | Audit fixes P1-P2 | 06d6b29 | intelligence_terminal.py, server.py, stock_analyzer.py, index.html, portfolio.html, intel/compare/earnings |
 
 ---
 
