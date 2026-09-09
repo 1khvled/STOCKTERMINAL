@@ -108,6 +108,19 @@ def test_dashboard_404_for_unknown_ticker(base_url):
     resp = requests.get(f"{base_url}/dashboard/ZZZZNOTFOUND123", timeout=5)
     assert resp.status_code in (400, 404)
 
+def test_peers_ai_contract(base_url):
+    resp = requests.get(f"{base_url}/api/peers/ai/MU", timeout=20)
+    assert resp.status_code == 200
+    j = resp.json()
+    assert isinstance(j.get("focus_metrics"), list) and j["focus_metrics"]
+    assert isinstance(j.get("ranked_peers"), list) and j["ranked_peers"]
+    assert isinstance(j.get("readout"), str) and j["readout"]
+    resp = requests.get(f"{base_url}/api/peers/ai/ZZZZQ", timeout=5)
+    assert resp.status_code == 404
+    resp = requests.get(f"{base_url}/api/peers/ai/!!!INVALID", timeout=5)
+    assert resp.status_code == 400
+
+
 def test_research_pages(base_url):
     resp = requests.get(f"{base_url}/research/CRM/briefing", timeout=5)
     assert resp.status_code == 200
