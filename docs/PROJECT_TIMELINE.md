@@ -114,7 +114,11 @@
 ### 2026-09-09 — Financials Yahoo Stats Block
 - **be9c106** `financials Yahoo stats` — Added Key Statistics grid (Valuation: mcap/EV/P/E fwd/PEG/P/S/P/B/EV; Profitability: margins/ROE/ROA; Balance: cash/debt/D-E/current/quick/book; Cash flow: OCF/FCF/EBITDA/dividend; Price history: beta/52W/consensus; Shares: out/insiders/short/analysts), peer P/E compare table (you vs 5 peers vs 5Y median), growth rates (revenue/earnings/quarterly) + revenue-vs-net-income bar chart (`app/static/js/dashboard.js` renderFinExtra, `app/templates/dashboard.html` panel-financials). Verification: `/dashboard/CRM` 200 has keystats/pe-compare/revChart, all helpers present.
 
+### 2026-09-09 — Financials Mega (Dividends/Earnings/Peers)
+- **b0df0c9** `financials mega` — New `GET /api/stock/<t>/dividends` (live yfinance history: yearly totals, recent payouts, frequency + local yield/rate/payout) and `GET /api/peers/sector/<t>` (sector P/E median + mates from local catalog, no LLM). Dashboard: Dividends card + annual bars (CRM: quarterly, $1.76 rate), Analyst Target range bar (low-mean-high + price/mean markers, 54 analysts for CRM), Quarterly Earnings Trend chart (revenue bars + NI/EPS lines), full peers table (margin/growth cols, best/worst highlight) + P/E bar chart + sector median row (Tech 25 tracked, median 42.3x), 50/200D MA filled from weekly compact. Verification: DIV/SECTOR/DASH all 200 live.
+
 ### 2026-09-09 — Context Timeline (This File)
+
 
 
 
@@ -154,6 +158,7 @@
 | 2026-09-09 | muse-spark-1.3 | Phase D infra/tests/docs | ecaa00b | .gitignore, requirements-dev.txt, pytest.ini, start/kill cmds, TEST_INFRA.md |
 | 2026-09-09 | muse-spark-1.3 | Financials+SEC Yahoo level | 2b7da9f | dashboard.js/html, intel_pages.js |
 | 2026-09-09 | muse-spark-1.3 | Financials Yahoo stats | be9c106 | dashboard.js/html |
+| 2026-09-09 | muse-spark-1.3 | Financials mega div/earn/peers | b0df0c9 | server.py, dashboard.js/html |
 
 ---
 
