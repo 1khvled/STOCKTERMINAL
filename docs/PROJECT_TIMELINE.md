@@ -161,7 +161,11 @@
 ### 2026-09-09 — Research Split (Risks Main + 3 Pages)
 - **a948f6f** `research split` — Probed notion keys: 33 tickers have all 5 subpages. RISKS tab now leads with Notion Risk Register HTML as main card (AI factors kept below). New `/research/<ticker>/{briefing,earnings,overview}` standalone pages (one shared template: subpage pills, TOC, search, stats; overview resolves price_review->overview; unknown ticker redirects to hub auto-analyze per rule). Tests: research 200/404/302/400 contract. Verification: 3 CRM pages 200, 27 adversarial green.
 
+### 2026-09-09 — Fake-Numbers Purge x24 (2 Subagents)
+- **a92a1af** `fake-numbers purge` — 2 subagents (integrity audit found 24 issues MU/CRM/AAPL-traced; peer intel verified memory universe live). Fixed: TRUE day change (was live-vs-stored drift, MU sign flipped to correct -1.61%); live upside recomputed on dashboard poll + hub avg/pick/movers/compare; 52W 100x scale; HYG/TLT ratio key; 13W spread label; votes-not-/100; always as-of chip (button from 7d); pre-tax dup dropped; MA50/200 (10/40-wk) labels; targets as-of; dividend source row; model-score wording; sector universe-median label; gauge day-change backend+UI; MU/SNDK peers -> Samsung/Hynix/SNDK/WDC/STX (peer `.info` wrapped in retry+sleep, None-not-N/A, refreshed MU+SNDK records on disk); compare live join + radar missing->median. Open: revenueGrowth 345% left as upstream data (not edited); q-stats stored-tag + mktcap-live recompute noted for next pass. Verification: headless chromium MU $1000.26 -1.61% +54.5%, compare MU-vs-SNDK live multiples, 44 green.
+
 ### 2026-09-09 — Context Timeline (This File)
+
 
 
 
@@ -231,6 +235,7 @@
 | 2026-09-09 | lead | All-dashboards paren fix | b23307c | dashboard.js |
 | 2026-09-09 | lead | HTML no-store vs cache | 58e3ba0 | server.py |
 | 2026-09-09 | lead | Research split pages | a948f6f | server.py, research.html, dashboard.js/html, test_adversarial.py |
+| 2026-09-09 | 2 subagents + lead | Fake-numbers purge x24 | a92a1af | data/macro_fetcher, dashboard.js, macro.js, compare.html, index.html |
 
 ---
 
