@@ -129,7 +129,13 @@
 ### 2026-09-09 — Fiscal.ai Copy (Ratios + Facts)
 - **7f292ce** `fiscal.ai copy` — Read fiscal.ai dashboard + MSFT overview (tab structure, stats grid sections). Copied what our data supports: new `GET /api/stock/<t>/profile` (live officers/website/employees; CRM: Benioff/Washington/Harris), new RATIOS tab (button + panel, keys 1-9 updated) with Company Facts box (name/sector/website/leadership) and 8-section stats grid: Profile, Margins, Returns-avg (ROA/ROE/ROIC from annual statements), Valuation TTM (+P/FCF, EV/GP), Valuation NTM (target/fwd P-E/PEG), Health (+EBIT/interest coverage), Growth CAGR (3Y/span rev+EPS+FCF + fwd), Dividends. Skipped: Segments/KPIs + Research tabs (no data source). Verification: PROFILE 200 live officers, dashboard has ratios tab + ratio-grid + fact-box.
 
+### 2026-09-09 — Macro Fundamentals x4 Subagents
+- **a4a96b9** `macro fundamentals x4 agents` — 4 parallel agents with strict file ownership: (1) data created `app/macro_fetcher.py` (yfinance-only: ^IRX/^FVX/^TNX/^TYX curve, VIX/DXY/gold/oil/HYG/TLT, Fed heuristic labeled NOT-FOMC, regime scorer, 1h atomic cache, TEST_MODE mocks); (2) AI appended `SYSTEM_PROMPT_MACRO` + `get_macro_impact` with sector-bucket rules fallback to `app/ai_engine.py` (+232/-0); (3) UI created `app/templates/macro.html` + `app/static/js/macro.js` (regime banner, curve chart, gauges, ticker impact, ?ticker= link) + nav links; (4) QA verified all 12 Yahoo symbols LIVE + wrote `tests/e2e/test_macro.py` (10 cases). I wired 5 routes (`/macro`, `/api/macro/snapshot|yields|regime`, `/api/intel/macro/<t>` with dict normalization) + fixed `macro.js` [object Object] dict rendering. Reconciled 3 contract dialects (fetcher keys vs page keys vs test keys) in the route adapters. Verification: live TIGHTENING regime, real yields, AAPL macro intel 200.
+- **conftest PIPE deadlock (same commit)** — Full suite hung mid-run (ReadTimeout cascade): `stdout=PIPE` never drained. Fixed to temp-file logging + kill fallback. Result: **39 passed in 10.22s** (was: 23 failed). Also fixed macro test 400-vs-404 for multi-segment payloads (repo convention).
+- **4a3a8fb** `notion reader` — NOTION RESEARCH tab upgraded from raw HTML dump: auto-TOC from h2s with smooth scroll, in-doc search (300-mark cap, Enter=next, `mark.cur` highlight), doc stats (sections/words/tables), full `.statement-table` styling (sticky thead, zebra, hover) + missing block styles (indented/todo/details/hr/img/callout). (Note: CSS+HTML chrome rode in a4a96b9, JS helpers in 4a3a8fb — content complete across both.)
+
 ### 2026-09-09 — Context Timeline (This File)
+
 
 
 
@@ -179,6 +185,7 @@
 | 2026-09-09 | muse-spark-1.3 | Yahoo gaps batch | 7383882 | server.py, dashboard.js/html, index.html, screener.html |
 | 2026-09-09 | muse-spark-1.3 | UI batch freshness/jump/keys | 38aa059 | dashboard.js/html, compare.html |
 | 2026-09-09 | muse-spark-1.3 | Fiscal.ai ratios copy | 7f292ce | server.py, dashboard.js/html |
+| 2026-09-09 | 4 subagents + lead | Macro fundamentals + notion reader | a4a96b9, 4a3a8fb | macro_fetcher.py, ai_engine.py, server.py, macro.html/js, notion reader, conftest, test_macro.py |
 
 ---
 
