@@ -117,7 +117,11 @@
 ### 2026-09-09 — Financials Mega (Dividends/Earnings/Peers)
 - **b0df0c9** `financials mega` — New `GET /api/stock/<t>/dividends` (live yfinance history: yearly totals, recent payouts, frequency + local yield/rate/payout) and `GET /api/peers/sector/<t>` (sector P/E median + mates from local catalog, no LLM). Dashboard: Dividends card + annual bars (CRM: quarterly, $1.76 rate), Analyst Target range bar (low-mean-high + price/mean markers, 54 analysts for CRM), Quarterly Earnings Trend chart (revenue bars + NI/EPS lines), full peers table (margin/growth cols, best/worst highlight) + P/E bar chart + sector median row (Tech 25 tracked, median 42.3x), 50/200D MA filled from weekly compact. Verification: DIV/SECTOR/DASH all 200 live.
 
+### 2026-09-09 — Compare Page Rebuild (was 100% broken)
+- **6f34200** `compare rebuild` — Root cause: JS read `data.results`/`data.status`, API sends `{stocks}` → page ALWAYS error-toasted, plus purple PREMIUM theme + `dY"` mojibake buttons + hand-drawn canvas radar. Rebuilt dashboard-native (green StockerAI, `dashboard_new.css`): ticker chips + add/remove (max 6) + URL sync, grouped matrix (Valuation/Multiples incl. live trail+fwd P/E via `/api/stock` enrich/Quality+Growth/Risk) with green winner-highlight per row, Chart.js quality radar (normalized), fair-vs-price bars, missing-ticker chips with hub guidance, showToast guard. Verification: `/compare?tickers=AAPL,MSFT,CRM` 200, no PREMIUM, radar present.
+
 ### 2026-09-09 — Context Timeline (This File)
+
 
 
 
@@ -159,6 +163,7 @@
 | 2026-09-09 | muse-spark-1.3 | Financials+SEC Yahoo level | 2b7da9f | dashboard.js/html, intel_pages.js |
 | 2026-09-09 | muse-spark-1.3 | Financials Yahoo stats | be9c106 | dashboard.js/html |
 | 2026-09-09 | muse-spark-1.3 | Financials mega div/earn/peers | b0df0c9 | server.py, dashboard.js/html |
+| 2026-09-09 | muse-spark-1.3 | Compare rebuild | 6f34200 | compare.html |
 
 ---
 
