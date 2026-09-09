@@ -170,7 +170,17 @@
 ### 2026-09-09 — External Audit Fixes P1-P2 (Local Only)
 - **06d6b29** `audit fixes P1-P2` — Independent browser audit worked through: P1 portfolio Add VERIFIED working live (200) but waited on full LLM call: mutations now instant sync (`include_ai=False`), AI via on-demand review button + `?ai=` param, Add has pending/disabled states + 1-100 validation + labels; roundtrip proven, test AAPL residue removed. P1 stream: boot print first (was silent 5-15s on imports), nonzero exit on empty result (kills NOTATICKER redirect loop), dup-ticker guard, upfront yfinance existence probe (delist-aware, network blips proceed), 10-min watchdog, Cancel button (server already killed on disconnect), clearer crash message. P2/trust/UX: hub clock ET + yfinance-15s disclosure, sortable headers with arrows/aria/keyboard, RUN button labeled, compare h1, prominent ESTIMATED badge on earnings page. Out of scope noted: full job queue (single-user SSE+cancel suffices), portfolio analytics expansion, mobile layouts, transcripts. Verification: 45 green, NOTATICKER fails fast friendly, add 0.1s.
 
+### 2026-09-09 — Guide, Isolation, Portfolio Regression
+- **0fa37ec** `e2e isolation: TEST_MODE temp output, guide KaTeX escaped and search fixed (34 matches), portfolio 6-test regression` — Fixed guide stray div + escaped KaTeX &/%, search now finds Altman (34 matches), temp output dir for mock, portfolio CRUD tests (add valid/duplicate/invalid/weight clamped/multi/remove/persist), cleaned GME mock leak.
+
+### 2026-09-09 — Earnings + Watchlist UX
+- **e0cd748** `earnings: refresh button + estimated vs live badge; watchlist: duplicate toast` — Earnings calendar: Refresh control, EST (orange) vs LIVE (green) badge per date, source shown. Watchlist: duplicate NVDA now toasts explicitly.
+
+### 2026-09-09 — Branding & Disclaimer
+- **4e5e366** `branding: Stocker Finance everywhere (compare/dashboard/macro/research), hub disclaimer not-advice` — Unified logos to STOCKER FINANCE purple, hub footer states not financial advice, timezone ET unified.
+
 ### 2026-09-09 — Context Timeline (This File)
+
 
 
 
@@ -246,6 +256,7 @@
 | 2026-09-09 | 2 subagents + lead | Fake-numbers purge x24 | a92a1af | data/macro_fetcher, dashboard.js, macro.js, compare.html, index.html |
 | 2026-09-09 | lead | Interactive lab + AI peers | 1f0cd05, 65e2308 | intelligence_terminal.py, server.py, intel_pages.js, dashboard.js/html |
 | 2026-09-09 | lead | Audit fixes P1-P2 | 06d6b29 | intelligence_terminal.py, server.py, stock_analyzer.py, index.html, portfolio.html, intel/compare/earnings |
+| 2026-09-09 | lead | Guide+isolation+portfolio+earnings+branding | 0fa37ec, e0cd748, 4e5e366 | guide.html, config, portfolio_crud, earnings/watchlist, compare/dashboard/macro/research |
 
 ---
 
