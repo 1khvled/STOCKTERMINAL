@@ -34,6 +34,7 @@ td.lose{opacity:.75}
       <input id="ticker" class="inp" placeholder="Add ticker: AAPL + Enter" autocomplete="off" spellcheck="false" style="flex:1;min-width:200px;background:#0a0a0b;border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:10px;font-family:JetBrains Mono,monospace;outline:none"/>
       <button id="add" class="btn btn-primary">ADD</button>
       <button id="clear" class="btn">CLEAR</button>
+      <button id="copylink" class="btn">COPY LINK</button>
     </div>
     <div id="chips" class="chips"></div>
     <div id="msg" class="small" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
@@ -79,6 +80,7 @@ function addTicker(){
 $("add").onclick=addTicker;
 $("ticker").addEventListener("keydown",e=>{if(e.key==="Enter")addTicker();});
 $("clear").onclick=()=>{tickers=[];syncUrl();load();};
+$("copylink").onclick=async()=>{try{await navigator.clipboard.writeText(location.href);showToast("Link copied","success");}catch(e){showToast(location.href,"info");}};
 
 async function load(){
   renderChips([]);

@@ -16,9 +16,11 @@
     <a href="/" class="btn">HOME</a><a href="/watchlist" class="btn">WATCHLIST</a><a href="/module/screener" class="btn">SCREENER</a><a href="/earnings" class="btn">EARNINGS</a>
     <a href="/compare?tickers={{ ticker }}" class="btn">COMPARE</a>
     <a href="/excel/{{ ticker }}" class="btn btn-primary">EXCEL</a>
+    <input id="jump" placeholder="TICKER + Enter" maxlength="12" autocomplete="off" spellcheck="false" title="Jump to ticker (or press /)" onkeydown="if(event.key==='Enter'){var v=this.value.trim().toUpperCase();if(v)location.href='/dashboard/'+encodeURIComponent(v);}" style="width:130px;background:#0a0a0b;border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:8px;font-family:JetBrains Mono,monospace;font-size:12px;outline:none"/>
   </div>
 </nav>
 <div class="wrap">
+  <div id="stale" style="display:none;align-items:center;gap:10px;border:1px solid rgba(255,159,10,.35);background:rgba(255,159,10,.07);border-radius:10px;padding:10px 14px;font-size:12px;margin-bottom:12px"></div>
   <div class="qh">
     <div class="qh-top">
       <div style="min-width:0">

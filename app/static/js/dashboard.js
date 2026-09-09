@@ -16,14 +16,25 @@ function set(id,txt){const e=$(id); if(e) e.innerText=txt;}
 function html(id,h){const e=$(id); if(e) e.innerHTML=h;}
 
 function tabInit(){
-  document.querySelectorAll('.tab').forEach(b=>{
-    b.onclick=()=>{
-      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-      document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-      b.classList.add('active');
-      const p=document.getElementById('panel-'+b.dataset.tab);
-      if(p) p.classList.add('active');
-    };
+  const order=["verdict","valuation","stats","notion","financials","peers","risks","flows"];
+  const activate=t=>{
+    let hit=null;
+    document.querySelectorAll('.tab').forEach(b=>{if(b.dataset.tab===t)hit=b;});
+    if(!hit)return;
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    hit.classList.add('active');
+    const p=document.getElementById('panel-'+t);if(p)p.classList.add('active');
+  };
+  document.querySelectorAll('.tab').forEach(b=>{b.onclick=()=>{activate(b.dataset.tab);try{history.replaceState(null,"","#"+b.dataset.tab);}catch(e){}};});
+  const h=(location.hash||"").replace("#","");
+  if(h&&order.includes(h))activate(h);
+  document.addEventListener("keydown",e=>{
+    const tag=(e.target&&e.target.tagName)||"";
+    if(/INPUT|TEXTAREA|SELECT/.test(tag))return;
+    if(e.key==="/"){e.preventDefault();const j=document.getElementById("jump");if(j)j.focus();return;}
+    const n=parseInt(e.key,10);
+    if(n>=1&&n<=order.length){activate(order[n-1]);try{history.replaceState(null,"","#"+order[n-1]);}catch(_){}}
   });
 }
 
@@ -145,7 +156,7 @@ function render(){
 
   // financials
   loadStmt('income');
-  try{renderFinExtra();renderTargets();renderEarnTrend();renderDividends();renderFlows();}catch(e){console.error('finextra',e);}
+  try{renderStale();renderFinExtra();renderTargets();renderEarnTrend();renderDividends();renderFlows();}catch(e){console.error('finextra',e);}
   loadCharts();
 }
 
@@ -361,6 +372,25 @@ function renderFlows(){
   }).catch(()=>{});
 }
 
+function renderStale(){
+  const el=document.getElementById('stale');if(!el||!DATA)return;
+  const g=DATA.generated_at;let age=null;
+  if(g){const d=(Date.now()-new Date(g))/864e5;if(Number.isFinite(d))age=Math.floor(d);}
+  if(age==null||age<85){el.style.display='none';return;}
+  el.style.display='flex';
+  el.innerHTML=`<span>Data is <b>${age} days old</b> (quarterly refresh due) — numbers may be stale.</span><button class="btn btn-primary" id="reanalyze" style="margin-left:auto">RE-ANALYZE ${TICK}</button>`;
+  const b=document.getElementById('reanalyze');
+  if(b)b.onclick=startReanalyze;
+}
+function startReanalyze(){
+  const el=document.getElementById('stale');if(!el)return;
+  el.innerHTML=`<span id="re-log" style="font-family:JetBrains Mono,monospace;font-size:11px">Re-analyzing ${TICK}...</span>`;
+  const es=new EventSource(`/api/stream?ticker=${TICK}`);
+  es.onmessage=e=>{const d=e.data;
+    if(d.indexOf('REDIRECT:')===0){es.close();location.reload();}
+    else{const l=document.getElementById('re-log');if(l)l.textContent=String(d).slice(0,140);}};
+  es.onerror=()=>{es.close();el.innerHTML='<span>Stream dropped — check server, then retry.</span>';};
+}
 function loadStmt(type,btn){
   if(type)stmtType=type;
   if(btn){document.querySelectorAll('#panel-financials .stmt-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');}
