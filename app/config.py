@@ -109,7 +109,9 @@ TIINGO_API_KEY = os.getenv("TIINGO_API_KEY", "")
 # reasoning_effort medium|high accepted on chat endpoint (no 400s); response_format json_object used by caller.
 OPENCODE_API_KEY = os.getenv("OPENCODE_API_KEY", "")
 OPENCODE_BASE_URL = "https://opencode.ai/zen/v1/chat/completions"
-OPENCODE_MODEL = os.getenv("OPENCODE_MODEL", "muse-spark-1.3")
+# Default = contributor-free tier (verified catalog id). If its backend 500s,
+# the ai_engine chain auto-falls-back to Groq/OpenRouter - zero user impact.
+OPENCODE_MODEL = os.getenv("OPENCODE_MODEL", "muse-spark-1.3-contributor-free")
 OPENCODE_REASONING_EFFORT = os.getenv("OPENCODE_REASONING_EFFORT", "medium")  # medium|high
 OPENCODE_TIMEOUT = int(os.getenv("OPENCODE_TIMEOUT", "90"))
 
