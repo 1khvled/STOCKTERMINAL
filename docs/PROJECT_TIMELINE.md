@@ -146,7 +146,11 @@
 ### 2026-09-09 — Routing Groq-Easy/Muse-Hard + MU Live Fix
 - **4d2a5d8** `routing groq-easy/muse-hard + live-all-catalog` — `_call_llm(route=)`: easy = Groq first (screener parser); hard (default) = Muse Spark first (fundamentals, red-team, macro, intel, notion); `_call_groq` forwards route. Tagged: screener=easy; fundamentals x2, red-team, macro-impact, intel helper, notion=hards. Fixed my own indent break in the reorder before commit (verified compile + easy 1.4s / hard 3.6s both parsed). MU $956 mystery solved: price CORRECT (live $1000.26, Micron really is 1k) - the bug was live coverage: default tickers were first-25-alphabetical so MU never got quotes (stale price + `--` day). Now defaults cover all 39, hub upside computes vs LIVE price, hub+dashboard poll every 15s. Verification: default live-quotes 40 quotes MU yfinance $1000.26.
 
+### 2026-09-09 — Live-Everywhere Fix (All Static Prices)
+- **a6b6e1d** `live-everywhere fix` — User: every price static, not just MU. Found: hub loop had undeclared `liveMap` (implicit global), one giant try/catch (any section failure killed price+day+label together), no fetch timeout, and API responses cacheable by browsers. Fixed: declared liveMap, per-section isolation (quotes/tape/movers/render/label fail independently), 12s AbortController, `cache:"no-store"` fetches + server `after_request` no-store on all `/api/*`, offline label instead of silent stale. Also bumped perf-test timeouts 5s->25s to match their own <25s asserts after one load-flake. Verification: 43 passed, MU live $1000.26 yfinance, no-store header present.
+
 ### 2026-09-09 — Context Timeline (This File)
+
 
 
 
@@ -206,6 +210,7 @@
 | 2026-09-09 | subagent + lead | OpenCode Muse Spark 1.3 | cff32e4 | config.py, ai_engine.py (key in .env only) |
 | 2026-09-09 | lead | OpenCode free-tier default | 4901a6c | config.py |
 | 2026-09-09 | lead | Routing + MU live fix | 4d2a5d8 | ai_engine.py, server.py, index.html, dashboard.js, intel/notion |
+| 2026-09-09 | lead | Live-everywhere hardening | a6b6e1d | server.py, index.html, test_perf.py |
 
 ---
 
