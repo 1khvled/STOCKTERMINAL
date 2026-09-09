@@ -158,7 +158,11 @@
 ### 2026-09-09 — Frozen Prices Were Browser Cache (Proven Live 40/40)
 - **58e3ba0** `no-store on HTML pages` — User still saw static prices while headless-chromium proof showed label `live 40/40`, MU $1000.26 live +4.62% day, upside +54.5% vs live, zero page errors. Root cause: no-store hook covered `/api/*` only; hub/dashboard HTML (inline JS, no versioning) was served from browser cache running the OLD top-25-era code. Extended hook to all `text/html` responses (static assets keep caching). Restart used listener-socket discipline (killed 21596 only). Verification: HUB 200 CC:no-store, 43 passed.
 
+### 2026-09-09 — Research Split (Risks Main + 3 Pages)
+- **a948f6f** `research split` — Probed notion keys: 33 tickers have all 5 subpages. RISKS tab now leads with Notion Risk Register HTML as main card (AI factors kept below). New `/research/<ticker>/{briefing,earnings,overview}` standalone pages (one shared template: subpage pills, TOC, search, stats; overview resolves price_review->overview; unknown ticker redirects to hub auto-analyze per rule). Tests: research 200/404/302/400 contract. Verification: 3 CRM pages 200, 27 adversarial green.
+
 ### 2026-09-09 — Context Timeline (This File)
+
 
 
 
@@ -226,6 +230,7 @@
 | 2026-09-09 | lead | Stuck-loading + ports | cbb8922 | server.py, dashboard.js, kill_server.cmd, test_adversarial.py |
 | 2026-09-09 | lead | All-dashboards paren fix | b23307c | dashboard.js |
 | 2026-09-09 | lead | HTML no-store vs cache | 58e3ba0 | server.py |
+| 2026-09-09 | lead | Research split pages | a948f6f | server.py, research.html, dashboard.js/html, test_adversarial.py |
 
 ---
 
