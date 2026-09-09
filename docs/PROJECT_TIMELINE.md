@@ -126,7 +126,11 @@
 ### 2026-09-09 — UI Batch (Freshness/Jump/Shortcuts/Deeplinks)
 - **38aa059** `UI batch` — Stale-data banner (age from `generated_at`, shows at 85d+) with one-click SSE re-analyze + auto-reload; ticker jump box in dashboard nav (`/` focuses it anywhere); number keys 1-8 switch tabs; URL hash deep-links (`#financials` shareable, back-button safe, `aria-current` kept); compare COPY LINK button (URL already synced). Also repaired a mid-edit regex cut that nested the copylink handler inside clear. Verification: served HTML contains stale/jump/hash (disk grep + live 200).
 
+### 2026-09-09 — Fiscal.ai Copy (Ratios + Facts)
+- **7f292ce** `fiscal.ai copy` — Read fiscal.ai dashboard + MSFT overview (tab structure, stats grid sections). Copied what our data supports: new `GET /api/stock/<t>/profile` (live officers/website/employees; CRM: Benioff/Washington/Harris), new RATIOS tab (button + panel, keys 1-9 updated) with Company Facts box (name/sector/website/leadership) and 8-section stats grid: Profile, Margins, Returns-avg (ROA/ROE/ROIC from annual statements), Valuation TTM (+P/FCF, EV/GP), Valuation NTM (target/fwd P-E/PEG), Health (+EBIT/interest coverage), Growth CAGR (3Y/span rev+EPS+FCF + fwd), Dividends. Skipped: Segments/KPIs + Research tabs (no data source). Verification: PROFILE 200 live officers, dashboard has ratios tab + ratio-grid + fact-box.
+
 ### 2026-09-09 — Context Timeline (This File)
+
 
 
 
@@ -174,6 +178,7 @@
 | 2026-09-09 | muse-spark-1.3 | Compare rebuild | 6f34200 | compare.html |
 | 2026-09-09 | muse-spark-1.3 | Yahoo gaps batch | 7383882 | server.py, dashboard.js/html, index.html, screener.html |
 | 2026-09-09 | muse-spark-1.3 | UI batch freshness/jump/keys | 38aa059 | dashboard.js/html, compare.html |
+| 2026-09-09 | muse-spark-1.3 | Fiscal.ai ratios copy | 7f292ce | server.py, dashboard.js/html |
 
 ---
 
