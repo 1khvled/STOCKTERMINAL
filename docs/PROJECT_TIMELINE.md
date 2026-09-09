@@ -134,7 +134,11 @@
 - **conftest PIPE deadlock (same commit)** — Full suite hung mid-run (ReadTimeout cascade): `stdout=PIPE` never drained. Fixed to temp-file logging + kill fallback. Result: **39 passed in 10.22s** (was: 23 failed). Also fixed macro test 400-vs-404 for multi-segment payloads (repo convention).
 - **4a3a8fb** `notion reader` — NOTION RESEARCH tab upgraded from raw HTML dump: auto-TOC from h2s with smooth scroll, in-doc search (300-mark cap, Enter=next, `mark.cur` highlight), doc stats (sections/words/tables), full `.statement-table` styling (sticky thead, zebra, hover) + missing block styles (indented/todo/details/hr/img/callout). (Note: CSS+HTML chrome rode in a4a96b9, JS helpers in 4a3a8fb — content complete across both.)
 
+### 2026-09-09 — Macro Perf x5 (Groq-First, Regime, Speed, 15s Hub)
+- **c1c946b** `macro perf x5` — (1) GROQ WORKS + FIRST: chain order was OpenCode->OpenRouter->Anthropic->Groq so Groq never fired; moved Groq primary w/ key rotation + browser UA (0.9s answers, verified `'{'ok': True'}'`). (2) REGIME FIXED: RISK_ON-into-TIGHTENING was nonsense; added Fed cap + oil>=85 stagflation overlay + fed in inputs (now STAGFLATION_WATCH with vote trail). (3) SPEED: 5 agents — macro.html skeletons/countdown/hierarchy, macro.js parallel+abort+stale-while-revalidate+countdown, macro_fetcher ThreadPoolExecutor (forced 8.4s->2.8s, cached 0.006s), CSS banner/gauge art, holdings widget + perf tests. I wired: concurrent live-quotes/movers helper (5.2s->3.1s cold, 0.15s cached; 8.7s->1.2s), hub poll 30s->15s + cache 15s, macro_holdings card+script. Fixed NaN-close JSON breakage + insiders date. Verification: 43 passed (39+4 perf), live quotes yfinance, movers no NaN.
+
 ### 2026-09-09 — Context Timeline (This File)
+
 
 
 
@@ -186,6 +190,7 @@
 | 2026-09-09 | muse-spark-1.3 | UI batch freshness/jump/keys | 38aa059 | dashboard.js/html, compare.html |
 | 2026-09-09 | muse-spark-1.3 | Fiscal.ai ratios copy | 7f292ce | server.py, dashboard.js/html |
 | 2026-09-09 | 4 subagents + lead | Macro fundamentals + notion reader | a4a96b9, 4a3a8fb | macro_fetcher.py, ai_engine.py, server.py, macro.html/js, notion reader, conftest, test_macro.py |
+| 2026-09-09 | 5 subagents + lead | Macro perf x5 | c1c946b | ai_engine.py, macro_fetcher.py, server.py, macro.html/js/css/holdings, index.html, test_perf.py |
 
 ---
 
