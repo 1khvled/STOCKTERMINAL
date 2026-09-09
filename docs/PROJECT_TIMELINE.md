@@ -152,7 +152,11 @@
 ### 2026-09-09 — Stuck-Loading Fix + Port Discipline
 - **cbb8922** `stuck-loading fix` — FIG page stuck on Loading: record complete + API fast (0.2s), so failure was fetch/render-side with no timeout and weak error surfacing. Fixed: unknown tickers 302-redirect to hub auto-analyze (`/?ticker=X`, no more dead template), 25s AbortController on dashboard fetch, `window.onerror` toast banner, `kill_server.cmd` scoped to `*STOCK_TERMINAL_ALONE*` paths. Test updated to redirect contract (43 green: 42+1 fixed). PORT RULE (user order): restarts touch ONLY the 5001 listener owned by our venv cmdline - never blanket-kill python, never touch 8085/8086/8087. Found venv launcher spawns a same-cmdline worker child (both PIDs match filter; listener socket decides). Verification: ZZZZQ 302 -> /?ticker=ZZZZQ, FIG 200, single listener.
 
+### 2026-09-09 — All-Dashboards Stuck Loading (One Missing Paren)
+- **b23307c** `fix all-dashboards stuck loading` — Follow-up: stuck loading hit EVERY ticker, not just FIG. Proved via headless chromium console capture: `PAGEERROR: missing ) after argument list`, zero failed requests. Root cause: dropped `)` in earnings-trend chart datasets (`:[]}` instead of `:[])}`) killed the whole 856-line script at parse time. Fixed (1 char), masked-esprima parse now SYNTAX OK, FIG+AAPL heroes render with zero console errors. Lesson: JS edits need a parse gate (esprima masked for `?.`/`??`) before commit.
+
 ### 2026-09-09 — Context Timeline (This File)
+
 
 
 
@@ -216,6 +220,7 @@
 | 2026-09-09 | lead | Routing + MU live fix | 4d2a5d8 | ai_engine.py, server.py, index.html, dashboard.js, intel/notion |
 | 2026-09-09 | lead | Live-everywhere hardening | a6b6e1d | server.py, index.html, test_perf.py |
 | 2026-09-09 | lead | Stuck-loading + ports | cbb8922 | server.py, dashboard.js, kill_server.cmd, test_adversarial.py |
+| 2026-09-09 | lead | All-dashboards paren fix | b23307c | dashboard.js |
 
 ---
 
