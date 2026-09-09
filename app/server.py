@@ -927,7 +927,8 @@ def serve_dashboard(ticker):
         return "Invalid ticker format", 400
     if _db_path(ticker).exists():
         return render_template("dashboard.html", ticker=ticker)
-    return f"Database record for {ticker} not found. Try running a new analysis first.", 404
+    # No record: send to hub which auto-analyzes via ?ticker= then redirects back.
+    return redirect(f"/?ticker={ticker}")
 
 @app.route("/guide")
 def serve_guide():

@@ -101,9 +101,10 @@ def test_missing_ticker_graceful(base_url):
     assert "MISSING" in body or "not found" in body.lower() or "REDIRECT" in body
 
 def test_dashboard_404_for_unknown_ticker(base_url):
-    resp = requests.get(f"{base_url}/dashboard/ZZZZQ", timeout=5)
-    assert resp.status_code == 404
-    assert "not found" in resp.text.lower()
+    # Unknown but valid tickers redirect to hub auto-analyze (no dead template/pages).
+    resp = requests.get(f"{base_url}/dashboard/ZZZZQ", timeout=5, allow_redirects=False)
+    assert resp.status_code in (302, 303, 307)
+    assert "ticker=ZZZZQ" in resp.headers.get("Location", "")
     resp = requests.get(f"{base_url}/dashboard/ZZZZNOTFOUND123", timeout=5)
     assert resp.status_code in (400, 404)
 

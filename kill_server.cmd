@@ -7,7 +7,7 @@ echo.
 echo [*] Attempting to terminate any running StockerAI servers...
 
 :: 1. Terminate any python process specifically running server.py
-powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Where-Object { $_.CommandLine -like '*server.py*' -or $_.CommandLine -like '*stock_analyzer.py*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }" >nul 2>&1
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Where-Object { $_.CommandLine -like '*STOCK_TERMINAL_ALONE*server.py*' -or $_.CommandLine -like '*STOCK_TERMINAL_ALONE*stock_analyzer.py*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }" >nul 2>&1
 
 :: 2. Terminate any python process specifically running stock_analyzer.py (background tasks)
 

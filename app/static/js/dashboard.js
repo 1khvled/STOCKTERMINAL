@@ -38,11 +38,13 @@ function tabInit(){
   });
 }
 
+window.addEventListener('error',function(ev){try{toast('Page error: '+(ev.message||'unknown'),'error');}catch(_){}});
 async function fetchData(){
   const maxRetries=2;
   for(let attempt=0; attempt<=maxRetries; attempt++){
     try{
-      const r=await fetch(`/api/stock/${TICK}?t=${Date.now()}`);
+      const ctl=new AbortController();const cto=setTimeout(()=>{try{ctl.abort();}catch(_){}},25000);
+      let r;try{r=await fetch(`/api/stock/${TICK}?t=${Date.now()}`,{signal:ctl.signal,cache:"no-store"});}finally{clearTimeout(cto);}
       if(r.status===429 && attempt<maxRetries){ await new Promise(res=>setTimeout(res, 1000*(attempt+1))); continue; }
       if(!r.ok){
         const j=await r.json().catch(()=>({error:r.statusText}));
