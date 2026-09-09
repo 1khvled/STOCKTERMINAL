@@ -112,12 +112,8 @@ function render(){
   `);
   html('reconcile', val.current_valuation||'Model-weighted fair value reconciles DCF, peers, analyst target, regression.');
 
-  // peers
-  const peers=DATA.peers_data||[];
-  const tbody=document.querySelector('#peers-table tbody');
-  if(tbody){
-    tbody.innerHTML = peers.length? peers.map(p=> `<tr><td>${esc(safeDisplay(p.ticker))}</td><td>${fmt(p.pe)}</td><td>${fmt(p.fwd_pe)}</td><td>${fmt(p.ps)}</td><td>${fmt(p.pb)}</td></tr>`).join('') : `<tr><td colspan="5" style="color:var(--muted)">No peers</td></tr>`;
-  }
+  // peers (full treatment)
+  renderPeersFull();
 
   // risks
   const risks=(an.risk_assessment?.risk_factors||[]).map(r=> `<li><b>${r.risk}</b> — ${r.impact} <span style="color:var(--muted)">[${r.severity}/${r.probability}]</span></li>`).join('');
@@ -149,7 +145,7 @@ function render(){
 
   // financials
   loadStmt('income');
-  try{renderFinExtra();}catch(e){console.error('finextra',e);}
+  try{renderFinExtra();renderTargets();renderEarnTrend();renderDividends();}catch(e){console.error('finextra',e);}
   loadCharts();
 }
 
@@ -179,6 +175,12 @@ function finPctRaw(v){if(v==null||v===""||isNaN(Number(v)))return "--";return (N
 function finX(v){return (v==null||v===""||isNaN(Number(v)))?"--":Number(v).toFixed(2)+"x";}
 function renderFinExtra(){
   const m=DATA.key_metrics||{},peers=DATA.peers_data||[],hm=(DATA.advanced_models||{}).historical_multiples||{};
+  const currPx=Number(m.current_price||m.currentPrice||0);
+  const _hk=Object.keys(DATA.price_history_compact||{}).sort();
+  const _hv=_hk.map(k=>Number(DATA.price_history_compact[k])).filter(Number.isFinite);
+  const _ma=n=>_hv.length?(_hv.length>=n?_hv.slice(-n).reduce((a,b)=>a+b,0)/n:_hv.reduce((a,b)=>a+b,0)/_hv.length):null;
+  const ma50=_ma(10),ma200=_ma(40);
+  const maStr=(a)=>{if(!a||!currPx)return "--";const d=(currPx-a)/a*100;return "$"+a.toFixed(2)+" ("+(d>=0?"+":"")+d.toFixed(1)+"%)";};
   const sec=(t,rows)=>`<div><div style="font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted);letter-spacing:.06em;margin-bottom:6px">${t}</div>`+
     rows.map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">${k}</span><b>${v}</b></div>`).join("")+`</div>`;
   const ks=$('keystats');
@@ -187,7 +189,7 @@ function renderFinExtra(){
     sec("PROFITABILITY",[["Profit Margin",finPctRaw(m.profitMargins)],["Operating Margin",finPctRaw(m.operatingMargins)],["Gross Margin",finPctRaw(m.grossMargins)],["EBITDA Margin",finPctRaw(m.ebitdaMargins)],["ROE",finPctRaw(m.returnOnEquity)],["ROA",finPctRaw(m.returnOnAssets)],["Revenue/Share","$"+fmt(m.revenuePerShare)]])+
     sec("BALANCE SHEET",[["Total Cash",finBig(m.totalCash)],["Cash/Share","$"+fmt(m.totalCashPerShare)],["Total Debt",finBig(m.totalDebt)],["Debt/Equity",finX(m.debtToEquity)],["Current Ratio",finX(m.currentRatio)],["Quick Ratio",finX(m.quickRatio)],["Book/Share","$"+fmt(m.bookValue)]])+
     sec("CASH FLOW",[["Operating CF",finBig(m.operatingCashflow)],["Levered FCF",finBig(m.freeCashflow)],["EBITDA",finBig(m.ebitda)],["Dividend Rate","$"+fmt(m.dividendRate)],["Div Yield",finPctRaw(m.dividendYield)],["Payout",finPctRaw(m.payoutRatio)]])+
-    sec("PRICE HISTORY",[["Beta",finX(m.beta)],["52W Change",pct(m.return_1y?m.return_1y/100:m.return_1y)],["52W High",money(m.high_52w)],["52W Low",money(m.low_52w)],["50D vs Price","--"],["200D vs Price","--"]])+
+    sec("PRICE HISTORY",[["Beta",finX(m.beta)],["52W Change",pct(m.return_1y?m.return_1y/100:m.return_1y)],["52W High",money(m.high_52w)],["52W Low",money(m.low_52w)],["50D MA",maStr(ma50,currPx)],["200D MA",maStr(ma200,currPx)]])+
     sec("SHARES & SENTIMENT",[["Shares Out.",m.sharesOutstanding?(Number(m.sharesOutstanding)/1e9).toFixed(2)+"B":"--"],["Insiders",finPctRaw(m.heldPercentInsiders)],["Institutions",finPctRaw(m.heldPercentInstitutions)],["Short % Float",finPctRaw(m.shortPercentOfFloat)],["Short Ratio",finX(m.shortRatio)],["Analysts",m.numberOfAnalystOpinions||"--"],["Consensus",(m.recommendationKey||"--").toUpperCase()]]);
   const tb=document.querySelector('#pe-compare tbody');
   if(tb){
@@ -216,6 +218,99 @@ function renderFinExtra(){
           options:{responsive:true,plugins:{legend:{display:true,labels:{color:'#8a8d93',font:{size:10}}}},scales:{x:{ticks:{color:'#8a8d93',font:{size:9}}},y:{grid:{color:'#1e1f23'},ticks:{color:'#8a8d93',font:{size:9},callback:v=>'$'+(v>=1e9?(v/1e9)+'B':(v/1e6)+'M')}}}}});
       }
     }
+  }catch(e){}
+}
+
+function renderPeersFull(){
+  const m=DATA.key_metrics||{},peers=(DATA.peers_data||[]).slice(0,6);
+  const tbody=document.querySelector('#peers-table tbody');
+  const num=v=>(v==null||v==="N/A"||isNaN(Number(v)))?null:Number(v);
+  const cell=(v,all,lowGood=true)=>{if(v==null)return '<td>--</td>';
+    const vals=all.filter(x=>x!=null);let cls='';
+    if(vals.length>1){const mn=Math.min(...vals),mx=Math.max(...vals);
+      if(v===mn)cls=lowGood?'var(--green)':'var(--red)';else if(v===mx)cls=lowGood?'var(--red)':'var(--green)';}
+    return `<td style="color:${cls||'inherit'}">${v.toFixed(1)}x</td>`;};
+  const pctC=v=>v==null?'<td>--</td>':`<td>${(v*100).toFixed(1)}%</td>`;
+  if(tbody){
+    if(!peers.length){tbody.innerHTML=`<tr><td colspan="8" style="color:var(--muted)">No peers in this run - sector median below still compares you. Re-analyze to fetch peers.</td></tr>`;}
+    else{
+      const pes=peers.map(p=>num(p.pe)),fps=peers.map(p=>num(p.fwd_pe)),pss=peers.map(p=>num(p.ps)),pbs=peers.map(p=>num(p.pb));
+      let h=`<tr style="background:rgba(52,199,89,.06)"><td><b>${TICK}</b></td><td style="color:var(--muted)">you</td>`+
+        cell(num(m.trailingPE),[...pes,num(m.trailingPE)])+cell(num(m.forwardPE),[...fps,num(m.forwardPE)])+
+        cell(num(m.priceToSalesTrailing12Months),[...pss,num(m.priceToSalesTrailing12Months)])+cell(num(m.priceToBook),[...pbs,num(m.priceToBook)])+
+        pctC(num(m.profitMargins))+pctC(num(m.revenueGrowth))+`</tr>`;
+      peers.forEach(p=>{h+=`<tr><td><b>${esc(safeDisplay(p.ticker))}</b></td><td style="color:var(--muted)">${esc(safeDisplay(p.name||'').slice(0,18))}</td>`+
+        cell(num(p.pe),pes)+cell(num(p.fwd_pe),fps)+cell(num(p.ps),pss)+cell(num(p.pb),pbs)+pctC(num(p.margins))+pctC(num(p.rev_growth))+`</tr>`;});
+      tbody.innerHTML=h;
+    }
+  }
+  fetch(`/api/peers/sector/${TICK}`).then(r=>r.json()).then(s=>{
+    const sb=document.getElementById('sector-box');
+    if(sb)sb.innerHTML=s.median_pe?`Sector <b>${esc(s.sector)}</b> - ${s.count} tracked - median P/E <b>${Number(s.median_pe).toFixed(1)}x</b> vs yours <b>${Number(s.your_pe||0).toFixed(1)}x</b>`:`Sector ${esc(s.sector||'N/A')} (${s.count||0} tracked)`;
+    const cv=document.getElementById('peerChart');
+    if(cv&&typeof Chart!=='undefined'){
+      const labels=[TICK,...peers.map(p=>p.ticker)];const vals=[num(m.trailingPE),...peers.map(p=>num(p.pe))];
+      if(window._peerChart)window._peerChart.destroy();
+      window._peerChart=new Chart(cv,{type:'bar',
+        data:{labels,datasets:[{label:'Trailing P/E',data:vals,backgroundColor:labels.map((_,i)=>i===0?'rgba(52,199,89,.7)':'rgba(10,132,255,.5)')}]},
+        options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8a8d93',font:{size:10}}},y:{grid:{color:'#1e1f23'},ticks:{color:'#8a8d93',font:{size:9}}}}}});
+    }
+  }).catch(()=>{});
+}
+function renderTargets(){
+  const m=DATA.key_metrics||{};
+  const lo=Number(m.targetLowPrice),hi=Number(m.targetHighPrice),mean=Number(m.targetMeanPrice),med=Number(m.targetMedianPrice);
+  const cur=Number(m.current_price||m.currentPrice||0);
+  const box=document.getElementById('target-box'),rg=document.getElementById('target-range');
+  if(!box)return;
+  if(!lo||!hi){box.innerHTML='<span style="color:var(--muted)">No analyst targets</span>';return;}
+  box.innerHTML=`<div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Low</span><b>$${lo.toFixed(2)}</b></div>
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Mean (${m.numberOfAnalystOpinions||'?'} analysts)</span><b style="color:var(--green)">$${mean.toFixed(2)}</b></div>
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Median</span><b>$${med.toFixed(2)}</b></div>
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">High</span><b>$${hi.toFixed(2)}</b></div>`;
+  if(rg){
+    const pos=v=>Math.min(100,Math.max(0,(v-lo)/(hi-lo)*100));
+    rg.innerHTML=`<div style="position:relative;height:8px;background:var(--panel2,#15171a);border:1px solid var(--border);border-radius:999px;margin-top:6px">
+      <div style="position:absolute;left:${pos(Math.min(mean,cur))}%;width:${Math.abs(pos(mean)-pos(cur))}%;top:0;bottom:0;background:${mean>=cur?'rgba(52,199,89,.35)':'rgba(255,59,48,.35)'};border-radius:999px"></div>
+      <div title="current" style="position:absolute;left:${pos(cur)}%;top:-4px;width:3px;height:16px;background:var(--green)"></div>
+      <div title="mean" style="position:absolute;left:${pos(mean)}%;top:-4px;width:3px;height:16px;background:var(--orange)"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:2px"><span>$${lo.toFixed(0)}</span><span style="color:var(--green)">| price</span><span style="color:var(--orange)">| mean</span><span>$${hi.toFixed(0)}</span></div>`;
+  }
+}
+async function renderDividends(){
+  const box=document.getElementById('div-box');
+  try{
+    const r=await fetch(`/api/stock/${TICK}/dividends`);const j=await r.json();
+    const y=j.yield!=null?(Number(j.yield)*100).toFixed(2)+"%":"--";
+    if(box)box.innerHTML=`<div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Yield</span><b>${y}</b></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Annual rate</span><b>${j.rate!=null?"$"+Number(j.rate).toFixed(2):"--"}</b></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Payout ratio</span><b>${j.payout!=null?(Number(j.payout)*100).toFixed(1)+"%":"--"}</b></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Frequency</span><b>${j.frequency||"--"}</b></div>
+      ${(j.recent||[]).length?`<div style="margin-top:6px;color:var(--muted);font-size:11px">Last payouts: ${j.recent.slice(-4).map(p=>p.date+" $"+p.amount).join(" - ")}</div>`:`<div style="margin-top:6px;color:var(--muted);font-size:11px">No payout history ${j.source==="local_no_history"?"(non-payer or fetch failed)":""}</div>`}`;
+    const cv=document.getElementById('divChart');
+    if(cv&&typeof Chart!=='undefined'&&(j.annual||[]).length){
+      if(window._divChart)window._divChart.destroy();
+      window._divChart=new Chart(cv,{type:'bar',
+        data:{labels:j.annual.map(a=>a.year),datasets:[{label:'$/share / year',data:j.annual.map(a=>a.amount),backgroundColor:'rgba(255,159,10,.6)'}]},
+        options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8a8d93',font:{size:9}}},y:{grid:{color:'#1e1f23'},ticks:{color:'#8a8d93',font:{size:9}}}}}});
+    } else if(cv){cv.remove();}
+  }catch(e){if(box)box.innerHTML='<span style="color:var(--muted)">Dividend data unavailable</span>';}
+}
+function renderEarnTrend(){
+  try{
+    const qf=DATA.q_financials;const cv=document.getElementById('earnChart');
+    if(!qf||!qf.columns||!qf.rows||!cv||typeof Chart==='undefined')return;
+    const cols=qf.columns.slice(-8);const key=qf.columns[0];
+    const findRex=re=>qf.rows.find(r=>re.test(String(r[key]||"")));
+    const rev=findRex(/^total revenue$/i),ni=findRex(/^net income$/i),eps=findRex(/diluted eps/i);
+    if(!rev)return;
+    if(window._earnChart)window._earnChart.destroy();
+    window._earnChart=new Chart(cv,{data:{labels:cols,datasets:[
+      {type:'bar',label:'Revenue',data:cols.map(c=>Number(rev[c])||0),backgroundColor:'rgba(52,199,89,.5)',yAxisID:'y'},
+      ...(ni?[{type:'line',label:'Net Income',data:cols.map(c=>Number(ni[c])||0),borderColor:'#0a84ff',tension:.3,pointRadius:2,yAxisID:'y'}]:[]),
+      ...(eps?[{type:'line',label:'Diluted EPS $',data:cols.map(c=>Number(eps[c])||0),borderColor:'#ff9f0a',tension:.3,pointRadius:2,yAxisID:'y1'}]:[])]},
+      options:{responsive:true,plugins:{legend:{display:true,labels:{color:'#8a8d93',font:{size:10}}}},
+      scales:{x:{ticks:{color:'#8a8d93',font:{size:9}}},y:{grid:{color:'#1e1f23'},ticks:{color:'#8a8d93',font:{size:9},callback:v=>'$'+(Math.abs(v)>=1e9?(v/1e9).toFixed(1)+'B':(v/1e6).toFixed(0)+'M')}},y1:{position:'right',grid:{drawOnChartArea:false},ticks:{color:'#8a8d93',font:{size:9},callback:v=>'$'+v}}}}}});
   }catch(e){}
 }
 

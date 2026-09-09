@@ -1395,6 +1395,59 @@ def api_live_quotes():
         return {"quotes": quotes}
 
 
+@app.route("/api/stock/<ticker>/dividends")
+def api_stock_dividends(ticker):
+    """Dividend history: yield/rate/payout + yearly totals + recent payouts."""
+    ticker = ticker.upper().strip()
+    if not is_valid_ticker(ticker):
+        return {"error": "Invalid ticker"}, 400
+    local = _load_stock_record(ticker) or {}
+    m = local.get("key_metrics", {})
+    base = {"ticker": ticker, "yield": m.get("dividendYield"), "rate": m.get("dividendRate"),
+            "payout": m.get("payoutRatio"), "frequency": "none", "annual": [], "recent": [],
+            "source": "local_no_history"}
+    if os.environ.get("STOCKER_TEST_MODE") == "1":
+        base["source"] = "mock_test"
+        return base
+    try:
+        import yfinance as yf
+        from datetime import timedelta
+        divs = yf.Ticker(ticker).dividends
+        if divs is None or len(divs) == 0:
+            return base
+        yearly = divs.resample("YE").sum().tail(8)
+        base["annual"] = [{"year": int(idx.year), "amount": round(float(v), 4)} for idx, v in yearly.items()]
+        base["recent"] = [{"date": idx.strftime("%Y-%m-%d"), "amount": round(float(v), 4)}
+                          for idx, v in divs.tail(8).items()]
+        last = divs.index.max()
+        cnt = int(sum(1 for d in divs.index if d >= last - timedelta(days=365)))
+        base["frequency"] = "quarterly" if cnt >= 4 else ("semi-annual" if cnt == 2 else ("annual" if cnt == 1 else "irregular"))
+        base["source"] = "yfinance"
+        return base
+    except Exception as e:
+        logger.info(f"dividends failed for {ticker}: {e}")
+        return base
+
+
+@app.route("/api/peers/sector/<ticker>")
+def api_sector_peers(ticker):
+    """Sector P/E median + mates from the local catalog (always works, no LLM)."""
+    ticker = ticker.upper().strip()
+    if not is_valid_ticker(ticker):
+        return {"error": "Invalid ticker"}, 400
+    rows = _catalog_rows()
+    me = next((r for r in rows if r["ticker"] == ticker), None)
+    if not me:
+        return {"error": f"Ticker {ticker} not found"}, 404
+    sector = me.get("sector") or "N/A"
+    mates = [r for r in rows if r.get("sector") == sector and r["ticker"] != ticker]
+    vals = sorted(r["pe_ratio"] for r in mates if r.get("pe_ratio"))
+    med = vals[len(vals) // 2] if vals else None
+    return {"ticker": ticker, "sector": sector, "count": len(mates) + 1, "median_pe": med,
+            "your_pe": me.get("pe_ratio"),
+            "mates": [{"ticker": r["ticker"], "pe": r.get("pe_ratio")} for r in mates[:8]]}
+
+
 @app.route("/compare")
 def serve_compare():
     return render_template("compare.html")
