@@ -149,7 +149,11 @@
 ### 2026-09-09 — Live-Everywhere Fix (All Static Prices)
 - **a6b6e1d** `live-everywhere fix` — User: every price static, not just MU. Found: hub loop had undeclared `liveMap` (implicit global), one giant try/catch (any section failure killed price+day+label together), no fetch timeout, and API responses cacheable by browsers. Fixed: declared liveMap, per-section isolation (quotes/tape/movers/render/label fail independently), 12s AbortController, `cache:"no-store"` fetches + server `after_request` no-store on all `/api/*`, offline label instead of silent stale. Also bumped perf-test timeouts 5s->25s to match their own <25s asserts after one load-flake. Verification: 43 passed, MU live $1000.26 yfinance, no-store header present.
 
+### 2026-09-09 — Stuck-Loading Fix + Port Discipline
+- **cbb8922** `stuck-loading fix` — FIG page stuck on Loading: record complete + API fast (0.2s), so failure was fetch/render-side with no timeout and weak error surfacing. Fixed: unknown tickers 302-redirect to hub auto-analyze (`/?ticker=X`, no more dead template), 25s AbortController on dashboard fetch, `window.onerror` toast banner, `kill_server.cmd` scoped to `*STOCK_TERMINAL_ALONE*` paths. Test updated to redirect contract (43 green: 42+1 fixed). PORT RULE (user order): restarts touch ONLY the 5001 listener owned by our venv cmdline - never blanket-kill python, never touch 8085/8086/8087. Found venv launcher spawns a same-cmdline worker child (both PIDs match filter; listener socket decides). Verification: ZZZZQ 302 -> /?ticker=ZZZZQ, FIG 200, single listener.
+
 ### 2026-09-09 — Context Timeline (This File)
+
 
 
 
@@ -211,6 +215,7 @@
 | 2026-09-09 | lead | OpenCode free-tier default | 4901a6c | config.py |
 | 2026-09-09 | lead | Routing + MU live fix | 4d2a5d8 | ai_engine.py, server.py, index.html, dashboard.js, intel/notion |
 | 2026-09-09 | lead | Live-everywhere hardening | a6b6e1d | server.py, index.html, test_perf.py |
+| 2026-09-09 | lead | Stuck-loading + ports | cbb8922 | server.py, dashboard.js, kill_server.cmd, test_adversarial.py |
 
 ---
 
