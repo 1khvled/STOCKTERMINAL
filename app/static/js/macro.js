@@ -1,4 +1,6 @@
-/* Macro page: rates, Fed stance & regime. Dependency-free except Chart.js. */
+/* Macro page: rates, Fed stance & regime. Dependency-free except Chart.js.
+   Perf/hardening: parallel snapshot+impact (progressive render), 12s abort
+   timeout per fetch, stale-while-revalidate, #mc-countdown driver. */
 (function () {
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
@@ -6,6 +8,12 @@
   var SNAP_URL = "/api/macro/snapshot";
   var INTEL_URL = function (t) { return "/api/intel/macro/" + encodeURIComponent(t); };
   var POLL_MS = 5 * 60 * 1000;
+  var FETCH_TIMEOUT_MS = 12000;
+
+  /* Stale-while-revalidate: last good snapshot kept in memory. */
+  var lastGood = null;
+  var remainSec = Math.round(POLL_MS / 1000);
+  var countdownTimer = null;
 
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -29,6 +37,36 @@
   }
   function toast(m, t) {
     try { if (typeof showToast === "function") showToast(m, t || "info"); } catch (e) {}
+  }
+  function setText(el, t) {
+    try { if (el) el.textContent = t; } catch (e) {}
+  }
+
+  /* Fetch JSON with an AbortController timeout so one slow endpoint
+     can't hang the page. Rejects with AbortError on timeout. */
+  function fetchJson(url, timeoutMs) {
+    var ms = timeoutMs == null ? FETCH_TIMEOUT_MS : timeoutMs;
+    var Ctrl = null;
+    try { Ctrl = (typeof AbortController !== "undefined") ? AbortController : null; } catch (e) { Ctrl = null; }
+    if (!Ctrl) {
+      return fetch(url).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      });
+    }
+    var ctrl = new Ctrl();
+    var timer = null;
+    try {
+      timer = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, ms);
+    } catch (e) { timer = null; }
+    return fetch(url, { signal: ctrl.signal }).then(function (r) {
+      if (timer) clearTimeout(timer);
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).catch(function (e) {
+      if (timer) clearTimeout(timer);
+      throw e;
+    });
   }
 
   /* Normalize a gauge entry: backend may send a bare number or an object. */
@@ -60,32 +98,36 @@
   function renderRegime(regime) {
     var label = $("mc-regime-label"), score = $("mc-regime-score"), list = $("mc-regime-reasons");
     if (!regime) {
-      label.textContent = "Regime unavailable";
-      score.textContent = "";
-      list.innerHTML = "";
+      setText(label, "Regime unavailable");
+      setText(score, "");
+      if (list) list.innerHTML = "";
       return;
     }
-    label.textContent = regime.label || "Unknown regime";
+    setText(label, regime.label || "Unknown regime");
     var sc = num(regime.score);
-    score.textContent = sc == null ? "" : ("score " + sc.toFixed(1) + " / 100");
+    setText(score, sc == null ? "" : ("score " + sc.toFixed(1) + " / 100"));
     var rs = regime.reasons || [];
-    list.innerHTML = rs.length
-      ? rs.map(function (r) { return "<li>" + esc(r) + "</li>"; }).join("")
-      : "<li>Watch rate direction and credit spreads for confirmation.</li>";
+    if (list) {
+      list.innerHTML = rs.length
+        ? rs.map(function (r) { return "<li>" + esc(r) + "</li>"; }).join("")
+        : "<li>Watch rate direction and credit spreads for confirmation.</li>";
+    }
   }
 
   function renderFed(fed) {
     var label = $("mc-fed-label"), list = $("mc-fed-reasons");
     if (!fed) {
-      label.textContent = "--";
-      list.innerHTML = "<li>Fed stance unavailable.</li>";
+      setText(label, "--");
+      if (list) list.innerHTML = "<li>Fed stance unavailable.</li>";
       return;
     }
-    label.textContent = fed.label || "--";
+    setText(label, fed.label || "--");
     var rs = fed.reasons || [];
-    list.innerHTML = rs.length
-      ? rs.map(function (r) { return "<li>" + esc(r) + "</li>"; }).join("")
-      : "<li>No stated reasons.</li>";
+    if (list) {
+      list.innerHTML = rs.length
+        ? rs.map(function (r) { return "<li>" + esc(r) + "</li>"; }).join("")
+        : "<li>No stated reasons.</li>";
+    }
   }
 
   function curveSpread(points) {
@@ -104,20 +146,20 @@
     var pts = (yields && yields.points) || [];
     pts = pts.filter(function (p) { return num(p.yield) != null; });
     if (!pts.length) {
-      empty.style.display = "block";
-      badge.textContent = "--";
-      badge.className = "mc-badge";
-      spread.textContent = "10Y-3M spread: --";
+      if (empty) empty.style.display = "block";
+      setText(badge, "--");
+      try { if (badge) badge.className = "mc-badge"; } catch (e) {}
+      setText(spread, "10Y-3M spread: --");
       return;
     }
-    empty.style.display = "none";
+    if (empty) empty.style.display = "none";
     var inv = !!(yields && yields.inverted);
     var sp = curveSpread(pts);
     if (sp != null && !inv && sp < 0) inv = true;
-    badge.textContent = inv ? "INVERTED" : "NORMAL";
-    badge.className = "mc-badge " + (inv ? "inv" : "norm");
-    spread.textContent = "10Y-3M spread: " + (sp == null ? "--" : ((sp >= 0 ? "+" : "") + sp.toFixed(2) + " pp"));
-    if (typeof Chart === "undefined" || !cv) return;
+    setText(badge, inv ? "INVERTED" : "NORMAL");
+    try { if (badge) badge.className = "mc-badge " + (inv ? "inv" : "norm"); } catch (e) {}
+    setText(spread, "10Y-3M spread: " + (sp == null ? "--" : ((sp >= 0 ? "+" : "") + sp.toFixed(2) + " pp")));
+    if ((typeof Chart === "undefined") || !cv) return;
     try {
       if (window._mcCurve) window._mcCurve.destroy();
       window._mcCurve = new Chart(cv, {
@@ -146,6 +188,7 @@
 
   function renderGauges(gauges) {
     var box = $("mc-gauges");
+    if (!box) return;
     var g = gauges || {};
     box.innerHTML = GAUGES.map(function (def) {
       var raw = pick(g, def.keys);
@@ -159,23 +202,53 @@
     }).join("");
   }
 
-  async function loadSnapshot() {
+  function renderSnapshot(j) {
+    renderRegime(j.regime);
+    renderCurve(j.yields);
+    renderGauges(j.gauges);
+    renderFed(j.fed_stance);
+    var gen = $("mc-generated");
+    setText(gen, j.generated_at ? ("snapshot " + String(j.generated_at)) : "snapshot loaded");
+  }
+
+  /* Error state used only when there is no cached snapshot to keep. */
+  function renderSnapshotError(timedOut) {
+    var gen = $("mc-generated");
+    setText(gen, timedOut ? "snapshot unavailable (request timed out)" : "snapshot unavailable");
+    renderRegime(null);
+    renderCurve(null);
+    var box = $("mc-gauges");
+    if (box) box.innerHTML = '<div class="mc-empty">Gauges unavailable.</div>';
+    renderFed(null);
+  }
+
+  /* Stale-while-revalidate: keep old content, flag it in #mc-generated. */
+  function markStale(timedOut) {
+    var gen = $("mc-generated");
+    if (!gen) return;
+    var base = "stale - retrying";
+    if (timedOut) base = "stale - retrying (request timed out)";
     try {
-      var r = await fetch(SNAP_URL);
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      var j = await r.json();
-      renderRegime(j.regime);
-      renderCurve(j.yields);
-      renderGauges(j.gauges);
-      renderFed(j.fed_stance);
-      $("mc-generated").textContent = j.generated_at ? ("snapshot " + String(j.generated_at)) : "snapshot loaded";
-    } catch (e) {
-      $("mc-generated").textContent = "snapshot unavailable";
-      renderRegime(null);
-      renderCurve(null);
-      $("mc-gauges").innerHTML = '<div class="mc-empty">Gauges unavailable.</div>';
-      renderFed(null);
-    }
+      if (lastGood && lastGood.generated_at) base += " (snapshot " + String(lastGood.generated_at) + ")";
+    } catch (e) {}
+    setText(gen, base);
+  }
+
+  function loadSnapshot() {
+    return fetchJson(SNAP_URL, FETCH_TIMEOUT_MS).then(function (j) {
+      lastGood = j || {};
+      renderSnapshot(lastGood);
+      return lastGood;
+    }).catch(function (e) {
+      var timedOut = !!(e && e.name === "AbortError");
+      if (lastGood) {
+        /* Keep old regions on screen; do not blank. */
+        markStale(timedOut);
+      } else {
+        renderSnapshotError(timedOut);
+      }
+      return null;
+    });
   }
 
   var FIELDS = [
@@ -187,63 +260,113 @@
     ["positioning", "Positioning"]
   ];
 
-  async function lookup(ticker) {
+  function fmtImpact(v) {
+    if (v == null || v === "") return "--";
+    if (typeof v === "object") {
+      if (v.level) return String(v.level) + (v.why ? " \u2014 " + String(v.why) : "");
+      if (v.text) return String(v.text);
+      try { return JSON.stringify(v); } catch (e) { return "--"; }
+    }
+    return String(v);
+  }
+
+  function lookup(ticker) {
     var t = String(ticker || "").trim().toUpperCase();
     var msg = $("mc-impact-msg"), box = $("mc-impact");
-    if (!t) return;
-    if (!/^[A-Z0-9.\^-]{1,12}$/.test(t)) { toast("Invalid ticker", "error"); return; }
-    msg.textContent = "Loading " + t + "...";
-    try {
-      var r = await fetch(INTEL_URL(t));
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      var j = await r.json();
-      $("mc-impact-head").textContent = t + " in this regime";
-      var fmtV = function (v) {
-        if (v == null || v === "") return "--";
-        if (typeof v === "object") {
-          if (v.level) return v.level + (v.why ? " \u2014 " + v.why : "");
-          if (v.text) return v.text;
-          try { return JSON.stringify(v); } catch (e) { return "--"; }
-        }
-        return v;
-      };
-      $("mc-impact-rows").innerHTML = FIELDS.map(function (f) {
-        return '<div class="mc-kv"><span>' + esc(f[1]) + '</span><div>' + esc(fmtV(j[f[0]])) + '</div></div>';
-      }).join("");
-      var risks = j.risk_flags || [];
-      $("mc-impact-risks").innerHTML = risks.length
-        ? risks.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("")
-        : "<li>None flagged.</li>";
-      box.style.display = "block";
-      msg.textContent = t + " loaded.";
+    if (!t) return Promise.resolve(null);
+    if (!/^[A-Z0-9.\^-]{1,12}$/.test(t)) { toast("Invalid ticker", "error"); return Promise.resolve(null); }
+    setText(msg, "Loading " + t + "...");
+    return fetchJson(INTEL_URL(t), FETCH_TIMEOUT_MS).then(function (j) {
+      setText($("mc-impact-head"), t + " in this regime");
+      var rows = $("mc-impact-rows");
+      if (rows) {
+        rows.innerHTML = FIELDS.map(function (f) {
+          return '<div class="mc-kv"><span>' + esc(f[1]) + '</span><div>' + esc(fmtImpact(j[f[0]])) + '</div></div>';
+        }).join("");
+      }
+      var risks = (j && j.risk_flags) || [];
+      var riskBox = $("mc-impact-risks");
+      if (riskBox) {
+        riskBox.innerHTML = risks.length
+          ? risks.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("")
+          : "<li>None flagged.</li>";
+      }
+      try { if (box) box.style.display = "block"; } catch (e) {}
+      setText(msg, t + " loaded.");
       try {
         var u = new URL(location.href);
         u.searchParams.set("ticker", t);
         history.replaceState({}, "", u);
       } catch (e) {}
-    } catch (e) {
-      box.style.display = "none";
-      msg.textContent = "Impact lookup failed for " + t + ".";
+      return j;
+    }).catch(function (e) {
+      try { if (box) box.style.display = "none"; } catch (err) {}
+      var timedOut = !!(e && e.name === "AbortError");
+      setText(msg, timedOut ? ("Impact lookup timed out for " + t + ".") : ("Impact lookup failed for " + t + "."));
       toast("Macro intel fetch failed", "error");
-    }
+      return null;
+    });
+  }
+
+  /* Countdown: "refresh in M:SS", reset on each poll; silent if absent. */
+  function paintCountdown() {
+    var el = null;
+    try { el = $("mc-countdown"); } catch (e) { el = null; }
+    if (!el) return;
+    var s = Math.max(0, remainSec);
+    var m = Math.floor(s / 60);
+    var rest = s % 60;
+    setText(el, "refresh in " + m + ":" + (rest < 10 ? "0" + rest : String(rest)));
+  }
+  function resetCountdown() {
+    remainSec = Math.round(POLL_MS / 1000);
+    paintCountdown();
+  }
+  function startCountdown() {
+    paintCountdown();
+    if (TEST || countdownTimer) return;
+    try {
+      countdownTimer = setInterval(function () {
+        remainSec = Math.max(0, remainSec - 1);
+        paintCountdown();
+      }, 1000);
+    } catch (e) {}
+  }
+  function poll() {
+    resetCountdown();
+    return loadSnapshot();
   }
 
   function init() {
-    loadSnapshot();
-    if (!TEST) {
-      try { setInterval(loadSnapshot, POLL_MS); } catch (e) {}
+    var go = $("mc-go"), inp = $("mc-ticker"), copy = $("mc-copylink");
+    var q = null;
+    try { q = new URLSearchParams(location.search).get("ticker"); } catch (e) { q = null; }
+    if (q && inp) {
+      try { inp.value = String(q).toUpperCase().slice(0, 12); } catch (e) {}
     }
-    var go = $("mc-go"), inp = $("mc-ticker");
-    go.onclick = function () { lookup(inp.value); };
-    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") lookup(inp.value); });
-    $("mc-copylink").onclick = async function () {
+    /* Parallel boot: snapshot + (optional) impact race together via
+       Promise.allSettled; each renders the moment its own data lands. */
+    try {
+      var jobs = [loadSnapshot()];
+      if (q) jobs.push(lookup(q));
+      if (typeof Promise !== "undefined" && Promise.allSettled) Promise.allSettled(jobs);
+    } catch (e) {
+      try { loadSnapshot(); } catch (err) {}
+      try { if (q) lookup(q); } catch (err2) {}
+    }
+    if (!TEST) {
+      try { setInterval(poll, POLL_MS); } catch (e) {}
+      startCountdown();
+    } else {
+      paintCountdown();
+    }
+    resetCountdown();
+    if (go) go.onclick = function () { if (inp) lookup(inp.value); };
+    if (inp) inp.addEventListener("keydown", function (e) { if (e.key === "Enter") lookup(inp.value); });
+    if (copy) copy.onclick = async function () {
       try { await navigator.clipboard.writeText(location.href); toast("Link copied", "success"); }
       catch (e) { toast(location.href, "info"); }
     };
-    try {
-      var q = new URLSearchParams(location.search).get("ticker");
-      if (q) { inp.value = String(q).toUpperCase().slice(0, 12); lookup(inp.value); }
-    } catch (e) {}
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

@@ -15,6 +15,7 @@ import math
 import os
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -66,14 +67,14 @@ def _cache_file():
 
 
 def _fetch_last_close(symbol, fallback):
-    """Last close for a Yahoo symbol via history(5d), info fallback. Never raises."""
+    """Last close for a Yahoo symbol via history(2d), info fallback. Never raises."""
     try:
         import yfinance as yf
         try:
             try:
-                hist = yf.Ticker(symbol).history(period="5d", auto_adjust=False)
+                hist = yf.Ticker(symbol).history(period="2d", auto_adjust=False)
             except TypeError:
-                hist = yf.Ticker(symbol).history(period="5d")
+                hist = yf.Ticker(symbol).history(period="2d")
         except Exception as e:
             logger.info(f"[macro] history failed for {symbol}: {e}")
             hist = None
@@ -110,14 +111,27 @@ def _fetch_pct_change(symbol, lookback_bars=21, fallback=0.0):
     """Trailing pct change over ~lookback_bars trading days. Never raises."""
     try:
         import yfinance as yf
-        try:
+        hist = None
+        for _period in ("1mo", "2mo"):
             try:
-                hist = yf.Ticker(symbol).history(period="3mo", auto_adjust=False)
-            except TypeError:
-                hist = yf.Ticker(symbol).history(period="3mo")
-        except Exception as e:
-            logger.info(f"[macro] momentum history failed for {symbol}: {e}")
-            return fallback
+                try:
+                    hist = yf.Ticker(symbol).history(period=_period, auto_adjust=False)
+                except TypeError:
+                    hist = yf.Ticker(symbol).history(period=_period)
+            except Exception as e:
+                logger.info(f"[macro] momentum history failed for {symbol}: {e}")
+                hist = None
+                continue
+            try:
+                if hist is not None and not hist.empty:
+                    col = "Close" if "Close" in hist.columns else hist.columns[-1]
+                    vals = hist[col].dropna()
+                    if len(vals) >= lookback_bars + 1:
+                        break
+            except Exception:
+                pass
+            # insufficient bars: retry with the larger window
+            continue
         try:
             if hist is not None and not hist.empty:
                 col = "Close" if "Close" in hist.columns else hist.columns[-1]
@@ -179,43 +193,53 @@ def _mock_risk_gauges():
     }
 
 
+def _build_yield_curve(short, belly, ten, thirty, source="yfinance"):
+    """Pure builder: identical keys/shape to get_yield_curve success path. No network."""
+    try:
+        short, belly, ten, thirty = (round(float(short), 3), round(float(belly), 3),
+                                     round(float(ten), 3), round(float(thirty), 3))
+    except Exception:
+        short, belly, ten, thirty = (FALLBACK_SHORT_YIELD, FALLBACK_BELLY_YIELD,
+                                     FALLBACK_TEN_YIELD, FALLBACK_THIRTY_YIELD)
+    spread_short = round(ten - short, 3)
+    return {
+        "points": [
+            {"label": "13W", "yield": short, "symbol": "^IRX", "maturity": "13-week T-bill"},
+            {"label": "5Y", "yield": belly, "symbol": "^FVX", "maturity": "5-year T-note"},
+            {"label": "10Y", "yield": ten, "symbol": "^TNX", "maturity": "10-year T-note"},
+            {"label": "30Y", "yield": thirty, "symbol": "^TYX", "maturity": "30-year T-bond"},
+        ],
+        "short_yield": short,
+        "belly_yield": belly,
+        "ten_yield": ten,
+        "thirty_yield": thirty,
+        "spread_10y_short": spread_short,
+        "spread_10y_2y": spread_short,
+        "spread_10y_2y_proxy": spread_short,
+        "spread_10y_5y": round(ten - belly, 3),
+        "spread_30y_10y": round(thirty - ten, 3),
+        "inverted": bool(short > ten),
+        "note_2y": "No clean Yahoo symbol for 2Y; short end is ^IRX (13W), honestly labeled.",
+        "source": source,
+        "asof": _utcnow_iso(),
+    }
+
+
 def get_yield_curve():
     """Yield curve from ^IRX/^FVX/^TNX/^TYX (percent units). Never raises."""
     if _is_test_mode():
         return _mock_yield_curve()
     try:
-        short = _fetch_last_close(YIELD_SYMBOLS["short"], FALLBACK_SHORT_YIELD)
-        belly = _fetch_last_close(YIELD_SYMBOLS["belly"], FALLBACK_BELLY_YIELD)
-        ten = _fetch_last_close(YIELD_SYMBOLS["ten"], FALLBACK_TEN_YIELD)
-        thirty = _fetch_last_close(YIELD_SYMBOLS["thirty"], FALLBACK_THIRTY_YIELD)
-        try:
-            short, belly, ten, thirty = (round(float(short), 3), round(float(belly), 3),
-                                         round(float(ten), 3), round(float(thirty), 3))
-        except Exception:
-            short, belly, ten, thirty = (FALLBACK_SHORT_YIELD, FALLBACK_BELLY_YIELD,
-                                         FALLBACK_TEN_YIELD, FALLBACK_THIRTY_YIELD)
-        spread_short = round(ten - short, 3)
-        return {
-            "points": [
-                {"label": "13W", "yield": short, "symbol": "^IRX", "maturity": "13-week T-bill"},
-                {"label": "5Y", "yield": belly, "symbol": "^FVX", "maturity": "5-year T-note"},
-                {"label": "10Y", "yield": ten, "symbol": "^TNX", "maturity": "10-year T-note"},
-                {"label": "30Y", "yield": thirty, "symbol": "^TYX", "maturity": "30-year T-bond"},
-            ],
-            "short_yield": short,
-            "belly_yield": belly,
-            "ten_yield": ten,
-            "thirty_yield": thirty,
-            "spread_10y_short": spread_short,
-            "spread_10y_2y": spread_short,
-            "spread_10y_2y_proxy": spread_short,
-            "spread_10y_5y": round(ten - belly, 3),
-            "spread_30y_10y": round(thirty - ten, 3),
-            "inverted": bool(short > ten),
-            "note_2y": "No clean Yahoo symbol for 2Y; short end is ^IRX (13W), honestly labeled.",
-            "source": "yfinance",
-            "asof": _utcnow_iso(),
-        }
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            f_short = ex.submit(_fetch_last_close, YIELD_SYMBOLS["short"], FALLBACK_SHORT_YIELD)
+            f_belly = ex.submit(_fetch_last_close, YIELD_SYMBOLS["belly"], FALLBACK_BELLY_YIELD)
+            f_ten = ex.submit(_fetch_last_close, YIELD_SYMBOLS["ten"], FALLBACK_TEN_YIELD)
+            f_thirty = ex.submit(_fetch_last_close, YIELD_SYMBOLS["thirty"], FALLBACK_THIRTY_YIELD)
+            short = f_short.result()
+            belly = f_belly.result()
+            ten = f_ten.result()
+            thirty = f_thirty.result()
+        return _build_yield_curve(short, belly, ten, thirty, source="yfinance")
     except Exception as e:
         logger.info(f"[macro] get_yield_curve failed: {e}")
         fallback = _mock_yield_curve()
@@ -224,47 +248,61 @@ def get_yield_curve():
         return fallback
 
 
+def _build_risk_gauges(vix, dollar, gold, oil, hyg, tlt, lqd, spx, source="yfinance"):
+    """Pure builder: identical keys/shape to get_risk_gauges success path. No network."""
+    try:
+        hyg_tlt = round(float(hyg) / float(tlt), 4) if tlt else round(FALLBACK_HYG / FALLBACK_TLT, 4)
+    except Exception:
+        hyg_tlt = round(FALLBACK_HYG / FALLBACK_TLT, 4)
+    try:
+        hyg_lqd = round(float(hyg) / float(lqd), 4) if lqd else round(FALLBACK_HYG / FALLBACK_LQD, 4)
+    except Exception:
+        hyg_lqd = round(FALLBACK_HYG / FALLBACK_LQD, 4)
+    try:
+        spread_proxy = round(float(lqd) / float(hyg), 4) if hyg else round(FALLBACK_LQD / FALLBACK_HYG, 4)
+    except Exception:
+        spread_proxy = round(FALLBACK_LQD / FALLBACK_HYG, 4)
+    return {
+        "vix": round(float(vix), 2),
+        "dollar": round(float(dollar), 2),
+        "gold": round(float(gold), 2),
+        "oil": round(float(oil), 2),
+        "hyg": round(float(hyg), 2),
+        "tlt": round(float(tlt), 2),
+        "lqd": round(float(lqd), 2),
+        "spx": round(float(spx), 2),
+        "hyg_tlt_ratio": hyg_tlt,
+        "hyg_lqd_ratio": hyg_lqd,
+        "credit_spread_proxy": spread_proxy,
+        "note": "credit_spread_proxy = LQD/HYG (rises when high-yield lags investment-grade).",
+        "source": source,
+        "asof": _utcnow_iso(),
+    }
+
+
 def get_risk_gauges():
     """VIX / dollar / gold / oil / credit-risk ETFs. Never raises."""
     if _is_test_mode():
         return _mock_risk_gauges()
     try:
-        vix = _fetch_last_close("^VIX", FALLBACK_VIX)
-        dollar = _fetch_last_close("DX-Y.NYB", FALLBACK_DOLLAR)
-        gold = _fetch_last_close("GC=F", FALLBACK_GOLD)
-        oil = _fetch_last_close("CL=F", FALLBACK_OIL)
-        hyg = _fetch_last_close("HYG", FALLBACK_HYG)
-        tlt = _fetch_last_close("TLT", FALLBACK_TLT)
-        lqd = _fetch_last_close("LQD", FALLBACK_LQD)
-        spx = _fetch_last_close("^GSPC", FALLBACK_SPX)
-        try:
-            hyg_tlt = round(float(hyg) / float(tlt), 4) if tlt else round(FALLBACK_HYG / FALLBACK_TLT, 4)
-        except Exception:
-            hyg_tlt = round(FALLBACK_HYG / FALLBACK_TLT, 4)
-        try:
-            hyg_lqd = round(float(hyg) / float(lqd), 4) if lqd else round(FALLBACK_HYG / FALLBACK_LQD, 4)
-        except Exception:
-            hyg_lqd = round(FALLBACK_HYG / FALLBACK_LQD, 4)
-        try:
-            spread_proxy = round(float(lqd) / float(hyg), 4) if hyg else round(FALLBACK_LQD / FALLBACK_HYG, 4)
-        except Exception:
-            spread_proxy = round(FALLBACK_LQD / FALLBACK_HYG, 4)
-        return {
-            "vix": round(float(vix), 2),
-            "dollar": round(float(dollar), 2),
-            "gold": round(float(gold), 2),
-            "oil": round(float(oil), 2),
-            "hyg": round(float(hyg), 2),
-            "tlt": round(float(tlt), 2),
-            "lqd": round(float(lqd), 2),
-            "spx": round(float(spx), 2),
-            "hyg_tlt_ratio": hyg_tlt,
-            "hyg_lqd_ratio": hyg_lqd,
-            "credit_spread_proxy": spread_proxy,
-            "note": "credit_spread_proxy = LQD/HYG (rises when high-yield lags investment-grade).",
-            "source": "yfinance",
-            "asof": _utcnow_iso(),
-        }
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            f_vix = ex.submit(_fetch_last_close, "^VIX", FALLBACK_VIX)
+            f_dollar = ex.submit(_fetch_last_close, "DX-Y.NYB", FALLBACK_DOLLAR)
+            f_gold = ex.submit(_fetch_last_close, "GC=F", FALLBACK_GOLD)
+            f_oil = ex.submit(_fetch_last_close, "CL=F", FALLBACK_OIL)
+            f_hyg = ex.submit(_fetch_last_close, "HYG", FALLBACK_HYG)
+            f_tlt = ex.submit(_fetch_last_close, "TLT", FALLBACK_TLT)
+            f_lqd = ex.submit(_fetch_last_close, "LQD", FALLBACK_LQD)
+            f_spx = ex.submit(_fetch_last_close, "^GSPC", FALLBACK_SPX)
+            vix = f_vix.result()
+            dollar = f_dollar.result()
+            gold = f_gold.result()
+            oil = f_oil.result()
+            hyg = f_hyg.result()
+            tlt = f_tlt.result()
+            lqd = f_lqd.result()
+            spx = f_spx.result()
+        return _build_risk_gauges(vix, dollar, gold, oil, hyg, tlt, lqd, spx, source="yfinance")
     except Exception as e:
         logger.info(f"[macro] get_risk_gauges failed: {e}")
         fallback = _mock_risk_gauges()
@@ -273,11 +311,74 @@ def get_risk_gauges():
         return fallback
 
 
-def get_fed_stance():
+def _build_fed_stance(curve, risk):
+    """Pure builder: identical keys/shape to get_fed_stance success path. No network."""
+    curve = curve if isinstance(curve, dict) else {}
+    risk = risk if isinstance(risk, dict) else {}
+    try:
+        ten = float(curve.get("ten_yield", FALLBACK_TEN_YIELD))
+    except Exception:
+        ten = FALLBACK_TEN_YIELD
+    try:
+        short = float(curve.get("short_yield", FALLBACK_SHORT_YIELD))
+    except Exception:
+        short = FALLBACK_SHORT_YIELD
+    try:
+        vix = float(risk.get("vix", FALLBACK_VIX))
+    except Exception:
+        vix = FALLBACK_VIX
+    inverted = bool(curve.get("inverted", short > ten))
+    spread = round(ten - short, 3)
+
+    ease_votes, tight_votes = 0, 0
+    reasons = []
+    if inverted:
+        ease_votes += 2
+        reasons.append(f"Curve inverted (13W {short}% > 10Y {ten}%): market pricing future easing, not current Fed action.")
+    else:
+        reasons.append(f"Curve not inverted (10Y-13W spread {spread}pp).")
+    if vix >= 30:
+        ease_votes += 1
+        reasons.append(f"VIX {vix} elevated stress: market-implied pressure toward easing expectations.")
+    elif vix <= 18 and ten >= 4.5:
+        tight_votes += 1
+        reasons.append(f"10Y {ten}% firm with calm VIX {vix}: market tolerating a tighter stance.")
+    if ten >= 5.0:
+        tight_votes += 1
+        reasons.append(f"10Y {ten}% very high: market-implied TIGHTENING backdrop.")
+    elif ten <= 3.0:
+        ease_votes += 1
+        reasons.append(f"10Y {ten}% low: market-implied EASING backdrop.")
+    if spread >= 1.0:
+        tight_votes += 1
+        reasons.append(f"Steep positive curve (spread {spread}pp): no market stress signal.")
+    if ease_votes >= 2:
+        label = "EASING"
+    elif tight_votes >= 2:
+        label = "TIGHTENING"
+    elif ease_votes == 1 and tight_votes == 0:
+        label = "EASING"
+    elif tight_votes == 1 and ease_votes == 0:
+        label = "TIGHTENING"
+    else:
+        label = "NEUTRAL"
+        reasons.append("Mixed/neutral market-implied signals.")
+    return {
+        "label": label,
+        "reasons": reasons,
+        "method": "Market-implied heuristic from yield-curve shape + VIX; NOT FOMC data.",
+        "inputs": {"ten_yield": ten, "short_yield": short, "inverted": inverted,
+                   "spread_10y_short": spread, "vix": vix},
+        "source": "yfinance_heuristic",
+        "asof": _utcnow_iso(),
+    }
+
+
+def get_fed_stance(curve=None, risk=None):
     """Market-implied rate-policy heuristic from curve shape + VIX.
 
     Market-implied heuristic ONLY — NOT FOMC data, NOT a forecast of Fed action.
-    Never raises.
+    Never raises. Optional curve/risk reuse avoids refetching (snapshot fast path).
     """
     if _is_test_mode():
         return {
@@ -289,65 +390,18 @@ def get_fed_stance():
             "asof": _utcnow_iso(),
         }
     try:
-        curve = get_yield_curve() or {}
-        risk = get_risk_gauges() or {}
-        try:
-            ten = float(curve.get("ten_yield", FALLBACK_TEN_YIELD))
-        except Exception:
-            ten = FALLBACK_TEN_YIELD
-        try:
-            short = float(curve.get("short_yield", FALLBACK_SHORT_YIELD))
-        except Exception:
-            short = FALLBACK_SHORT_YIELD
-        try:
-            vix = float(risk.get("vix", FALLBACK_VIX))
-        except Exception:
-            vix = FALLBACK_VIX
-        inverted = bool(curve.get("inverted", short > ten))
-        spread = round(ten - short, 3)
-
-        ease_votes, tight_votes = 0, 0
-        reasons = []
-        if inverted:
-            ease_votes += 2
-            reasons.append(f"Curve inverted (13W {short}% > 10Y {ten}%): market pricing future easing, not current Fed action.")
+        if curve is None and risk is None:
+            with ThreadPoolExecutor(max_workers=2) as ex:
+                f_curve = ex.submit(get_yield_curve)
+                f_risk = ex.submit(get_risk_gauges)
+                curve = f_curve.result() or {}
+                risk = f_risk.result() or {}
         else:
-            reasons.append(f"Curve not inverted (10Y-13W spread {spread}pp).")
-        if vix >= 30:
-            ease_votes += 1
-            reasons.append(f"VIX {vix} elevated stress: market-implied pressure toward easing expectations.")
-        elif vix <= 18 and ten >= 4.5:
-            tight_votes += 1
-            reasons.append(f"10Y {ten}% firm with calm VIX {vix}: market tolerating a tighter stance.")
-        if ten >= 5.0:
-            tight_votes += 1
-            reasons.append(f"10Y {ten}% very high: market-implied TIGHTENING backdrop.")
-        elif ten <= 3.0:
-            ease_votes += 1
-            reasons.append(f"10Y {ten}% low: market-implied EASING backdrop.")
-        if spread >= 1.0:
-            tight_votes += 1
-            reasons.append(f"Steep positive curve (spread {spread}pp): no market stress signal.")
-        if ease_votes >= 2:
-            label = "EASING"
-        elif tight_votes >= 2:
-            label = "TIGHTENING"
-        elif ease_votes == 1 and tight_votes == 0:
-            label = "EASING"
-        elif tight_votes == 1 and ease_votes == 0:
-            label = "TIGHTENING"
-        else:
-            label = "NEUTRAL"
-            reasons.append("Mixed/neutral market-implied signals.")
-        return {
-            "label": label,
-            "reasons": reasons,
-            "method": "Market-implied heuristic from yield-curve shape + VIX; NOT FOMC data.",
-            "inputs": {"ten_yield": ten, "short_yield": short, "inverted": inverted,
-                       "spread_10y_short": spread, "vix": vix},
-            "source": "yfinance_heuristic",
-            "asof": _utcnow_iso(),
-        }
+            if curve is None:
+                curve = get_yield_curve() or {}
+            if risk is None:
+                risk = get_risk_gauges() or {}
+        return _build_fed_stance(curve, risk)
     except Exception as e:
         logger.info(f"[macro] get_fed_stance failed: {e}")
         return {
@@ -360,7 +414,95 @@ def get_fed_stance():
         }
 
 
-def get_regime():
+def _build_regime(curve, risk, fed_label, spx_mom):
+    """Pure builder: identical keys/shape to get_regime success path. No network."""
+    curve = curve if isinstance(curve, dict) else {}
+    risk = risk if isinstance(risk, dict) else {}
+    try:
+        vix = float(risk.get("vix", FALLBACK_VIX))
+    except Exception:
+        vix = FALLBACK_VIX
+    try:
+        ratio = float(risk.get("hyg_tlt_ratio", FALLBACK_HYG / FALLBACK_TLT))
+    except Exception:
+        ratio = FALLBACK_HYG / FALLBACK_TLT
+    try:
+        oil = float(risk.get("oil", FALLBACK_OIL))
+    except Exception:
+        oil = FALLBACK_OIL
+    inverted = bool(curve.get("inverted", False))
+    try:
+        spx_mom = float(spx_mom)
+        if not math.isfinite(spx_mom):
+            spx_mom = 0.0
+    except Exception:
+        spx_mom = 0.0
+
+    score = 0
+    reasons = []
+    if vix < 20:
+        score += 1
+        reasons.append(f"VIX {vix} calm supports risk appetite (+1).")
+    elif vix <= 25:
+        reasons.append(f"VIX {vix} middling, no regime vote.")
+    elif vix <= 30:
+        score -= 1
+        reasons.append(f"VIX {vix} elevated, defensive tilt (-1).")
+    else:
+        score -= 2
+        reasons.append(f"VIX {vix} stressed, risk-off pressure (-2).")
+    if ratio >= 0.87:
+        score += 1
+        reasons.append(f"HYG/TLT {ratio} firm: credit risk appetite (+1).")
+    elif ratio <= 0.82:
+        score -= 1
+        reasons.append(f"HYG/TLT {ratio} soft: credit stress (-1).")
+    else:
+        reasons.append(f"HYG/TLT {ratio} neutral.")
+    if spx_mom >= 0.03:
+        score += 1
+        reasons.append(f"S&P 500 1-mo {spx_mom:.1%} strong (+1).")
+    elif spx_mom <= -0.05:
+        score -= 1
+        reasons.append(f"S&P 500 1-mo {spx_mom:.1%} weak (-1).")
+    else:
+        reasons.append(f"S&P 500 1-mo {spx_mom:.1%} trendless.")
+    if inverted:
+        score -= 1
+        reasons.append("Inverted curve (13W > 10Y): late-cycle caution (-1).")
+
+    if fed_label is None:
+        fed_label = "NEUTRAL"
+    if oil >= 90 and (inverted or vix >= 25):
+        label = "STAGFLATION_WATCH"
+        reasons.append(f"Oil {oil} high with stress (inverted={inverted}, VIX {vix}): stagflation watch.")
+    elif score >= 2:
+        label = "RISK_ON"
+    elif score <= -2:
+        label = "RISK_OFF"
+    else:
+        label = "NEUTRAL"
+    # Fed/energy overlays: a vote-based RISK_ON makes no sense into tightening
+    # policy or expensive energy on a soft tape - reconcile before publishing.
+    if fed_label == "TIGHTENING" and label == "RISK_ON":
+        label = "NEUTRAL"
+        reasons.append("TIGHTENING cap: policy headwind offsets risk appetite (votes said RISK_ON).")
+    if oil >= 85 and label in ("RISK_ON", "NEUTRAL") and (fed_label == "TIGHTENING" or spx_mom < 0 or vix >= 20):
+        label = "STAGFLATION_WATCH"
+        reasons.append(f"Oil {oil} elevated into {fed_label} policy/soft tape: stagflation watch.")
+    return {
+        "label": label,
+        "score": int(score),
+        "reasons": reasons,
+        "inputs": {"vix": round(vix, 2), "hyg_tlt_ratio": round(ratio, 4),
+                   "inverted": inverted, "spx_1mo_pct": round(spx_mom, 4),
+                   "oil": round(oil, 2), "fed": fed_label},
+        "source": "yfinance_heuristic",
+        "asof": _utcnow_iso(),
+    }
+
+
+def get_regime(curve=None, risk=None, fed_label=None, spx_mom=None):
     """Market regime from VIX + credit ratio + curve + equity momentum + oil. Never raises."""
     if _is_test_mode():
         return {
@@ -373,81 +515,33 @@ def get_regime():
             "asof": _utcnow_iso(),
         }
     try:
-        curve = get_yield_curve() or {}
-        risk = get_risk_gauges() or {}
-        try:
-            vix = float(risk.get("vix", FALLBACK_VIX))
-        except Exception:
-            vix = FALLBACK_VIX
-        try:
-            ratio = float(risk.get("hyg_tlt_ratio", FALLBACK_HYG / FALLBACK_TLT))
-        except Exception:
-            ratio = FALLBACK_HYG / FALLBACK_TLT
-        try:
-            oil = float(risk.get("oil", FALLBACK_OIL))
-        except Exception:
-            oil = FALLBACK_OIL
-        inverted = bool(curve.get("inverted", False))
-        spx_mom = _fetch_pct_change("^GSPC", lookback_bars=21, fallback=0.0)
-        try:
-            spx_mom = float(spx_mom)
-            if not math.isfinite(spx_mom):
-                spx_mom = 0.0
-        except Exception:
-            spx_mom = 0.0
-
-        score = 0
-        reasons = []
-        if vix < 20:
-            score += 1
-            reasons.append(f"VIX {vix} calm supports risk appetite (+1).")
-        elif vix <= 25:
-            reasons.append(f"VIX {vix} middling, no regime vote.")
-        elif vix <= 30:
-            score -= 1
-            reasons.append(f"VIX {vix} elevated, defensive tilt (-1).")
+        need_curve = curve if isinstance(curve, dict) else None
+        need_risk = risk if isinstance(risk, dict) else None
+        need_spx = None if spx_mom is not None else True
+        if (need_curve is None or need_risk is None or need_spx) and (need_curve is None and need_risk is None and need_spx):
+            with ThreadPoolExecutor(max_workers=3) as ex:
+                f_curve = ex.submit(get_yield_curve) if need_curve is None else None
+                f_risk = ex.submit(get_risk_gauges) if need_risk is None else None
+                f_spx = ex.submit(_fetch_pct_change, "^GSPC", 21, 0.0) if need_spx else None
+                if f_curve is not None:
+                    need_curve = f_curve.result() or {}
+                if f_risk is not None:
+                    need_risk = f_risk.result() or {}
+                if f_spx is not None:
+                    spx_mom = f_spx.result()
         else:
-            score -= 2
-            reasons.append(f"VIX {vix} stressed, risk-off pressure (-2).")
-        if ratio >= 0.87:
-            score += 1
-            reasons.append(f"HYG/TLT {ratio} firm: credit risk appetite (+1).")
-        elif ratio <= 0.82:
-            score -= 1
-            reasons.append(f"HYG/TLT {ratio} soft: credit stress (-1).")
-        else:
-            reasons.append(f"HYG/TLT {ratio} neutral.")
-        if spx_mom >= 0.03:
-            score += 1
-            reasons.append(f"S&P 500 1-mo {spx_mom:.1%} strong (+1).")
-        elif spx_mom <= -0.05:
-            score -= 1
-            reasons.append(f"S&P 500 1-mo {spx_mom:.1%} weak (-1).")
-        else:
-            reasons.append(f"S&P 500 1-mo {spx_mom:.1%} trendless.")
-        if inverted:
-            score -= 1
-            reasons.append("Inverted curve (13W > 10Y): late-cycle caution (-1).")
-
-        if oil >= 90 and (inverted or vix >= 25):
-            label = "STAGFLATION_WATCH"
-            reasons.append(f"Oil {oil} high with stress (inverted={inverted}, VIX {vix}): stagflation watch.")
-        elif score >= 2:
-            label = "RISK_ON"
-        elif score <= -2:
-            label = "RISK_OFF"
-        else:
-            label = "NEUTRAL"
-        return {
-            "label": label,
-            "score": int(score),
-            "reasons": reasons,
-            "inputs": {"vix": round(vix, 2), "hyg_tlt_ratio": round(ratio, 4),
-                       "inverted": inverted, "spx_1mo_pct": round(spx_mom, 4),
-                       "oil": round(oil, 2)},
-            "source": "yfinance_heuristic",
-            "asof": _utcnow_iso(),
-        }
+            if need_curve is None:
+                need_curve = get_yield_curve() or {}
+            if need_risk is None:
+                need_risk = get_risk_gauges() or {}
+            if need_spx:
+                spx_mom = _fetch_pct_change("^GSPC", lookback_bars=21, fallback=0.0)
+        if fed_label is None:
+            try:
+                fed_label = (get_fed_stance(curve=need_curve, risk=need_risk) or {}).get("label", "NEUTRAL")
+            except Exception:
+                fed_label = "NEUTRAL"
+        return _build_regime(need_curve, need_risk, fed_label, spx_mom)
     except Exception as e:
         logger.info(f"[macro] get_regime failed: {e}")
         return {
@@ -525,10 +619,15 @@ def get_macro_snapshot(force=False):
             cached = _read_snapshot_cache()
             if cached is not None:
                 return cached
-        yields = get_yield_curve()
-        risk = get_risk_gauges()
-        fed = get_fed_stance()
-        regime = get_regime()
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            f_yields = ex.submit(get_yield_curve)
+            f_risk = ex.submit(get_risk_gauges)
+            f_spx = ex.submit(_fetch_pct_change, "^GSPC", 21, 0.0)
+            yields = f_yields.result()
+            risk = f_risk.result()
+            spx_mom = f_spx.result()
+        fed = get_fed_stance(curve=yields, risk=risk)
+        regime = get_regime(curve=yields, risk=risk, fed_label=(fed or {}).get("label"), spx_mom=spx_mom)
         snapshot = {
             "asof": _utcnow_iso(),
             "yields": yields,

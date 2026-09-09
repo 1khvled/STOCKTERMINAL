@@ -1344,6 +1344,44 @@ def api_estimates_prewarm():
     return {"status": "started"}
 
 
+def _fetch_quotes_concurrent(tickers, with_vol=False):
+    """Concurrent per-ticker 2d history fetch (~1-2s for 25-50 tickers vs 5-9s batched). Never raises."""
+    import yfinance as yf
+    from concurrent.futures import ThreadPoolExecutor
+    live = {}
+
+    def _one(tk):
+        try:
+            hist = yf.Ticker(tk).history(period="2d")
+            if hist is None or hist.empty or "Close" not in hist:
+                return None
+            closes = hist["Close"].dropna()
+            if len(closes) < 2:
+                return None
+            cur, prev = float(closes.iloc[-1]), float(closes.iloc[-2])
+            if not (math.isfinite(cur) and math.isfinite(prev)) or not prev:
+                return None
+            q = {"price": cur, "change": cur - prev, "pct": (cur - prev) / prev, "source": "yfinance"}
+            if with_vol:
+                try:
+                    vols = hist["Volume"].dropna() if "Volume" in hist else []
+                    q["vol"] = int(vols.iloc[-1]) if len(vols) else 0
+                except Exception:
+                    q["vol"] = 0
+            return q
+        except Exception:
+            return None
+
+    try:
+        with ThreadPoolExecutor(max_workers=10) as ex:
+            for tk, q in zip(tickers, ex.map(_one, tickers)):
+                if q:
+                    live[tk] = q
+    except Exception as e:
+        logger.info(f"concurrent quotes failed: {e}")
+    return live
+
+
 @app.route("/api/stocks/live-quotes")
 def api_live_quotes():
     tickers = [t.strip().upper() for t in request.args.get("tickers", "").split(",") if t.strip()]
@@ -1360,29 +1398,12 @@ def api_live_quotes():
     import time as _tq
     _cache_key = ",".join(tickers)
     if (live_quotes_cache.get("data") and live_quotes_cache.get("key") == _cache_key
-            and _tq.time() - live_quotes_cache.get("timestamp", 0) < 30):
+            and _tq.time() - live_quotes_cache.get("timestamp", 0) < 15):
         return {"quotes": live_quotes_cache["data"]}
-    # Try live yfinance batch fetch, fallback to local
+    # Concurrent per-ticker fetch (~1-2s), fallback to local
     quotes = []
     try:
-        import yfinance as yf
-        live = {}
-        # yf.Tickers batch
-        try:
-            data = yf.Tickers(" ".join(tickers))
-            for tk in tickers:
-                try:
-                    hist = data.tickers[tk].history(period="5d")
-                    closes = hist["Close"].dropna() if "Close" in hist else hist
-                    if len(closes) >= 2:
-                        cur = float(closes.iloc[-1])
-                        prev = float(closes.iloc[-2])
-                        if math.isfinite(cur) and math.isfinite(prev) and prev:
-                            live[tk] = {"price": cur, "change": cur - prev, "pct": (cur - prev) / prev, "source": "yfinance"}
-                except Exception:
-                    continue
-        except Exception as e:
-            logger.info(f"live-quotes batch failed: {e}")
+        live = _fetch_quotes_concurrent(tickers)
         for ticker in tickers:
             if ticker in live:
                 quotes.append({"ticker": ticker, **live[ticker]})
@@ -1618,29 +1639,10 @@ def api_market_movers():
         return {"gainers": demo, "losers": demo, "actives": demo, "source": "mock_test", "universe": len(tickers)}
     quotes = []
     try:
-        import yfinance as yf
-        try:
-            data = yf.Tickers(" ".join(tickers))
-            for tk in tickers:
-                try:
-                    hist = data.tickers[tk].history(period="5d")
-                    closes = hist["Close"].dropna() if "Close" in hist else hist
-                    if len(closes) >= 2:
-                        cur = float(closes.iloc[-1])
-                        prev = float(closes.iloc[-2])
-                        if math.isfinite(cur) and math.isfinite(prev) and prev:
-                            vol = 0
-                            try:
-                                vols = hist["Volume"].dropna()
-                                vol = int(vols.iloc[-1]) if len(vols) else 0
-                            except Exception:
-                                pass
-                            quotes.append({"ticker": tk, "price": cur, "change": cur - prev,
-                                           "pct": (cur - prev) / prev, "vol": vol, "source": "yfinance"})
-                except Exception:
-                    continue
-        except Exception as e:
-            logger.info(f"movers batch failed: {e}")
+        live = _fetch_quotes_concurrent(tickers, with_vol=True)
+        for tk in tickers:
+            if tk in live:
+                quotes.append({"ticker": tk, **live[tk]})
     except Exception as e:
         logger.info(f"movers error: {e}")
     by_pct = sorted(quotes, key=lambda q: q["pct"])

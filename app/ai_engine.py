@@ -401,6 +401,36 @@ def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_promp
         logger.info("  [!] %s failed: %s", provider, last_error)
         return None
 
+    now = time.time()
+    keys = GROQ_API_KEYS if GROQ_API_KEYS else ([GROQ_API_KEY] if GROQ_API_KEY else [])
+    for key_index, current_key in enumerate(keys):
+        with _COOLDOWN_LOCK:
+            cooldown_until = _RATE_LIMITED_KEYS.get(current_key, 0)
+        if now < cooldown_until:
+            logger.info(
+                "  [!] Groq key %s/%s cooling down for %ss",
+                key_index + 1,
+                len(keys),
+                int(cooldown_until - now),
+            )
+            continue
+
+        logger.info("  > [Groq primary] %s (key %s/%s)...", model or GROQ_MODEL, key_index + 1, len(keys))
+        result = call_openai_compatible(
+            "Groq",
+            GROQ_BASE_URL,
+            current_key,
+            model or GROQ_MODEL,
+            45,
+            GROQ_TEMPERATURE,
+            response_format=True,
+            extra_headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+        )
+        if result is not None:
+            return result
+        with _COOLDOWN_LOCK:
+            _RATE_LIMITED_KEYS[current_key] = time.time() + 120
+
     if OPENCODE_API_KEY:
         logger.info("  > [OpenCode] Calling %s...", OPENCODE_MODEL)
         result = call_openai_compatible(
@@ -476,33 +506,6 @@ def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_promp
         except Exception as exc:
             logger.info("  [!] Anthropic failed: %s", exc)
 
-    now = time.time()
-    keys = GROQ_API_KEYS if GROQ_API_KEYS else ([GROQ_API_KEY] if GROQ_API_KEY else [])
-    for key_index, current_key in enumerate(keys):
-        with _COOLDOWN_LOCK:
-            cooldown_until = _RATE_LIMITED_KEYS.get(current_key, 0)
-        if now < cooldown_until:
-            logger.info(
-                "  [!] Groq key %s/%s cooling down for %ss",
-                key_index + 1,
-                len(keys),
-                int(cooldown_until - now),
-            )
-            continue
-
-        result = call_openai_compatible(
-            "Groq",
-            GROQ_BASE_URL,
-            current_key,
-            model or GROQ_MODEL,
-            45,
-            GROQ_TEMPERATURE,
-            response_format=True,
-        )
-        if result is not None:
-            return result
-        with _COOLDOWN_LOCK:
-            _RATE_LIMITED_KEYS[current_key] = time.time() + 120
 
     logger.info("  [X] All configured AI providers failed or are unavailable.")
     return None

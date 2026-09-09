@@ -8,20 +8,25 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="stylesheet" href="/static/css/dashboard_new.css?v=12"/>
 <style>
-.mc-wrap{max-width:1180px;margin:0 auto;padding:18px 16px}
-.mc-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:14px 0 4px}
+.mc-wrap{max-width:1180px;margin:0 auto;padding:18px 16px 32px}
+.mc-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:14px 0 4px}
 .mc-head h1{margin:0;font-size:21px;font-weight:800;letter-spacing:-.3px}
-.mc-head .sub{font-size:12px;color:var(--muted);font-family:JetBrains Mono,monospace}
-.mc-banner{border:1px solid var(--border);background:linear-gradient(135deg,#0f1720 0%,#1b2533 60%,#233347 100%);border-radius:14px;padding:18px;margin:12px 0}
-.mc-banner .lbl{font-size:24px;font-weight:800;letter-spacing:-.3px}
-.mc-banner .score{font-family:JetBrains Mono,monospace;font-size:12px;color:var(--muted);margin-top:4px}
+.mc-kicker{font-family:JetBrains Mono,monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
+.mc-meta-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-family:JetBrains Mono,monospace;font-size:11px;color:var(--dim);margin:6px 0 2px}
+.mc-meta-row .dot{opacity:.5}
+#mc-countdown{color:var(--muted)}
+.mc-section{font-family:JetBrains Mono,monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:18px 0 8px;display:flex;align-items:center;gap:8px}
+.mc-section::after{content:"";flex:1;height:1px;background:var(--border)}
+.mc-banner{border:1px solid var(--border);background:linear-gradient(135deg,#0f1720 0%,#1b2533 60%,#233347 100%);border-radius:14px;padding:22px;margin:10px 0 4px;min-height:148px}
+.mc-banner .lbl{font-size:28px;font-weight:800;letter-spacing:-.4px;line-height:1.15}
+.mc-banner .score{font-family:JetBrains Mono,monospace;font-size:12px;color:var(--muted);margin-top:6px}
 .mc-reasons{margin:10px 0 0;padding-left:20px;line-height:1.65;font-size:13px;color:#d6d8db}
 .mc-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}
 @media(max-width:900px){.mc-grid{grid-template-columns:1fr}}
 .mc-gauges{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
 @media(max-width:1000px){.mc-gauges{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:640px){.mc-gauges{grid-template-columns:repeat(2,1fr)}}
-.mc-gauge{border:1px solid var(--border);background:var(--panel);border-radius:12px;padding:12px}
+.mc-gauge{border:1px solid var(--border);background:var(--panel);border-radius:12px;padding:12px;min-height:86px}
 .mc-gauge .g-l{font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 .mc-gauge .g-v{margin-top:6px;font-family:JetBrains Mono,monospace;font-size:17px;font-weight:700}
 .mc-gauge .g-c{margin-top:4px;font-family:JetBrains Mono,monospace;font-size:12px;font-weight:600}
@@ -36,9 +41,13 @@
 .mc-kv:last-child{border:none}
 .mc-kv span{color:var(--muted);font-family:JetBrains Mono,monospace;font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding-top:2px}
 .mc-chart{position:relative;height:240px}
+.mc-curve-skel{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;gap:10px;pointer-events:none}
+.mc-chart canvas{position:relative;z-index:1}
 .mc-risk{margin:8px 0 0;padding-left:20px;line-height:1.65;font-size:13px;color:#f0b4ae}
 .mc-empty{color:var(--muted);font-size:13px;text-align:center;padding:20px}
+.mc-error{color:var(--red);font-size:13px;text-align:center;padding:20px;border:1px dashed rgba(255,59,48,.4);border-radius:10px;background:rgba(255,59,48,.05)}
 .mc-meta{font-family:JetBrains Mono,monospace;font-size:11px;color:var(--dim);margin-top:8px}
+.mc-skel{display:flex;flex-direction:column;gap:8px}
 </style>
 </head>
 <body>
@@ -51,35 +60,48 @@
 </nav>
 <div class="mc-wrap">
   <div class="mc-head">
-    <h1>Macro - Rates, Fed &amp; Regime</h1>
-    <span class="sub" id="mc-generated">loading snapshot...</span>
+    <div>
+      <div class="mc-kicker">Macro regime</div>
+      <h1>Macro - Rates, Fed &amp; Regime</h1>
+    </div>
+  </div>
+  <div class="mc-meta-row" aria-live="polite">
+    <span id="mc-generated">loading snapshot...</span>
+    <span class="dot">·</span>
+    <span id="mc-countdown">refresh in 5:00</span>
+    <span class="dot">·</span>
+    <span>auto-refresh 5m</span>
   </div>
 
-  <div class="mc-banner" id="mc-regime">
-    <div class="lbl" id="mc-regime-label">Loading regime...</div>
-    <div class="score" id="mc-regime-score"></div>
-    <ul class="mc-reasons" id="mc-regime-reasons"></ul>
+  <div class="mc-section">01 · Regime</div>
+  <div class="mc-banner" id="mc-regime" aria-live="polite" aria-busy="true">
+    <div class="lbl" id="mc-regime-label"><span class="skeleton" style="display:block;width:min(320px,70%);height:28px"></span></div>
+    <div class="score" id="mc-regime-score"><span class="skeleton" style="display:block;width:160px;height:12px;margin-top:6px"></span></div>
+    <ul class="mc-reasons" id="mc-regime-reasons" aria-hidden="true"><li><span class="skeleton" style="display:block;width:90%;height:12px"></span></li><li><span class="skeleton" style="display:block;width:75%;height:12px"></span></li></ul>
   </div>
 
+  <div class="mc-section">02 · Rates &amp; Fed</div>
   <div class="mc-grid">
     <div class="card">
-      <div class="card-title">Yield Curve <span style="margin-left:auto;display:flex;gap:8px;align-items:center"><span class="mc-badge" id="mc-inv">--</span></span></div>
-      <div class="mc-chart"><canvas id="mc-curve" height="240"></canvas></div>
-      <div class="mc-meta" id="mc-spread">10Y-3M spread: --</div>
+      <div class="card-title">Yield Curve <span style="margin-left:auto;display:flex;gap:8px;align-items:center"><span class="mc-badge" id="mc-inv">SYNC</span></span></div>
+      <div class="mc-chart"><div class="mc-curve-skel" aria-hidden="true"><div class="skeleton" style="height:14px;width:60%"></div><div class="skeleton" style="height:120px;width:100%"></div><div class="skeleton" style="height:12px;width:40%"></div></div><canvas id="mc-curve" height="240"></canvas></div>
+      <div class="mc-meta" id="mc-spread">10Y-3M spread: syncing...</div>
       <div class="mc-empty" id="mc-curve-empty" style="display:none">Yield data unavailable.</div>
     </div>
-    <div class="card">
+    <div class="card" aria-live="polite" aria-busy="true">
       <div class="card-title">Fed Stance</div>
-      <div style="font-size:17px;font-weight:800" id="mc-fed-label">--</div>
-      <ul class="mc-reasons" id="mc-fed-reasons"><li class="mc-empty">Loading Fed stance...</li></ul>
+      <div style="font-size:17px;font-weight:800" id="mc-fed-label"><span class="skeleton" style="display:block;width:140px;height:18px"></span></div>
+      <ul class="mc-reasons" id="mc-fed-reasons"><li><span class="skeleton" style="display:block;width:90%;height:12px"></span></li><li><span class="skeleton" style="display:block;width:70%;height:12px"></span></li></ul>
     </div>
   </div>
 
+  <div class="mc-section">03 · Risk gauges</div>
   <div class="card">
     <div class="card-title">Risk Gauges</div>
-    <div class="mc-gauges" id="mc-gauges"><div class="mc-empty">Loading gauges...</div></div>
+    <div class="mc-gauges" id="mc-gauges" aria-live="polite" aria-busy="true"><div class="mc-gauge"><div class="g-l">VIX</div><div class="skeleton" style="height:18px;margin-top:8px"></div><div class="skeleton" style="height:12px;margin-top:6px;width:60%"></div></div><div class="mc-gauge"><div class="g-l">Dollar</div><div class="skeleton" style="height:18px;margin-top:8px"></div><div class="skeleton" style="height:12px;margin-top:6px;width:60%"></div></div><div class="mc-gauge"><div class="g-l">Gold</div><div class="skeleton" style="height:18px;margin-top:8px"></div><div class="skeleton" style="height:12px;margin-top:6px;width:60%"></div></div><div class="mc-gauge"><div class="g-l">Oil</div><div class="skeleton" style="height:18px;margin-top:8px"></div><div class="skeleton" style="height:12px;margin-top:6px;width:60%"></div></div><div class="mc-gauge"><div class="g-l">HYG/TLT</div><div class="skeleton" style="height:18px;margin-top:8px"></div><div class="skeleton" style="height:12px;margin-top:6px;width:60%"></div></div></div>
   </div>
 
+  <div class="mc-section">04 · Ticker impact</div>
   <div class="card">
     <div class="card-title">Ticker Impact in This Regime</div>
     <div class="mc-row">
@@ -90,14 +112,18 @@
     <div class="mc-meta" id="mc-impact-msg">Enter a ticker to see rate sensitivity, earnings and valuation impact.</div>
     <div id="mc-impact" style="display:none;margin-top:8px">
       <div style="font-size:15px;font-weight:800" id="mc-impact-head">--</div>
-      <div id="mc-impact-rows"></div>
+      <div id="mc-impact-rows"><div class="mc-skel" aria-hidden="true"><div class="skeleton" style="height:14px"></div><div class="skeleton" style="height:14px;width:85%"></div></div></div>
       <div style="margin-top:10px;font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Risk flags</div>
-      <ul class="mc-risk" id="mc-impact-risks"></ul>
+      <ul class="mc-risk" id="mc-impact-risks"><li><span class="skeleton" style="display:block;width:60%;height:12px"></span></li></ul>
     </div>
   </div>
+</div>
+
+  <div class="card"><div class="card-title">Your coverage under this regime</div><div id="mc-holdings">Loading coverage...</div></div>
 </div>
 <script src="/static/js/toast.js"></script>
 <script>if(typeof showToast==="undefined"){function showToast(m){alert(m);}}</script>
 <script src="/static/js/macro.js?v=1"></script>
+<script src="/static/js/macro_holdings.js?v=1"></script>
 </body>
 </html>

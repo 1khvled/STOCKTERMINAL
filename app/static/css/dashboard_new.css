@@ -120,3 +120,96 @@ nav{height:52px;display:flex;align-items:center;gap:14px;padding:0 16px;border-b
 .mc-gauges{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
 @media(max-width:1000px){.mc-gauges{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:640px){.mc-gauges{grid-template-columns:repeat(2,1fr)}}
+
+/* ---- Macro polish (Bloomberg-dark, append-only) ---- */
+/* Banner base: <div class="mc-banner" id="mc-regime"> in macro.html. */
+#mc-regime.mc-banner{
+  position:relative;
+  overflow:hidden;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:var(--panel);
+}
+/* Regime variants: toggle one class on #mc-regime via classList, no JS logic change. */
+#mc-regime.rg-on{
+  background:linear-gradient(135deg,rgba(52,199,89,.16),var(--panel) 65%);
+  border-color:rgba(52,199,89,.45);
+  box-shadow:0 0 24px rgba(52,199,89,.15);
+}
+#mc-regime.rg-off{
+  background:linear-gradient(135deg,rgba(255,59,48,.16),var(--panel) 65%);
+  border-color:rgba(255,59,48,.45);
+  box-shadow:0 0 24px rgba(255,59,48,.15);
+}
+#mc-regime.rg-stag{
+  background:linear-gradient(135deg,rgba(255,159,10,.18),var(--panel) 65%);
+  border-color:rgba(255,159,10,.45);
+  box-shadow:0 0 24px rgba(255,159,10,.15);
+}
+#mc-regime.rg-neutral{
+  background:var(--panel);
+  border-color:var(--border2);
+  box-shadow:none;
+}
+/* Gauges: macro.js renderGauges() emits .mc-gauge > .g-l/.g-v/.g-c(.up/.dn/.flat). */
+.mc-gauges .mc-gauge{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:12px;
+  transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease;
+}
+.mc-gauges .mc-gauge:hover{
+  transform:translateY(-2px);
+  border-color:var(--border2);
+  box-shadow:0 8px 20px rgba(0,0,0,.35);
+}
+.mc-gauges .mc-gauge .g-v{
+  font-family:JetBrains Mono,monospace;
+  font-size:22px;
+  font-weight:700;
+  letter-spacing:-.02em;
+  color:var(--text);
+}
+.mc-gauges .mc-gauge .g-c{
+  font-family:JetBrains Mono,monospace;
+  font-size:12px;
+  font-weight:600;
+}
+.mc-gauges .mc-gauge .g-c.up{
+  color:var(--green);
+}
+.mc-gauges .mc-gauge .g-c.dn{
+  color:var(--red);
+}
+.mc-gauges .mc-gauge .g-c.flat{
+  color:var(--muted);
+}
+/* Skeleton: reuses existing shimmer keyframes (no new @keyframes). */
+.mc-skel{
+  height:12px;
+  border-radius:6px;
+  background:linear-gradient(90deg,var(--panel2) 25%,var(--border2) 50%,var(--panel2) 75%);
+  background-size:200% 100%;
+  animation:shimmer 1.4s infinite;
+}
+/* Yield curve: .mc-chart wraps canvas#mc-curve. Fixed height, panel bg, rounded. */
+.card .mc-chart{
+  height:260px;
+  background:var(--panel2);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:10px;
+  overflow:hidden;
+}
+.card .mc-chart canvas{
+  width:100% !important;
+  height:100% !important;
+  display:block;
+}
+/* Responsive: 1 column under 900px (repo breakpoint convention). */
+@media(max-width:900px){
+  .mc-wrap .mc-grid,
+  .card .mc-gauges{
+    grid-template-columns:1fr;
+  }
+}
