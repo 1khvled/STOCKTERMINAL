@@ -127,7 +127,7 @@ function render(){
 }
 async function load(){try{var r=await fetch("/api/stocks");var j=await r.json();stocks=j.stocks||[];render()}catch(e){}}
 async function live(){try{var r=await fetch("/api/stocks/live-quotes");var j=await r.json();liveMap={};(j.quotes||[]).forEach(function(q){liveMap[q.ticker]=q});render()}catch(e){}}
-function addT(){var v=$("add").value.trim().toUpperCase().replace(/[^A-Z0-9.\^-]/g,"").slice(0,12);if(!v)return;var wl=getWL();if(wl.indexOf(v)<0){wl.push(v);setWL(wl);render()}$("add").value="";$("add").focus()}
+function addT(){var v=$("add").value.trim().toUpperCase().replace(/[^A-Z0-9.\^-]/g,"").slice(0,12);if(!v)return;var wl=getWL();if(wl.indexOf(v)>=0){if(window.showToast)showToast(v+" is already in your watchlist.","warn");else alert(v+" is already in your watchlist."); $("add").value="";return;}wl.push(v);setWL(wl);render();if(window.showToast)showToast("Added "+v+" to watchlist","success");$("add").value="";$("add").focus()}
 $("addbtn").onclick=addT;$("add").addEventListener("keydown",function(e){if(e.key==="Enter")addT()});
 $("clearbtn").onclick=function(){var b=this;if(!getWL().length)return;if(b.getAttribute("data-arm")){b.removeAttribute("data-arm");b.textContent="CLEAR ALL";setWL([]);render();if(window.showToast)showToast("Watchlist cleared","success")}else{b.setAttribute("data-arm","1");b.textContent="SURE?";setTimeout(function(){b.removeAttribute("data-arm");b.textContent="CLEAR ALL"},3000)}};
 var th=document.querySelectorAll("#qt th[data-k]");for(var ti=0;ti<th.length;ti++){th[ti].onclick=function(){var k=this.getAttribute("data-k");if(sortK===k)sortD*=-1;else{sortK=k;sortD=-1}render()}}
