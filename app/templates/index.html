@@ -125,7 +125,7 @@ table.q tbody tr:hover{background:#181a23}
       <p>DCF valuation, Monte Carlo, analyst-grade AI research, red-team risk, screeners, portfolio lab. Type a ticker and hit Analyze.</p>
       <div class="arow">
         <input id="ticker" class="inp" placeholder="Ticker: AAPL, NVDA, MSFT (comma = compare)" autocomplete="off" spellcheck="false"/>
-        <button id="analyze" class="btn">ANALYZE</button>
+        <button id="analyze" class="btn">ANALYZE</button><button id="cancel" class="btn" style="display:none">CANCEL</button>
         <a href="/module/screener" class="btn-ghost">SCREENER</a>
       </div>
       <div id="log" class="log"></div>
@@ -246,7 +246,7 @@ async function refreshLive(first){
   try{render();}catch(e4){console.error("render failed",e4);}
   try{
     var nl=Object.keys(liveMap).filter(function(k){return isLive(liveMap[k])}).length;
-    $("live-label").textContent=(nl?("live "+nl+"/"+stocks.length):(stocks.length?"OFFLINE - retrying":""))+" \u2022 "+new Date().toLocaleTimeString();
+    $("live-label").textContent=(nl?("live "+nl+"/"+stocks.length):(stocks.length?"OFFLINE - retrying":""))+ " \u2022 "+new Date().toLocaleTimeString("en-US",{timeZone:"America/New_York",hour12:false})+" ET \u00b7 yfinance 15s";
   }catch(e5){}
 }
 async function loadPortfolio(){try{var r=await fetch("/api/portfolio");var j=await r.json();var n=(j.positions||[]).length;
@@ -261,7 +261,10 @@ $("q").addEventListener("input",function(){clearTimeout(qT);var v=$("q").value.t
 document.addEventListener("click",function(e){if(!$("sdrop").contains(e.target)&&e.target!==$("q"))$("sdrop").style.display="none"});
 $("q").addEventListener("keydown",function(e){if(e.key==="Enter"){var v=$("q").value.trim().toUpperCase();if(v)location.href="/dashboard/"+encodeURIComponent(v)}});
 var vb=document.querySelectorAll("#views .vbtn");for(var i=0;i<vb.length;i++){vb[i].onclick=function(){for(var k=0;k<vb.length;k++)vb[k].classList.remove("on");this.classList.add("on");view=this.getAttribute("data-v");render()}}
-var th=document.querySelectorAll("#qt th");for(var ti=0;ti<th.length;ti++){th[ti].onclick=function(){var k=this.getAttribute("data-k");if(sortK===k)sortD*=-1;else{sortK=k;sortD=-1}render()}}
+var th=document.querySelectorAll("#qt th");
+function paintSort(){for(var q=0;q<th.length;q++){var el=th[q],k=el.getAttribute("data-k");if(!k)continue;el.setAttribute("aria-sort",k===sortK?(sortD===-1?"descending":"ascending"):"none");var b=el.innerHTML.replace(/ [\u25B2\u25BC]$/,"");el.innerHTML=b+(k===sortK?(sortD===-1?" \u25BC":" \u25B2"):"");}}
+for(var ti=0;ti<th.length;ti++){th[ti].tabIndex=0;th[ti].setAttribute("role","columnheader");th[ti].onclick=function(){var k=this.getAttribute("data-k");if(!k)return;if(sortK===k)sortD*=-1;else{sortK=k;sortD=-1}paintSort();render()};th[ti].onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();this.click()}}}
+paintSort();
 $("refresh").onclick=function(){refreshLive()};
 function tick(){try{var f=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});$("clock").textContent=f.format(new Date())+" ET";
   var hf=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"numeric",hour12:false});var p=hf.format(new Date()).split(":");var mins=(+p[0])*60+(+p[1]);var d=new Date().getUTCDay();
@@ -271,16 +274,17 @@ tick();setInterval(tick,1000);
 $("auto-update").onclick=function(){var el=$("auto-status");el.textContent="Triggering quarterly refresh...";fetch("/api/system/auto-update/trigger",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}).then(function(){setTimeout(function(){fetch("/api/system/auto-update/status").then(function(r){return r.json()}).then(function(j){el.textContent="last "+(j.last_run||"never")+" • tracked "+(j.total_tracked||0)}).catch(function(){})},2000)})};
 var tickerIn=$("ticker"),btn=$("analyze"),logEl=$("log");var curEs=null;
 btn.onclick=run;tickerIn.addEventListener("keydown",function(e){if(e.key==="Enter")run()});
+document.getElementById('cancel').onclick=function(){if(curEs){try{curEs.close();}catch(e){}curEs=null;}btn.disabled=false;this.style.display='none';logLine("[*] Cancelled by user - server stops the analysis job.");};
 function logLine(t){logEl.style.display="block";logEl.textContent+=t+"\n";logEl.scrollTop=logEl.scrollHeight}
 function run(){var raw=tickerIn.value.trim().toUpperCase();if(!raw){tickerIn.focus();return}
   var tickers=raw.split(",").map(function(s){return s.trim()}).filter(Boolean);if(!tickers.length)return;
   if(tickers.length>1){location.href="/compare?tickers="+tickers.join(",");return}
   var t=tickers[0];if(!/^[A-Z0-9.\^-]{1,10}$/.test(t)){logLine("Invalid ticker: "+t);return}
   if(curEs){try{curEs.close()}catch(e){}curEs=null}
-  btn.disabled=true;logEl.textContent="";logEl.style.display="block";logLine("[*] Analyzing "+t+" ... streaming logs");
+  btn.disabled=true;logEl.textContent="";logEl.style.display="block";var cb=document.getElementById('cancel');if(cb)cb.style.display='';logLine("[*] Analyzing "+t+" ... streaming logs");
   var done=false;var es=new EventSource("/api/stream?ticker="+encodeURIComponent(t));curEs=es;
   es.onmessage=function(e){var d=e.data;if(d.indexOf("REDIRECT:")===0){done=true;es.close();curEs=null;var url=d.split("REDIRECT:")[1].trim();logLine("[*] Done -> "+url);if(window.showToast)showToast("Analysis complete: "+t,"success");setTimeout(function(){location.href=url},600)}else logLine(d)};
-  es.onerror=function(){es.close();if(curEs===es)curEs=null;if(done)return;btn.disabled=false;logLine("[*] Stream closed. If the analysis finished it will appear in Holdings above; otherwise press ANALYZE to retry.")}}
+  es.onerror=function(){es.close();if(curEs===es)curEs=null;if(done)return;btn.disabled=false;var cb2=document.getElementById('cancel');if(cb2)cb2.style.display='none';logLine("[*] Stream closed. If the analysis finished it will appear in Holdings above; otherwise press ANALYZE to retry.")}}
 loadStocks();refreshLive(true);loadPortfolio();loadSys();setInterval(refreshLive,15000);
 (function(){try{var q=new URLSearchParams(location.search).get('ticker');if(q){tickerIn.value=String(q).toUpperCase().slice(0,12);run();}}catch(e){}})();
 </script>

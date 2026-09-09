@@ -667,7 +667,7 @@ def save_portfolio(positions):
     return local_db.save_portfolio(positions)
 
 
-def portfolio_summary():
+def portfolio_summary(include_ai=True):
     portfolio = load_portfolio()
     enriched = []
     total_weight = 0
@@ -709,7 +709,7 @@ def portfolio_summary():
         "risk_summary": "No positions loaded." if not enriched else f"Largest sector exposure is {concentration:.1f}%. Weighted model upside is {avg_upside*100:+.1f}%.",
         "actions": ["Add positions with PORT ADD TICKER WEIGHT."]
     }
-    if enriched:
+    if enriched and include_ai:
         prompt = {
             "role": "portfolio risk officer",
             "task": "Give a concise AI portfolio command center verdict.",

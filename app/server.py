@@ -301,9 +301,44 @@ def stream_logs():
             yield f"data: REDIRECT: /dashboard/{ticker}\n\n"
         return Response(_mock_stream(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"})
 
+    with _active_streams_lock:
+        if ticker in _active_streams:
+            def _dup():
+                yield f"data: Analysis already running for {ticker} - please wait for it to finish.\n\n"
+            return Response(_dup(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"})
+        _active_streams.add(ticker)
+
+    def _release_stream():
+        with _active_streams_lock:
+            _active_streams.discard(ticker)
+
+    # Upfront existence check so bogus tickers fail in seconds, not minutes.
+    # Only hard-fail on positive unknown evidence; network blips proceed.
+    try:
+        import yfinance as _yf
+        try:
+            _probe_hist = _yf.Ticker(ticker).history(period="1d")
+        except Exception as _pe:
+            if "delist" in str(_pe).lower() or "not found" in str(_pe).lower():
+                raise ValueError("unknown symbol")
+            logger.info(f"[*] Ticker probe inconclusive for {ticker}, proceeding: {_pe}")
+            _probe_hist = None
+        if _probe_hist is not None and _probe_hist.empty:
+            raise ValueError("unknown symbol")
+    except ValueError:
+        _release_stream()
+
+        def _bad():
+            yield f"data: Ticker {ticker} not found - check the symbol and retry.\n\n"
+        return Response(_bad(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"})
+    except Exception as _e:
+        logger.info(f"[*] Probe error for {ticker}, proceeding anyway: {_e}")
+
     def generate_events():
+        import time as _stime
         from queue import Queue, Empty
         from threading import Thread
+        _started = _stime.time()
 
         logger.info(f"[*] Starting background analysis pipeline for: {ticker}")
         process = None
@@ -351,7 +386,15 @@ def stream_logs():
                     # Yield stdout line to the client
                     yield f"data: {cleaned}\n\n"
                 except Empty:
-                    # Subprocess is still executing, but stdout queue is empty.
+                    # Watchdog: never let one analysis hold a worker past 10 minutes.
+                    if _stime.time() - _started > 600:
+                        try:
+                            if process and process.poll() is None:
+                                process.terminate()
+                        except Exception:
+                            pass
+                        yield f"data: Analysis timed out after 10 minutes for {ticker} - retry later.\n\n"
+                        break
                     # Yield keep-alive heartbeat comment pulse to keep HTTP connection alive
                     yield ": keepalive\n\n"
                     # Also double check if process died unexpectedly
@@ -363,12 +406,14 @@ def stream_logs():
             if return_code == 0:
                 yield f"data: REDIRECT: /dashboard/{ticker}\n\n"
             else:
-                yield f"data: ❌ Subprocess analysis crashed with exit code {return_code}\n\n"
+                yield f"data: ❌ Analysis failed for {ticker} (exit code {return_code}) - check the symbol or retry. It was NOT saved.\n\n"
+            _release_stream()
         except GeneratorExit:
             logger.info(f"[-] Client disconnected while analyzing {ticker}. Terminating background subprocess...")
             if process and process.poll() is None:
                 process.terminate()
                 process.wait()
+            _release_stream()
             raise
         except Exception as e:
             logger.info(f"[-] Error in event stream: {e}")
@@ -376,6 +421,7 @@ def stream_logs():
             if process and process.poll() is None:
                 process.terminate()
                 process.wait()
+            _release_stream()
 
     return Response(generate_events(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"})
 
@@ -646,7 +692,8 @@ def api_red_flags(ticker):
 @app.route("/api/portfolio")
 def api_portfolio():
     from intelligence_terminal import portfolio_summary
-    return portfolio_summary()
+    want_ai = str(request.args.get("ai", "1")).strip().lower() not in {"0", "false", "no"}
+    return portfolio_summary(include_ai=want_ai)
 
 
 @app.route("/api/portfolio/add", methods=["POST"])
@@ -662,7 +709,8 @@ def api_portfolio_add():
     positions = [p for p in portfolio.get("positions", []) if (p.get("ticker") or "").upper() != ticker]
     positions.append({"ticker": ticker, "weight": weight})
     save_portfolio(positions)
-    return api_portfolio()
+    from intelligence_terminal import portfolio_summary
+    return portfolio_summary(include_ai=False)
 
 
 @app.route("/api/portfolio/remove", methods=["POST"])
@@ -674,7 +722,8 @@ def api_portfolio_remove():
     portfolio = load_portfolio()
     positions = [p for p in portfolio.get("positions", []) if (p.get("ticker") or "").upper() != ticker]
     save_portfolio(positions)
-    return api_portfolio()
+    from intelligence_terminal import portfolio_summary
+    return portfolio_summary(include_ai=False)
 
 
 @app.route("/api/terminal/execute", methods=["POST"])
@@ -1032,6 +1081,8 @@ auto_update_state = {"last_run": None, "next_run": None, "running": False, "queu
 live_quotes_cache = {"data": None, "timestamp": 0}
 
 ticker_tape_cache = {"data": None, "timestamp": 0}
+_active_streams = set()
+_active_streams_lock = threading.Lock()
 
 def get_ticker_tape():
     import time

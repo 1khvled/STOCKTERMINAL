@@ -15,6 +15,7 @@ if sys.platform == "win32":
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
     os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
+print("[boot] starting analysis pipeline...", flush=True)
 try:
     from config import OUTPUT_DIR, validate_config
 except ImportError:
@@ -415,6 +416,9 @@ def main():
                 import traceback
                 traceback.print_exc()
         
+        if not analyzed_list:
+            print(f"\n Analysis produced no results - ticker(s) may be invalid.")
+            sys.exit(2)
         if len(analyzed_list) > 1:
             try:
                 from comparison_generator import generate_comparison_dashboard
