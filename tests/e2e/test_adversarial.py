@@ -108,6 +108,21 @@ def test_dashboard_404_for_unknown_ticker(base_url):
     resp = requests.get(f"{base_url}/dashboard/ZZZZNOTFOUND123", timeout=5)
     assert resp.status_code in (400, 404)
 
+def test_research_pages(base_url):
+    resp = requests.get(f"{base_url}/research/CRM/briefing", timeout=5)
+    assert resp.status_code == 200
+    assert "briefing" in resp.text.lower()
+    for pg in ["earnings", "overview"]:
+        r = requests.get(f"{base_url}/research/CRM/{pg}", timeout=5)
+        assert r.status_code == 200
+    r = requests.get(f"{base_url}/research/CRM/nonexistent", timeout=5)
+    assert r.status_code == 404
+    r = requests.get(f"{base_url}/research/ZZZZQ/briefing", timeout=5, allow_redirects=False)
+    assert r.status_code in (302, 303, 307)
+    r = requests.get(f"{base_url}/research/!!!INVALID/briefing", timeout=5)
+    assert r.status_code == 400
+
+
 def test_api_health(base_url):
     resp = requests.get(f"{base_url}/api/system/health", timeout=5)
     assert resp.status_code == 200

@@ -1684,6 +1684,30 @@ def api_stock_profile(ticker):
         return base
 
 
+RESEARCH_PAGES = {"briefing": ("briefing",), "earnings": ("earnings",),
+                  "overview": ("price_review", "overview")}
+RESEARCH_LABELS = {"briefing": "Company Briefing", "earnings": "Earnings",
+                   "overview": "Stock Overview"}
+
+
+@app.route("/research/<ticker>/<page>")
+def serve_research(ticker, page):
+    """Standalone Notion research pages: briefing / earnings / overview."""
+    ticker = ticker.upper().strip()
+    page = (page or "").lower().strip()
+    if not is_valid_ticker(ticker):
+        return "Invalid ticker format", 400
+    if page not in RESEARCH_PAGES:
+        return "Unknown research page", 404
+    data = local_db.load_stock_record(ticker)
+    if not data:
+        return redirect(f"/?ticker={ticker}")
+    subs = (data.get("notion_data") or {}).get("subpages") or {}
+    subpage = next((k for k in RESEARCH_PAGES[page] if k in subs), "")
+    return render_template("research.html", ticker=ticker, page=page,
+                           subpage=subpage, label=RESEARCH_LABELS[page])
+
+
 @app.route("/macro")
 def serve_macro():
     return render_template("macro.html")

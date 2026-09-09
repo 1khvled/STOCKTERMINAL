@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>{{ ticker }} {{ label }} // StockerAI Research</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/dashboard_new.css?v=12"/>
+</head>
+<body>
+<nav>
+  <div class="logo">STOCKER<span>AI</span> <span style="font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted);font-weight:400;margin-left:6px">{{ ticker }} / {{ label }}</span></div>
+  <div class="nav-actions">
+    <a href="/" class="btn">HUB</a>
+    <a href="/dashboard/{{ ticker }}" class="btn">DASHBOARD</a>
+  </div>
+</nav>
+<div class="wrap">
+  <div id="subnav" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap"></div>
+  <div class="card">
+    <div class="card-title">{{ label }} <span id="r-page" style="margin-left:auto;font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted)"></span></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+      <input id="r-search" placeholder="Search this doc + Enter" autocomplete="off" style="flex:1;min-width:140px;background:#0a0a0b;border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:8px;font-family:JetBrains Mono,monospace;font-size:12px;outline:none"/>
+      <span id="r-hits" style="font-size:11px;color:var(--muted);font-family:JetBrains Mono,monospace"></span>
+      <span id="r-stats" style="margin-left:auto;font-size:11px;color:var(--muted);font-family:JetBrains Mono,monospace"></span>
+    </div>
+    <div id="r-toc" class="notion-toc"></div>
+    <div id="r-content" style="line-height:1.7;font-size:13px;max-height:72vh;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--bg)"><div class="skeleton" style="width:80%"></div></div>
+  </div>
+</div>
+<script>const TICK="{{ ticker }}",PAGE="{{ page }}",SUBPAGE="{{ subpage }}";</script>
+<script src="/static/js/toast.js"></script>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const PAGES=[["briefing","Briefing"],["earnings","Earnings"],["overview","Overview"]];
+$("subnav").innerHTML=PAGES.map(([k,l])=>`<a href="/research/${TICK}/${k}" class="btn${k===PAGE?" btn-primary":""}" style="text-decoration:none">${l}</a>`).join("");
+let marks=[],cur=-1;
+function unmark(){document.querySelectorAll('#r-content mark').forEach(m=>{const p=m.parentNode;p.replaceChild(document.createTextNode(m.textContent),m);p.normalize();});marks=[];cur=-1;}
+function search(q){
+  unmark();const hits=$("r-hits"),box=$("r-content");
+  if(!q||q.trim().length<2){if(hits)hits.innerText="";return;}
+  const needle=q.trim().toLowerCase();let count=0;const nodes=[];const w=document.createTreeWalker(box,NodeFilter.SHOW_TEXT);let n;
+  while(n=w.nextNode()){if(n.nodeValue.toLowerCase().includes(needle))nodes.push(n);}
+  nodes.forEach(tn=>{const frag=document.createDocumentFragment(),txt=tn.nodeValue,low=txt.toLowerCase();let i=0,j;
+    while((j=low.indexOf(needle,i))>=0&&count<300){frag.appendChild(document.createTextNode(txt.slice(i,j)));const mk=document.createElement("mark");mk.textContent=txt.slice(j,j+needle.length);frag.appendChild(mk);count++;i=j+needle.length;}
+    frag.appendChild(document.createTextNode(txt.slice(i)));tn.parentNode.replaceChild(frag,tn);});
+  marks=[...box.querySelectorAll('mark')];
+  if(hits)hits.innerText=count?count+" hits (Enter = next)":"no hits";
+  if(count)jump(1);
+}
+function jump(d){if(!marks.length)return;cur=((cur+d)%marks.length+marks.length)%marks.length;marks.forEach(m=>m.classList.remove("cur"));const el=marks[cur];el.classList.add("cur");el.scrollIntoView({block:'center',behavior:'smooth'});const hits=$("r-hits");if(hits)hits.innerText=(cur+1)+"/"+marks.length+" (Enter = next)";}
+const si=$("r-search");si.addEventListener("input",()=>search(si.value));si.addEventListener("keydown",e=>{if(e.key==="Enter")jump(1);});
+fetch(`/api/stock/${TICK}?t=${Date.now()}`).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json();}).then(d=>{
+  const subs=((d||{}).notion_data||{}).subpages||{};
+  const doc=SUBPAGE&&subs[SUBPAGE]?subs[SUBPAGE]:null;
+  $("r-page").innerText=((d||{}).company_name||TICK)+(doc?"":" (no "+PAGE+" research yet)");
+  if(!doc){$("r-content").innerHTML='<div style="color:var(--muted)">No '+esc(PAGE)+' research for '+esc(TICK)+' yet. Available: '+Object.keys(subs).map(k=>`<a style="color:var(--green)" href="/research/${TICK}/${k==='price_review'?'overview':k}">${esc(k)}</a>`).join(", ")+'</div>';return;}
+  $("r-content").innerHTML=doc.html||"";
+  const heads=[...$("r-content").querySelectorAll('h2')];
+  heads.forEach((h,i)=>{h.id='rsec-'+i;});
+  $("r-toc").innerHTML=heads.map((h,i)=>`<button data-i="${i}">${esc(h.innerText.slice(0,42))}</button>`).join("");
+  $("r-toc").querySelectorAll('button').forEach(b=>b.onclick=()=>{const h=document.getElementById('rsec-'+b.dataset.i);if(h)h.scrollIntoView({block:'start',behavior:'smooth'});});
+  const words=($("r-content").innerText||"").split(/\s+/).filter(Boolean).length;
+  $("r-stats").innerText=`${heads.length} sections - ~${words.toLocaleString()} words`;
+}).catch(e=>{$("r-content").innerHTML='<div style="color:var(--red)">Failed to load: '+esc(e.message)+'</div>';});
+})();
+</script>
+</body>
+</html>

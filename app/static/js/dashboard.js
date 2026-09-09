@@ -133,6 +133,8 @@ function render(){
   html('risk-list', risks||'<li>No risks</li>');
   const cats=(an.catalysts||[]).map(c=> `<li><b>${c.catalyst}</b> <span style="color:var(--muted)">(${c.timeline}, ${c.impact})</span></li>`).join('');
   html('catalyst-list', cats||'<li>No catalysts</li>');
+  const _nr=(((DATA.notion_data||{}).subpages||{}).risks||{}).html;
+  html('notion-risks', _nr||'<div style="color:var(--muted)">No Notion risk research for '+TICK+' yet.</div>');
 
   // notion
   const notion=DATA.notion_data||{};
