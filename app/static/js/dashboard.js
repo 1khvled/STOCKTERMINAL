@@ -145,7 +145,7 @@ function render(){
 
   // financials
   loadStmt('income');
-  try{renderFinExtra();renderTargets();renderEarnTrend();renderDividends();}catch(e){console.error('finextra',e);}
+  try{renderFinExtra();renderTargets();renderEarnTrend();renderDividends();renderFlows();}catch(e){console.error('finextra',e);}
   loadCharts();
 }
 
@@ -312,6 +312,53 @@ function renderEarnTrend(){
       options:{responsive:true,plugins:{legend:{display:true,labels:{color:'#8a8d93',font:{size:10}}}},
       scales:{x:{ticks:{color:'#8a8d93',font:{size:9}}},y:{grid:{color:'#1e1f23'},ticks:{color:'#8a8d93',font:{size:9},callback:v=>'$'+(Math.abs(v)>=1e9?(v/1e9).toFixed(1)+'B':(v/1e6).toFixed(0)+'M')}},y1:{position:'right',grid:{drawOnChartArea:false},ticks:{color:'#8a8d93',font:{size:9},callback:v=>'$'+v}}}}}});
   }catch(e){}
+}
+
+function renderFlows(){
+  const opt=document.getElementById('flow-options');
+  const os=(DATA.options_sentiment||{});
+  if(opt){
+    const pc=Number(os.put_call_volume_ratio),oi=Number(os.put_call_oi_ratio),iv=Number(os.avg_implied_volatility);
+    opt.innerHTML=`<div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Put/Call vol</span><b>${Number.isFinite(pc)?pc.toFixed(2):"--"}</b></div>
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Put/Call OI</span><b>${Number.isFinite(oi)?oi.toFixed(2):"--"}</b></div>
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Avg IV</span><b>${Number.isFinite(iv)?(iv*100).toFixed(1)+"%":"--"}</b></div>
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Expiry</span><b>${esc(safeDisplay(os.expiration,"--"))}</b></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">${pc>1?"Put-heavy (cautious positioning)":pc<1&&pc>0?"Call-lean (bullish tilt)":"No options read"}</div>`;
+  }
+  const ernd=document.getElementById('flow-earnings');
+  fetch(`/api/stock/${TICK}/earnings`).then(r=>r.json()).then(j=>{
+    if(!ernd)return;
+    let h="";
+    if(j.next)h+=`<div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Next earnings</span><b>${esc((j.next||[]).join(" / ")||"--")}</b></div>`;
+    const cal=j.calendar||{};
+    ["Earnings Estimate","Revenue Estimate"].forEach(k=>{if(cal[k])h+=`<div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">${esc(k)}</span><b>${esc(String(cal[k]).slice(0,40))}</b></div>`;});
+    if((j.history||[]).length){
+      h+=`<table class="table" style="margin-top:8px"><thead><tr><th>Date</th><th>Est EPS</th><th>Reported</th><th>Surprise</th></tr></thead><tbody>`+
+      j.history.map(x=>{const s=x.surprise;return `<tr><td>${esc(x.date||"--")}</td><td>${x.estimate==null?"--":"$"+x.estimate.toFixed(2)}</td><td>${x.reported==null?"--":"$"+x.reported.toFixed(2)}</td><td style="color:${s==null?"inherit":s>=0?"var(--green)":"var(--red)"}">${s==null?"--":(s>=0?"+":"")+s.toFixed(1)+"%"}</td></tr>`;}).join("")+`</tbody></table>`;
+    } else h+=`<div style="color:var(--muted);font-size:12px">No surprise history available</div>`;
+    ernd.innerHTML=h;
+  }).catch(()=>{if(ernd)ernd.innerHTML='<span style="color:var(--muted)">Earnings data unavailable</span>';});
+  fetch(`/api/stock/${TICK}/insiders`).then(r=>r.json()).then(j=>{
+    const tb=document.querySelector('#flow-insiders tbody');if(!tb)return;
+    const rows=j.trades||[];
+    tb.innerHTML=rows.length?rows.slice(0,10).map(x=>`<tr><td>${esc(x.date||"--")}</td><td>${esc(x.Insider||x.Name||"--")}</td><td>${esc(x.Position||"--")}</td><td>${esc(x.Transaction||"--")}</td><td style="text-align:right">${x.Shares==null?"--":Number(x.Shares).toLocaleString()}</td><td style="text-align:right">${x.Value==null?"--":"$"+Number(x.Value).toLocaleString()}</td></tr>`).join(""):`<tr><td colspan="6" style="color:var(--muted)">No insider transactions found</td></tr>`;
+  }).catch(()=>{});
+  fetch(`/api/stock/${TICK}/holders`).then(r=>r.json()).then(j=>{
+    const el=document.getElementById('flow-holders');if(!el)return;
+    const row=h=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--border)"><span>${esc(h.Holder||h.Name||"--")}</span><b>${h.Pct!=null?Number(h.Pct).toFixed(2)+"%":h["% Out"]!=null?h["% Out"]:(h.Shares!=null?Number(h.Shares).toLocaleString():"--")}</b></div>`;
+    el.innerHTML=`<div style="font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted)">INSTITUTIONS</div>`+
+      ((j.institutions||[]).slice(0,5).map(row).join("")||'<div style="color:var(--muted)">--</div>')+
+      `<div style="font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted);margin-top:8px">MUTUAL FUNDS</div>`+
+      ((j.funds||[]).slice(0,5).map(row).join("")||'<div style="color:var(--muted)">--</div>');
+  }).catch(()=>{});
+  fetch(`/api/stock/${TICK}/esg`).then(r=>r.json()).then(j=>{
+    const el=document.getElementById('flow-esg');if(!el)return;
+    const s=j.scores||{},keys=Object.keys(s);
+    if(!keys.length){el.innerHTML='<span style="color:var(--muted)">No ESG scores for this ticker</span>';return;}
+    const bar=(l,v)=>{const n=Number(v);const w=Number.isFinite(n)?Math.min(100,n):0;
+      return `<div style="margin:5px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--muted)">${l}</span><b>${Number.isFinite(n)?n:"--"}</b></div><div class="range"><i style="width:${w}%"></i></div></div>`;};
+    el.innerHTML=bar("Total ESG",s.totalEsg)+bar("Environment",s.environmentScore)+bar("Social",s.socialScore)+bar("Governance",s.governanceScore);
+  }).catch(()=>{});
 }
 
 function loadStmt(type,btn){

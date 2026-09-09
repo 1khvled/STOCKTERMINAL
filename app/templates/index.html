@@ -271,5 +271,16 @@ loadStocks();refreshLive(true);loadPortfolio();loadSys();setInterval(refreshLive
 (function(){try{var q=new URLSearchParams(location.search).get('ticker');if(q){tickerIn.value=String(q).toUpperCase().slice(0,12);run();}}catch(e){}})();
 </script>
 <script src="/static/js/toast.js"></script>
+<script>
+(function(){var mv=document.getElementById("movers");if(!mv)return;
+async function movers(){try{
+  var r=await fetch("/api/market/movers");var j=await r.json();
+  function col(t,rows){return '<div><div style="font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:4px">'+t+'</div>'+
+    rows.map(function(q){var up=q.pct>=0;return '<div><a href="/dashboard/'+q.ticker+'" style="font-family:var(--mono);font-weight:700">'+q.ticker+'</a> <span class="'+(up?"up":"dn")+'">'+(up?"+":"")+q.pct.toFixed(2)+'%</span></div>';}).join("")+'</div>';}
+  if((j.gainers||[]).length){mv.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 18px">'+col("GAINERS",j.gainers)+col("LOSERS",j.losers)+col("ACTIVE",j.actives)+'</div>';}
+}catch(e){}}
+movers();setInterval(movers,60000);
+})();
+</script>
 </body>
 </html>

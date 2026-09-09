@@ -160,7 +160,7 @@ def _normalize_criteria(criteria):
         value = str(criteria.get(key) or "").strip()
         if value:
             clean[key] = value
-    for key in ["min_pe", "max_pe", "min_market_cap", "max_market_cap", "min_upside", "max_upside", "min_roe", "max_debt_to_equity", "min_piotroski"]:
+    for key in ["min_pe", "max_pe", "min_market_cap", "max_market_cap", "min_upside", "max_upside", "min_roe", "max_roa", "min_revenue_growth", "min_operating_margin", "min_current_ratio", "max_debt_to_equity", "min_piotroski"]:
         value = _safe_float(criteria.get(key), None)
         if value is not None:
             clean[key] = value
@@ -224,6 +224,10 @@ def _stock_matches_criteria(stock, criteria):
         ("marketCap", "min_market_cap", "max_market_cap"),
         ("upside", "min_upside", "max_upside"),
         ("returnOnEquity", "min_roe", None),
+        ("returnOnAssets", "min_roa", None),
+        ("revenueGrowth", "min_revenue_growth", None),
+        ("operatingMargins", "min_operating_margin", None),
+        ("currentRatio", "min_current_ratio", None),
         ("debtToEquity", None, "max_debt_to_equity"),
         ("piotroski_f", "min_piotroski", None),
     ]
@@ -1369,10 +1373,12 @@ def api_live_quotes():
             for tk in tickers:
                 try:
                     hist = data.tickers[tk].history(period="5d")
-                    if len(hist) >= 2:
-                        cur = float(hist["Close"].iloc[-1])
-                        prev = float(hist["Close"].iloc[-2])
-                        live[tk] = {"price": cur, "change": cur - prev, "pct": (cur - prev) / prev if prev else 0, "source": "yfinance"}
+                    closes = hist["Close"].dropna() if "Close" in hist else hist
+                    if len(closes) >= 2:
+                        cur = float(closes.iloc[-1])
+                        prev = float(closes.iloc[-2])
+                        if math.isfinite(cur) and math.isfinite(prev) and prev:
+                            live[tk] = {"price": cur, "change": cur - prev, "pct": (cur - prev) / prev, "source": "yfinance"}
                 except Exception:
                     continue
         except Exception as e:
@@ -1446,6 +1452,201 @@ def api_sector_peers(ticker):
     return {"ticker": ticker, "sector": sector, "count": len(mates) + 1, "median_pe": med,
             "your_pe": me.get("pe_ratio"),
             "mates": [{"ticker": r["ticker"], "pe": r.get("pe_ratio")} for r in mates[:8]]}
+
+
+@app.route("/api/stock/<ticker>/insiders")
+def api_stock_insiders(ticker):
+    """Live insider transactions (yfinance). Schema-proof: stringifies whatever columns come back."""
+    ticker = ticker.upper().strip()
+    if not is_valid_ticker(ticker):
+        return {"error": "Invalid ticker"}, 400
+    if os.environ.get("STOCKER_TEST_MODE") == "1":
+        return {"ticker": ticker, "trades": [], "source": "mock_test"}
+    try:
+        import yfinance as yf
+        import pandas as pd
+        df = yf.Ticker(ticker).insider_transactions
+        trades = []
+        if df is not None and not df.empty:
+            for idx, row in df.head(15).iterrows():
+                d = dict(row)
+                rec = {"date": str(d.get("Start Date") or d.get("Date") or idx)[:10]}
+                for k, v in dict(row).items():
+                    try:
+                        rec[str(k)] = None if pd.isna(v) else (v.item() if hasattr(v, "item") else v)
+                    except Exception:
+                        rec[str(k)] = str(v)
+                trades.append(rec)
+        return {"ticker": ticker, "trades": trades, "source": "yfinance"}
+    except Exception as e:
+        logger.info(f"insiders failed for {ticker}: {e}")
+        return {"ticker": ticker, "trades": [], "error": str(e), "source": "unavailable"}
+
+
+@app.route("/api/stock/<ticker>/holders")
+def api_stock_holders(ticker):
+    """Top institutional + mutual-fund holders and major-holder snapshot (yfinance)."""
+    ticker = ticker.upper().strip()
+    if not is_valid_ticker(ticker):
+        return {"error": "Invalid ticker"}, 400
+    if os.environ.get("STOCKER_TEST_MODE") == "1":
+        return {"ticker": ticker, "institutions": [], "funds": [], "major": {}, "source": "mock_test"}
+
+    def _rows(df, n=10):
+        import pandas as pd
+        out = []
+        if df is None or df.empty:
+            return out
+        for _, row in df.head(n).iterrows():
+            rec = {}
+            for k, v in dict(row).items():
+                try:
+                    rec[str(k)] = None if pd.isna(v) else (v.item() if hasattr(v, "item") else v)
+                except Exception:
+                    rec[str(k)] = str(v)
+            out.append(rec)
+        return out
+
+    try:
+        import yfinance as yf
+        tk = yf.Ticker(ticker)
+        try:
+            inst = _rows(tk.institutional_holders)
+        except Exception:
+            inst = []
+        try:
+            funds = _rows(tk.mutualfund_holders)
+        except Exception:
+            funds = []
+        major = {}
+        try:
+            mh = tk.major_holders
+            if mh is not None and not mh.empty:
+                col = mh.columns[0]
+                for idx in mh.index:
+                    v = mh.loc[idx, col]
+                    import pandas as pd
+                    major[str(idx)] = None if pd.isna(v) else (v.item() if hasattr(v, "item") else str(v))
+        except Exception:
+            pass
+        return {"ticker": ticker, "institutions": inst, "funds": funds, "major": major, "source": "yfinance"}
+    except Exception as e:
+        logger.info(f"holders failed for {ticker}: {e}")
+        return {"ticker": ticker, "institutions": [], "funds": [], "major": {}, "error": str(e), "source": "unavailable"}
+
+
+@app.route("/api/stock/<ticker>/earnings")
+def api_stock_earnings(ticker):
+    """Earnings calendar + EPS/revenue estimates + reported history (yfinance)."""
+    ticker = ticker.upper().strip()
+    if not is_valid_ticker(ticker):
+        return {"error": "Invalid ticker"}, 400
+    if os.environ.get("STOCKER_TEST_MODE") == "1":
+        return {"ticker": ticker, "next": None, "estimates": [], "history": [], "source": "mock_test"}
+    out = {"ticker": ticker, "next": None, "estimates": [], "history": [], "source": "yfinance"}
+    try:
+        import yfinance as yf
+        import pandas as pd
+        tk = yf.Ticker(ticker)
+        try:
+            cal = tk.calendar
+            if isinstance(cal, dict):
+                ed = cal.get("Earnings Date") or cal.get("Earnings_Date")
+                if isinstance(ed, (list, tuple)) and ed:
+                    out["next"] = [str(d)[:10] for d in ed]
+                out["calendar"] = {str(k): str(v)[:120] for k, v in list(cal.items())[:12]}
+        except Exception as e:
+            logger.info(f"earnings calendar failed for {ticker}: {e}")
+        try:
+            edt = tk.earnings_dates
+            if edt is not None and not edt.empty:
+                for idx, row in edt.head(8).iterrows():
+                    d = dict(row)
+                    out["history"].append({
+                        "date": str(idx)[:10],
+                        "estimate": (None if pd.isna(d.get("EPS Estimate")) else float(d.get("EPS Estimate"))),
+                        "reported": (None if pd.isna(d.get("Reported EPS")) else float(d.get("Reported EPS"))),
+                        "surprise": (None if pd.isna(d.get("Surprise(%)")) else float(d.get("Surprise(%)"))),
+                    })
+        except Exception as e:
+            logger.info(f"earnings history failed for {ticker}: {e}")
+        return out
+    except Exception as e:
+        logger.info(f"earnings failed for {ticker}: {e}")
+        out["error"] = str(e)
+        out["source"] = "unavailable"
+        return out
+
+
+@app.route("/api/stock/<ticker>/esg")
+def api_stock_esg(ticker):
+    """ESG / sustainability scores (yfinance)."""
+    ticker = ticker.upper().strip()
+    if not is_valid_ticker(ticker):
+        return {"error": "Invalid ticker"}, 400
+    if os.environ.get("STOCKER_TEST_MODE") == "1":
+        return {"ticker": ticker, "scores": {}, "source": "mock_test"}
+    try:
+        import yfinance as yf
+        import pandas as pd
+        s = yf.Ticker(ticker).sustainability
+        scores = {}
+        if s is not None and not s.empty:
+            col = s.columns[0]
+            for key in ["totalEsg", "environmentScore", "socialScore", "governanceScore", "controversialWeapons",
+                        "gambling", "tobacco", "adult", "militaryContract", "smallArms", "thermalCoal",
+                        "palmOil", "coal", "esgPerformance"]:
+                if key in s.index:
+                    v = s.loc[key, col]
+                    try:
+                        scores[key] = None if pd.isna(v) else (float(v) if isinstance(v, (int, float)) else str(v))
+                    except Exception:
+                        scores[key] = str(v)
+        return {"ticker": ticker, "scores": scores, "source": "yfinance"}
+    except Exception as e:
+        logger.info(f"esg failed for {ticker}: {e}")
+        return {"ticker": ticker, "scores": {}, "error": str(e), "source": "unavailable"}
+
+
+@app.route("/api/market/movers")
+def api_market_movers():
+    """Gainers / losers / most-active computed live across the local catalog (free)."""
+    rows = _catalog_rows()
+    tickers = [r["ticker"] for r in rows[:50] if is_valid_ticker(r["ticker"])]
+    if os.environ.get("STOCKER_TEST_MODE") == "1":
+        demo = [{"ticker": t, "price": 100.0, "change": 1.0, "pct": 0.01, "vol": 1000, "source": "mock_test"} for t in tickers[:5]]
+        return {"gainers": demo, "losers": demo, "actives": demo, "source": "mock_test", "universe": len(tickers)}
+    quotes = []
+    try:
+        import yfinance as yf
+        try:
+            data = yf.Tickers(" ".join(tickers))
+            for tk in tickers:
+                try:
+                    hist = data.tickers[tk].history(period="5d")
+                    closes = hist["Close"].dropna() if "Close" in hist else hist
+                    if len(closes) >= 2:
+                        cur = float(closes.iloc[-1])
+                        prev = float(closes.iloc[-2])
+                        if math.isfinite(cur) and math.isfinite(prev) and prev:
+                            vol = 0
+                            try:
+                                vols = hist["Volume"].dropna()
+                                vol = int(vols.iloc[-1]) if len(vols) else 0
+                            except Exception:
+                                pass
+                            quotes.append({"ticker": tk, "price": cur, "change": cur - prev,
+                                           "pct": (cur - prev) / prev, "vol": vol, "source": "yfinance"})
+                except Exception:
+                    continue
+        except Exception as e:
+            logger.info(f"movers batch failed: {e}")
+    except Exception as e:
+        logger.info(f"movers error: {e}")
+    by_pct = sorted(quotes, key=lambda q: q["pct"])
+    by_vol = sorted(quotes, key=lambda q: q["vol"], reverse=True)
+    return {"gainers": list(reversed(by_pct))[:5], "losers": by_pct[:5], "actives": by_vol[:5],
+            "source": "yfinance", "universe": len(tickers), "quoted": len(quotes)}
 
 
 @app.route("/compare")

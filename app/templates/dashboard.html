@@ -107,6 +107,7 @@
     <button class="tab" data-tab="financials">FINANCIALS</button>
     <button class="tab" data-tab="peers">PEERS</button>
     <button class="tab" data-tab="risks">RISKS</button>
+    <button class="tab" data-tab="flows">FLOWS</button>
   </div>
 
   <div id="panel-verdict" class="panel active">
@@ -188,6 +189,18 @@
   <div id="panel-risks" class="panel">
     <div class="card"><div class="card-title">Risk Factors</div><ul id="risk-list" style="margin:0;padding-left:18px;line-height:1.7;font-size:13px"></ul></div>
     <div class="card"><div class="card-title">Catalysts</div><ul id="catalyst-list" style="margin:0;padding-left:18px;line-height:1.7;font-size:13px"></ul></div>
+  </div>
+
+  <div id="panel-flows" class="panel">
+    <div class="grid2">
+      <div class="card"><div class="card-title">Options Sentiment (put/call)</div><div id="flow-options" style="font-size:13px;line-height:1.8">Loading...</div></div>
+      <div class="card"><div class="card-title">Earnings (next + surprise history)</div><div id="flow-earnings" style="font-size:13px;line-height:1.8">Loading...</div></div>
+    </div>
+    <div class="card"><div class="card-title">Insider Transactions</div><div style="overflow:auto"><table class="table" id="flow-insiders"><thead><tr><th>Date</th><th>Insider</th><th>Position</th><th>Txn</th><th>Shares</th><th>Value</th></tr></thead><tbody><tr><td colspan="6">Loading...</td></tr></tbody></table></div></div>
+    <div class="grid2">
+      <div class="card"><div class="card-title">Top Holders (institutions + funds)</div><div id="flow-holders" style="font-size:13px;line-height:1.8">Loading...</div></div>
+      <div class="card"><div class="card-title">ESG Scores</div><div id="flow-esg" style="font-size:13px;line-height:1.8">Loading...</div></div>
+    </div>
   </div>
 
 </div>
