@@ -137,7 +137,11 @@
 ### 2026-09-09 — Macro Perf x5 (Groq-First, Regime, Speed, 15s Hub)
 - **c1c946b** `macro perf x5` — (1) GROQ WORKS + FIRST: chain order was OpenCode->OpenRouter->Anthropic->Groq so Groq never fired; moved Groq primary w/ key rotation + browser UA (0.9s answers, verified `'{'ok': True'}'`). (2) REGIME FIXED: RISK_ON-into-TIGHTENING was nonsense; added Fed cap + oil>=85 stagflation overlay + fed in inputs (now STAGFLATION_WATCH with vote trail). (3) SPEED: 5 agents — macro.html skeletons/countdown/hierarchy, macro.js parallel+abort+stale-while-revalidate+countdown, macro_fetcher ThreadPoolExecutor (forced 8.4s->2.8s, cached 0.006s), CSS banner/gauge art, holdings widget + perf tests. I wired: concurrent live-quotes/movers helper (5.2s->3.1s cold, 0.15s cached; 8.7s->1.2s), hub poll 30s->15s + cache 15s, macro_holdings card+script. Fixed NaN-close JSON breakage + insiders date. Verification: 43 passed (39+4 perf), live quotes yfinance, movers no NaN.
 
+### 2026-09-09 — OpenCode Muse Spark 1.3 (Subagent)
+- **cff32e4** `opencode muse-spark-1.3 primary` — User supplied new Zen key (stored ONLY in gitignored `.env`, never in repo/logs; leak scan clean). Subagent probed live: `GET /zen/v1/models` = 70 ids; verified id **`muse-spark-1.3`** (recognized; stale ids `north-mini-code-free`, `muse-spark-1.3-free`, `opencode/...` all 401 ModelError). Thinking `reasoning_effort` medium|high accepted (no 400s); default **medium**, env-overridable to high. Wired: `OPENCODE_MODEL` default + `OPENCODE_REASONING_EFFORT`/`OPENCODE_TIMEOUT` in config, thinking + json_object + Mozilla UA (endpoint 403s urllib UA) in ai_engine OpenCode route; Groq stays fallback. Mock e2e proves payload + parsing; collect 43 unchanged. HONEST CAVEAT: live 200 not obtainable today — paid id needs workspace payment method (401 CreditsError), free-tier id backend-500s. Add billing and OpenCode answers for real; Groq serves live meanwhile.
+
 ### 2026-09-09 — Context Timeline (This File)
+
 
 
 
@@ -191,6 +195,7 @@
 | 2026-09-09 | muse-spark-1.3 | Fiscal.ai ratios copy | 7f292ce | server.py, dashboard.js/html |
 | 2026-09-09 | 4 subagents + lead | Macro fundamentals + notion reader | a4a96b9, 4a3a8fb | macro_fetcher.py, ai_engine.py, server.py, macro.html/js, notion reader, conftest, test_macro.py |
 | 2026-09-09 | 5 subagents + lead | Macro perf x5 | c1c946b | ai_engine.py, macro_fetcher.py, server.py, macro.html/js/css/holdings, index.html, test_perf.py |
+| 2026-09-09 | subagent + lead | OpenCode Muse Spark 1.3 | cff32e4 | config.py, ai_engine.py (key in .env only) |
 
 ---
 
