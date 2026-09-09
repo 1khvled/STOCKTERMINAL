@@ -1786,9 +1786,11 @@ def stocks_terminal():
 
 @app.after_request
 def _no_store_api(resp):
-    # Live data must never be served stale from browser/proxy cache.
+    # Live data AND pages (inline JS has no versioning) must never be served
+    # stale from browser/proxy cache. Static assets keep their caching.
     try:
-        if request.path.startswith("/api/"):
+        ctype = (resp.mimetype or "")
+        if request.path.startswith("/api/") or ctype == "text/html":
             resp.headers["Cache-Control"] = "no-store"
     except Exception:
         pass
