@@ -123,7 +123,11 @@
 ### 2026-09-09 — Yahoo Gaps Batch (Options/Insiders/Holders/Earnings/ESG/Movers)
 - **7383882** `yahoo gaps batch` — New endpoints: `/api/stock/<t>/insiders` (live top-15, schema-proof, Start-Date fix), `/holders` (institutions/funds/major), `/earnings` (calendar + surprise history), `/esg` (scores or empty), `/api/market/movers` (live gainers/losers/actives across catalog). New FLOWS tab (options put/call+IV read, earnings surprise table, insiders table, holders, ESG bars). Screener +4 criteria (ROA/rev-growth/op-margin/current-ratio, backend + UI wired). Hub movers upgraded to 3-way split (append-only script). Fixed NaN closes (dropna, was breaking JSON.parse) in live-quotes + movers. Skipped per user: daily OHLCV history, transcripts. Verification: all endpoints 200 live (insiders Conway/Harris sales, Vanguard holders, CRM earnings 2026-12-02, movers no NaN).
 
+### 2026-09-09 — UI Batch (Freshness/Jump/Shortcuts/Deeplinks)
+- **38aa059** `UI batch` — Stale-data banner (age from `generated_at`, shows at 85d+) with one-click SSE re-analyze + auto-reload; ticker jump box in dashboard nav (`/` focuses it anywhere); number keys 1-8 switch tabs; URL hash deep-links (`#financials` shareable, back-button safe, `aria-current` kept); compare COPY LINK button (URL already synced). Also repaired a mid-edit regex cut that nested the copylink handler inside clear. Verification: served HTML contains stale/jump/hash (disk grep + live 200).
+
 ### 2026-09-09 — Context Timeline (This File)
+
 
 
 
@@ -169,6 +173,7 @@
 | 2026-09-09 | muse-spark-1.3 | Financials mega div/earn/peers | b0df0c9 | server.py, dashboard.js/html |
 | 2026-09-09 | muse-spark-1.3 | Compare rebuild | 6f34200 | compare.html |
 | 2026-09-09 | muse-spark-1.3 | Yahoo gaps batch | 7383882 | server.py, dashboard.js/html, index.html, screener.html |
+| 2026-09-09 | muse-spark-1.3 | UI batch freshness/jump/keys | 38aa059 | dashboard.js/html, compare.html |
 
 ---
 
