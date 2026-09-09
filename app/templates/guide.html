@@ -536,7 +536,6 @@
         <div class="callout-content"><strong>How to use this guide:</strong> Each section follows the same architecture — Theory → Formula → Variables → Thresholds → Case Diagnostic. Read sequentially for first-time users; use as a reference lookup for experienced analysts. All LaTeX blocks are copy-paste ready for Notion equation blocks.</div>
     </div>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
-</div>
 <!-- Section Card -->
 <div class="section-card" id="section-1">
     <div class="section-label">Section 1.0 // Model Framework</div>
@@ -652,7 +651,7 @@ $$WACC = \left(\frac{E}{V} \times K_e\right) + \left(\frac{D}{V} \times K_d \tim
 </ul>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
     <div class="sub-subtitle">🔬 Case Diagnostic — NVIDIA (NVDA)</div>
-    <blockquote class="notion-quote"><strong>Scenario:</strong> NVDA in late 2024. $R_f = 4.3%$ (10Y Treasury). $\beta = 1.72$. $ERP = 5.5%$.</blockquote>
+    <blockquote class="notion-quote"><strong>Scenario:</strong> NVDA in late 2024. $R_f = 4.3\%$ (10Y Treasury). $\beta = 1.72$. $ERP = 5.5\%$.</blockquote>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
 </div>
 <!-- Section Card -->
@@ -681,7 +680,7 @@ $$PV(TV) = \frac{TV}{(1 + WACC)^{10}}$$</p>
     <p class="concept-body"><strong>Intrinsic Value Per Share:</strong>
 $$\text{Intrinsic Value} = \frac{PV(FCF) + PV(TV) - \text{Net Debt}}{\text{Shares Outstanding}}$$</p>
     <p class="concept-body"><strong>Net Debt:</strong>
-$$\text{Net Debt} = \text{Total Debt} - \text{Total Cash &amp; Equivalents}$$</p>
+$$\text{Net Debt} = \text{Total Debt} - \text{Total Cash \& Equivalents}$$</p>
     <hr class="notion-hr" style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
     <div class="sub-subtitle">🔢 Variable Breakdown</div>
     <div class="table-container" style="margin: 20px 0;">
@@ -781,7 +780,7 @@ $$\text{Net Debt} = \text{Total Debt} - \text{Total Cash &amp; Equivalents}$$</p
             </tr>
             <tr>
                 <td>5</td>
-                <td>Stage 1: $g_{1\text{-}5} = 5%$, Stage 2: $g_{6\text{-}10} = 3%$</td>
+                <td>Stage 1: $g_{1\text{-}5} = 5\%$, Stage 2: $g_{6\text{-}10} = 3\%$</td>
             </tr>
             <tr>
                 <td>6</td>
@@ -1530,15 +1529,15 @@ All formulas verified against Damodaran (NYU), Altman (1968), Piotroski (2000), 
                     if (parent && (
                         parent.tagName === 'SCRIPT' ||
                         parent.tagName === 'STYLE' ||
-                        parent.classList.contains('katex') ||
-                        parent.closest('.katex') ||
                         parent.tagName === 'CODE' ||
-                        parent.tagName === 'NOSCRIPT'
+                        parent.tagName === 'NOSCRIPT' ||
+                        (parent.closest('.katex') && parent.tagName !== 'ANNOTATION')
                     )) {
                         continue;
                     }
 
                     const text = node.nodeValue;
+                    regex.lastIndex = 0;
                     if (regex.test(text)) {
                         nodesToReplace.push(node);
                     }
