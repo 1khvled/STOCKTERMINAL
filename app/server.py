@@ -1649,6 +1649,38 @@ def api_market_movers():
             "source": "yfinance", "universe": len(tickers), "quoted": len(quotes)}
 
 
+@app.route("/api/stock/<ticker>/profile")
+def api_stock_profile(ticker):
+    """Company profile: officers, website, employees (yfinance info, live)."""
+    ticker = ticker.upper().strip()
+    if not is_valid_ticker(ticker):
+        return {"error": "Invalid ticker"}, 400
+    local = _load_stock_record(ticker) or {}
+    m = local.get("key_metrics", {})
+    base = {"ticker": ticker, "name": local.get("company_name", ticker),
+            "website": m.get("website"), "employees": m.get("fullTimeEmployees"),
+            "sector": m.get("sector"), "industry": m.get("industry"),
+            "officers": [], "source": "local"}
+    if os.environ.get("STOCKER_TEST_MODE") == "1":
+        base["source"] = "mock_test"
+        return base
+    try:
+        import yfinance as yf
+        info = yf.Ticker(ticker).info or {}
+        off = []
+        for o in (info.get("companyOfficers") or [])[:6]:
+            if isinstance(o, dict) and o.get("name"):
+                off.append({"name": o.get("name"), "title": o.get("title", "")})
+        base.update({"website": info.get("website") or base["website"],
+                     "employees": info.get("fullTimeEmployees") or base["employees"],
+                     "officers": off, "source": "yfinance"})
+        return base
+    except Exception as e:
+        logger.info(f"profile failed for {ticker}: {e}")
+        base["error"] = str(e)
+        return base
+
+
 @app.route("/compare")
 def serve_compare():
     return render_template("compare.html")

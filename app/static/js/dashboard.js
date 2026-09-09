@@ -16,7 +16,7 @@ function set(id,txt){const e=$(id); if(e) e.innerText=txt;}
 function html(id,h){const e=$(id); if(e) e.innerHTML=h;}
 
 function tabInit(){
-  const order=["verdict","valuation","stats","notion","financials","peers","risks","flows"];
+  const order=["verdict","valuation","stats","notion","financials","peers","ratios","risks","flows"];
   const activate=t=>{
     let hit=null;
     document.querySelectorAll('.tab').forEach(b=>{if(b.dataset.tab===t)hit=b;});
@@ -156,7 +156,7 @@ function render(){
 
   // financials
   loadStmt('income');
-  try{renderStale();renderFinExtra();renderTargets();renderEarnTrend();renderDividends();renderFlows();}catch(e){console.error('finextra',e);}
+  try{renderStale();renderFinExtra();renderTargets();renderEarnTrend();renderDividends();renderFlows();renderRatios();}catch(e){console.error('finextra',e);}
   loadCharts();
 }
 
@@ -391,6 +391,52 @@ function startReanalyze(){
     else{const l=document.getElementById('re-log');if(l)l.textContent=String(d).slice(0,140);}};
   es.onerror=()=>{es.close();el.innerHTML='<span>Stream dropped — check server, then retry.</span>';};
 }
+function renderRatios(){
+  const m=DATA.key_metrics||{};
+  const curr=Number(m.current_price||m.currentPrice||0);
+  const sec=(t,rows)=>`<div><div style="font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted);letter-spacing:.06em;margin-bottom:6px">${t}</div>`+
+    rows.map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">${k}</span><b>${v}</b></div>`).join("")+`</div>`;
+  const B=v=>(v==null||isNaN(Number(v)))?"--":"$"+(Math.abs(v)>=1e9?(v/1e9).toFixed(2)+"B":(v/1e6).toFixed(2)+"M");
+  const P1=v=>(v==null||isNaN(Number(v)))?"--":(Number(v)*100).toFixed(1)+"%";
+  const X=v=>(v==null||isNaN(Number(v)))?"--":Number(v).toFixed(1)+"x";
+  const col=df=>df&&df.columns?{c:df.columns.slice(1),rows:df.rows||[],k:df.columns[0]}:null;
+  const find=(d,re)=>d?d.rows.find(r=>re.test(String(r[d.k]||""))):null;
+  const series=(d,rx,n)=>{const r=find(d,rx);if(!r)return [];return d.c.map(c=>Number(r[c])).filter(Number.isFinite);};
+  const cagr=a=>{if(a.length<2||!(a[0]>0)||!(a[a.length-1]>0))return null;return Math.pow(a[a.length-1]/a[0],1/(a.length-1))-1;};
+  const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+  const fin=col(DATA.financials),bal=col(DATA.balance_sheet),cf=col(DATA.cashflow);
+  const rev=series(fin,/^total revenue$/i),ni=series(fin,/^net income$/i),eps=series(fin,/diluted eps/i),
+        gp=series(fin,/^gross profit$/i),ebit=series(fin,/^ebit$/i),intexp=series(fin,/^interest expense$/i),
+        fcf=series(cf,/^free cash flow$/i),assets=series(bal,/^total assets$/i),
+        eq=series(bal,/stockholders.? equity$/i),debt=series(bal,/^total (liabilities|debt)/i);
+  const roe=ni.map((v,i)=>eq[i]?v/eq[i]:NaN).filter(Number.isFinite),roa=ni.map((v,i)=>assets[i]?v/assets[i]:NaN).filter(Number.isFinite);
+  const roic=ebit.map((v,i)=>{const cap=(eq[i]||0)+(debt[i]||0);return cap>0?v*0.79/cap:NaN;}).filter(Number.isFinite);
+  const nYrs=rev.length?rev.length-1:0;
+  const cov=(ebit.length&&intexp.length&&intexp[intexp.length-1])?ebit[ebit.length-1]/Math.abs(intexp[intexp.length-1]):null;
+  const ev=Number(m.enterpriseValue)||null,sh=Number(m.sharesOutstanding)||null;
+  const pFCF=(curr&&fcf.length&&sh)?curr/(fcf[fcf.length-1]/sh):null;
+  const evGP=(ev&&gp.length)?ev/gp[gp.length-1]:null;
+  const g=document.getElementById('ratio-grid');
+  if(g)g.innerHTML=
+    sec("PROFILE",[["Market Cap",B(m.marketCap)],["EV",B(ev)],["Shares Out.",sh?(sh/1e9).toFixed(2)+"B":"--"],["Revenue TTM",B(m.totalRevenue)],["Employees",m.fullTimeEmployees?Number(m.fullTimeEmployees).toLocaleString():"--"]])+
+    sec("MARGINS TTM",[["Gross",P1(m.grossMargins)],["EBITDA",P1(m.ebitdaMargins)],["Operating",P1(m.operatingMargins)],["Pre-Tax",P1(m.ebitdaMargins)],["Net",P1(m.profitMargins)],["FCF",m.totalRevenue&&fcf.length?P1(fcf[fcf.length-1]/m.totalRevenue):"--"]])+
+    sec("RETURNS (AVG)",[["ROA "+nYrs+"Y",P1(avg(roa))],["ROE "+nYrs+"Y",P1(avg(roe))],["ROIC "+nYrs+"Y",P1(avg(roic))]])+
+    sec("VALUATION TTM",[["P/E",X(m.trailingPE)],["P/B",X(m.priceToBook)],["EV/Sales",X(m.enterpriseToRevenue)],["EV/EBITDA",X(m.enterpriseToEbitda)],["P/FCF",pFCF?X(pFCF):"--"],["EV/GP",evGP?X(evGP):"--"]])+
+    sec("VALUATION NTM",[["Price Target",curr&&m.targetMeanPrice?"$"+Number(m.targetMeanPrice).toFixed(2):"--"],["Fwd P/E",X(m.forwardPE)],["PEG",X(m.pegRatio)]])+
+    sec("FINANCIAL HEALTH",[["Cash",B(m.totalCash)],["Net Debt",B((m.totalDebt||0)-(m.totalCash||0))],["Debt/Equity",X(m.debtToEquity)],["EBIT/Interest",cov?cov.toFixed(1)+"x":"--"]])+
+    sec("GROWTH CAGR",[["Rev "+(nYrs>=3?"3Y":"max"),cagr(rev.slice(-4))!=null?P1(cagr(rev.slice(-4))):"--"],["Rev "+nYrs+"Y",cagr(rev)!=null?P1(cagr(rev)):"--"],["EPS "+nYrs+"Y",cagr(eps)!=null?P1(cagr(eps)):"--"],["FCF "+nYrs+"Y",cagr(fcf)!=null?P1(cagr(fcf)):"--"],["Rev fwd (est)",P1(m.revenueGrowth)],["EPS fwd (est)",P1(m.earningsGrowth)]])+
+    sec("DIVIDENDS",[["Yield",P1(m.dividendYield)],["Payout",P1(m.payoutRatio)],["Rate",m.dividendRate!=null?"$"+Number(m.dividendRate).toFixed(2):"--"]]);
+  fetch(`/api/stock/${TICK}/profile`).then(r=>r.json()).then(p=>{
+    const fb=document.getElementById('fact-box');if(!fb)return;
+    const off=(p.officers||[]).slice(0,4).map(o=>`${esc(o.name||"")} <span style="color:var(--muted)">(${esc(o.title||"")})</span>`).join("<br>");
+    fb.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
+      <div><span style="color:var(--muted)">Name</span><br><b>${esc(p.name||DATA.company_name||TICK)}</b></div>
+      <div><span style="color:var(--muted)">Sector</span><br><b>${esc(p.sector||m.sector||"--")} / ${esc(p.industry||m.industry||"--")}</b></div>
+      <div><span style="color:var(--muted)">Website</span><br>${p.website?`<a href="${esc(p.website)}" target="_blank" rel="noopener" style="color:var(--green)">${esc(p.website.replace(/^https?:\/\//,""))}</a>`:"--"}</div>
+      <div><span style="color:var(--muted)">Leadership</span><br>${off||"--"}</div></div>`;
+  }).catch(()=>{});
+}
+
 function loadStmt(type,btn){
   if(type)stmtType=type;
   if(btn){document.querySelectorAll('#panel-financials .stmt-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');}
