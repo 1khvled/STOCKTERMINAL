@@ -1783,6 +1783,17 @@ def stocks_terminal():
 
 
 
+@app.after_request
+def _no_store_api(resp):
+    # Live data must never be served stale from browser/proxy cache.
+    try:
+        if request.path.startswith("/api/"):
+            resp.headers["Cache-Control"] = "no-store"
+    except Exception:
+        pass
+    return resp
+
+
 @app.errorhandler(404)
 def page_not_found(e):
     # Return JSON for API routes, HTML for pages

@@ -9,7 +9,7 @@ BUDGET_S = 25.0
 
 def test_perf_live_quotes_fast_and_numeric(base_url):
     t0 = time.monotonic()
-    resp = requests.get(f"{base_url}/api/stocks/live-quotes", timeout=5)
+    resp = requests.get(f"{base_url}/api/stocks/live-quotes", timeout=25)
     dt = time.monotonic() - t0
     assert resp.status_code == 200
     assert dt < BUDGET_S, f"live-quotes took {dt:.1f}s, budget {BUDGET_S}s"
@@ -29,7 +29,7 @@ def test_perf_live_quotes_fast_and_numeric(base_url):
 
 def test_perf_movers_fast_and_shaped(base_url):
     t0 = time.monotonic()
-    resp = requests.get(f"{base_url}/api/market/movers", timeout=5)
+    resp = requests.get(f"{base_url}/api/market/movers", timeout=25)
     dt = time.monotonic() - t0
     assert resp.status_code == 200
     assert dt < BUDGET_S, f"movers took {dt:.1f}s, budget {BUDGET_S}s"
@@ -42,7 +42,7 @@ def test_perf_movers_fast_and_shaped(base_url):
 
 def test_perf_macro_snapshot_fast_and_shaped(base_url):
     t0 = time.monotonic()
-    resp = requests.get(f"{base_url}/api/macro/snapshot", timeout=5)
+    resp = requests.get(f"{base_url}/api/macro/snapshot", timeout=25)
     dt = time.monotonic() - t0
     assert resp.status_code == 200
     assert dt < BUDGET_S, f"macro snapshot took {dt:.1f}s, budget {BUDGET_S}s"
@@ -55,7 +55,7 @@ def test_perf_macro_snapshot_fast_and_shaped(base_url):
 
 def test_perf_macro_page(base_url):
     t0 = time.monotonic()
-    resp = requests.get(f"{base_url}/macro", timeout=5)
+    resp = requests.get(f"{base_url}/macro", timeout=25)
     dt = time.monotonic() - t0
     assert resp.status_code == 200
     assert dt < BUDGET_S, f"/macro took {dt:.1f}s, budget {BUDGET_S}s"

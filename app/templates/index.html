@@ -183,6 +183,7 @@ function fmtP(v){if(v==null||isNaN(v))return "--";return Number(v).toFixed(2)}
 function pill(v){v=(v||"HOLD").toUpperCase();var c=v.indexOf("BUY")>=0?"buy":(v.indexOf("SELL")>=0?"sell":"hold");return '<span class="pill '+c+'">'+esc(v)+"</span>"}
 function isBuy(v){return (v||"").toUpperCase().indexOf("BUY")>=0}
 function isSell(v){return (v||"").toUpperCase().indexOf("SELL")>=0}
+var liveMap={};
 function rowLive(t){return liveMap[t]}
 function isLive(q){return q&&q.price&&q.source&&q.source.charCodeAt(0)===121}function effChg(s){var l=rowLive(s.ticker);if(isLive(l)&&s.current_price)return (l.price-s.current_price)/s.current_price*100;return null}
 function getWL(){try{return JSON.parse(localStorage.getItem("stocker_watchlist"))||[]}catch(e){return[]}}
@@ -222,18 +223,30 @@ function renderTape(items){
 async function loadStocks(){try{var r=await fetch("/api/stocks");var j=await r.json();stocks=j.stocks||[];render()}catch(e){}}
 async function refreshLive(first){
   try{
-    var r=await fetch("/api/stocks/live-quotes");var j=await r.json();liveMap={};
-    (j.quotes||[]).forEach(function(q){liveMap[q.ticker]=q});
-    var t=[];try{var r2=await fetch("/api/ticker-tape");t=await r2.json()}catch(e2){}
-    var idx=(t||[]).filter(function(x){return x.val!=="N/A"});
+    var ctl=new AbortController();var to=setTimeout(function(){try{ctl.abort();}catch(e){}},12000);
+    try{
+      var r=await fetch("/api/stocks/live-quotes",{signal:ctl.signal,cache:"no-store"});clearTimeout(to);
+      var j=await r.json();var nm={};
+      (j.quotes||[]).forEach(function(q){nm[q.ticker]=q});
+      if(Object.keys(nm).length)liveMap=nm;
+    }catch(e){try{clearTimeout(to);}catch(_){}}
+  }catch(e){}
+  try{
+    var r2=await fetch("/api/ticker-tape",{cache:"no-store"});var t2=await r2.json();
+    var idx=(t2||[]).filter(function(x){return x.val!=="N/A"});
     var lead=stocks.slice().sort(function(a,b){return ((effChg(b)==null?-9999:effChg(b))-(effChg(a)==null?-9999:effChg(a)))}).slice(0,6).map(function(s){return{label:s.ticker,pct:effChg(s),val:"$"+fmtP(isLive(rowLive(s.ticker))?rowLive(s.ticker).price:s.current_price)}});
     renderTape(idx.concat(lead));
+  }catch(e2){}
+  try{
     var mv=$("movers");
     var g=stocks.slice().sort(function(a,b){return ((effChg(b)==null?-9999:effChg(b))-(effChg(a)==null?-9999:effChg(a)))});
     if(g.length){mv.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 18px">'+g.slice(0,8).map(function(s,i){var e=effChg(s),c=e==null?"flat":(e>=0?"up":"dn"),d=e==null?'--':((e>=0?"+":"")+e.toFixed(2)+"%");return "<div> #"+(i+1)+' <a href="/dashboard/'+esc(s.ticker)+'" style="font-family:var(--mono);font-weight:700">'+esc(s.ticker)+'</a> <span class="'+c+'">'+d+'</span> <span style="color:var(--dim)">| upside '+(((s.upside||0)*100).toFixed(0))+'%'+'</span></div>'}).join("")+"</div>"}
-    render();
-    var nl=Object.keys(liveMap).filter(function(k){return isLive(liveMap[k])}).length;$("live-label").textContent=(nl?("live "+nl+"/"+stocks.length):"stale")+" \u2022 "+new Date().toLocaleTimeString();
-  }catch(e){}
+  }catch(e3){}
+  try{render();}catch(e4){console.error("render failed",e4);}
+  try{
+    var nl=Object.keys(liveMap).filter(function(k){return isLive(liveMap[k])}).length;
+    $("live-label").textContent=(nl?("live "+nl+"/"+stocks.length):(stocks.length?"OFFLINE - retrying":""))+" \u2022 "+new Date().toLocaleTimeString();
+  }catch(e5){}
 }
 async function loadPortfolio(){try{var r=await fetch("/api/portfolio");var j=await r.json();var n=(j.positions||[]).length;
   $("pf").innerHTML='<div class="kv"><span>Positions</span><b>'+n+'</b></div><div class="kv"><span>Avg upside</span><b>'+(((j.avg_upside||0)*100).toFixed(1))+'%</b></div><div class="kv"><span>Verdict</span><b>'+esc((j.ai&&j.ai.portfolio_verdict)||"EMPTY")+'</b></div>';
