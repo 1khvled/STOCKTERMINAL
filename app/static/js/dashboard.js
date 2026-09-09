@@ -389,7 +389,7 @@ function renderEarnTrend(){
       ...(ni?[{type:'line',label:'Net Income',data:cols.map(c=>Number(ni[c])||0),borderColor:'#0a84ff',tension:.3,pointRadius:2,yAxisID:'y'}]:[]),
       ...(eps?[{type:'line',label:'Diluted EPS $',data:cols.map(c=>Number(eps[c])||0),borderColor:'#ff9f0a',tension:.3,pointRadius:2,yAxisID:'y1'}]:[])]},
       options:{responsive:true,plugins:{legend:{display:true,labels:{color:'#8a8d93',font:{size:10}}}},
-      scales:{x:{ticks:{color:'#8a8d93',font:{size:9}}},y:{grid:{color:'#1e1f23'},ticks:{color:'#8a8d93',font:{size:9},callback:v=>'$'+(Math.abs(v)>=1e9?(v/1e9).toFixed(1)+'B':(v/1e6).toFixed(0)+'M')}},y1:{position:'right',grid:{drawOnChartArea:false},ticks:{color:'#8a8d93',font:{size:9},callback:v=>'$'+v}}}}}});
+      scales:{x:{ticks:{color:'#8a8d93',font:{size:9}}},y:{grid:{color:'#1e1f23'},ticks:{color:'#8a8d93',font:{size:9},callback:v=>'$'+(Math.abs(v)>=1e9?(v/1e9).toFixed(1)+'B':(v/1e6).toFixed(0)+'M')}},y1:{position:'right',grid:{drawOnChartArea:false},ticks:{color:'#8a8d93',font:{size:9},callback:v=>'$'+v}}}}});
   }catch(e){}
 }
 
