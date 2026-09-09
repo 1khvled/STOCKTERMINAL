@@ -144,6 +144,7 @@ function render(){
       const renderNotion=(k)=>{
         const html=subpages[k]?.html||'<div style="color:var(--muted)">No content</div>';
         notionContent.innerHTML=html;
+        try{buildNotionReader();}catch(e){}
         notionNav.querySelectorAll('.notion-btn').forEach(b=> b.classList.toggle('active', b.dataset.k===k));
       };
       notionNav.querySelectorAll('.notion-btn').forEach(b=> b.onclick=()=> renderNotion(b.dataset.k));
@@ -153,6 +154,71 @@ function render(){
       notionContent.innerHTML='<div style="color:var(--muted)">Notion workspace not linked or empty for '+TICK+'</div>';
     }
   }
+
+let _nMarks=[],_nCur=-1;
+function buildNotionReader(){
+  const box=document.getElementById('notion-content'),toc=document.getElementById('notion-toc'),
+        stats=document.getElementById('notion-stats'),hits=document.getElementById('notion-hits'),
+        search=document.getElementById('notion-search');
+  if(!box)return;
+  _nMarks=[];_nCur=-1;if(hits)hits.innerText="";if(search)search.value="";
+  const heads=[...box.querySelectorAll('h2')];
+  heads.forEach((h,i)=>{h.id='nsec-'+i;});
+  if(toc){
+    toc.innerHTML=heads.map((h,i)=>`<button data-i="${i}">${esc(h.innerText.slice(0,42))}</button>`).join("");
+    toc.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+      const h=document.getElementById('nsec-'+b.dataset.i);
+      if(h)h.scrollIntoView({block:'start',behavior:'smooth'});
+    });
+  }
+  if(stats){
+    const words=(box.innerText||"").split(/\s+/).filter(Boolean).length;
+    const tables=box.querySelectorAll('table').length;
+    stats.innerText=`${heads.length} sections - ~${words.toLocaleString()} words - ${tables} tables`;
+  }
+  if(search&&!search.dataset.wired){
+    search.dataset.wired="1";
+    search.addEventListener("input",()=>notionSearch(search.value));
+    search.addEventListener("keydown",e=>{if(e.key==="Enter")notionJump(1);});
+  }
+}
+function notionUnmark(){
+  document.querySelectorAll('#notion-content mark').forEach(m=>{
+    const p=m.parentNode;p.replaceChild(document.createTextNode(m.textContent),m);p.normalize();
+  });
+  _nMarks=[];_nCur=-1;
+}
+function notionSearch(q){
+  notionUnmark();
+  const hits=document.getElementById('notion-hits'),box=document.getElementById('notion-content');
+  if(!box||!q||q.trim().length<2){if(hits)hits.innerText="";return;}
+  const needle=q.trim().toLowerCase();let count=0;
+  const walker=document.createTreeWalker(box,NodeFilter.SHOW_TEXT);
+  const nodes=[];let n;while(n=walker.nextNode()){if(n.nodeValue.toLowerCase().includes(needle))nodes.push(n);}
+  nodes.forEach(tn=>{
+    const frag=document.createDocumentFragment();const txt=tn.nodeValue;const low=txt.toLowerCase();
+    let i=0,j;
+    while((j=low.indexOf(needle,i))>=0&&count<300){
+      frag.appendChild(document.createTextNode(txt.slice(i,j)));
+      const mk=document.createElement("mark");mk.textContent=txt.slice(j,j+needle.length);
+      frag.appendChild(mk);count++;i=j+needle.length;
+    }
+    frag.appendChild(document.createTextNode(txt.slice(i)));
+    tn.parentNode.replaceChild(frag,tn);
+  });
+  _nMarks=[...box.querySelectorAll('mark')];
+  if(hits)hits.innerText=count?count+" hits (Enter = next)":"no hits";
+  if(count)notionJump(1);
+}
+function notionJump(dir){
+  if(!_nMarks.length)return;
+  _nCur=((_nCur+dir)%_nMarks.length+_nMarks.length)%_nMarks.length;
+  _nMarks.forEach(m=>m.classList.remove("cur"));
+  const el=_nMarks[_nCur];el.classList.add("cur");
+  el.scrollIntoView({block:'center',behavior:'smooth'});
+  const hits=document.getElementById('notion-hits');
+  if(hits)hits.innerText=(_nCur+1)+"/"+_nMarks.length+" (Enter = next)";
+}
 
   // financials
   loadStmt('income');
