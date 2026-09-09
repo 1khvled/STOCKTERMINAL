@@ -102,9 +102,16 @@ FMP_API_KEY = os.getenv("FMP_API_KEY", "")
 TIINGO_API_KEY = os.getenv("TIINGO_API_KEY", "")
 
 # ─── OPENCODE ZEN API CONFIG ───────────────────────────────────────
+# VERIFIED LIVE 2026-09-09 via GET /zen/v1/models (70 ids) + chat probes (browser UA; urllib gets CF 1010).
+# "muse-spark-1.3" = recognized paid id (401 CreditsError without payment method, not ModelError).
+# "muse-spark-1.3-free", "opencode/muse-spark-1.3(-free)", "north-mini-code-free" = 401 ModelError not supported (stale).
+# Catalog free-tier id is "muse-spark-1.3-contributor-free" (currently backend 500s; other frees 400 free-tier-only-in-OpenCode).
+# reasoning_effort medium|high accepted on chat endpoint (no 400s); response_format json_object used by caller.
 OPENCODE_API_KEY = os.getenv("OPENCODE_API_KEY", "")
 OPENCODE_BASE_URL = "https://opencode.ai/zen/v1/chat/completions"
-OPENCODE_MODEL = "north-mini-code-free"
+OPENCODE_MODEL = os.getenv("OPENCODE_MODEL", "muse-spark-1.3")
+OPENCODE_REASONING_EFFORT = os.getenv("OPENCODE_REASONING_EFFORT", "medium")  # medium|high
+OPENCODE_TIMEOUT = int(os.getenv("OPENCODE_TIMEOUT", "90"))
 
 # ─── NVIDIA NEMOTRON CONFIG ─────────────────────────────────────────
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")

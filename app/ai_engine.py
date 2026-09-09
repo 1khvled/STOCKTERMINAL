@@ -311,6 +311,8 @@ def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_promp
             OPENCODE_API_KEY,
             OPENCODE_BASE_URL,
             OPENCODE_MODEL,
+            OPENCODE_REASONING_EFFORT,
+            OPENCODE_TIMEOUT,
         )
     except ImportError:
         from app.config import (
@@ -324,6 +326,8 @@ def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_promp
             OPENCODE_API_KEY,
             OPENCODE_BASE_URL,
             OPENCODE_MODEL,
+            OPENCODE_REASONING_EFFORT,
+            OPENCODE_TIMEOUT,
         )
 
     prepared_messages = _prepare_messages(messages, system_prompt)
@@ -342,6 +346,7 @@ def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_promp
         temperature,
         response_format=False,
         extra_headers=None,
+        extra_body=None,
     ):
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -356,6 +361,8 @@ def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_promp
         }
         if response_format:
             payload["response_format"] = {"type": "json_object"}
+        if extra_body:
+            payload.update(extra_body)
         # Qwen thinking mode - Groq reasoning_effort + reasoning_format (only when a Qwen model is configured)
         if _is_qwen(provider_model):
             try:
@@ -432,15 +439,22 @@ def _call_llm(messages, model=None, max_tokens=None, max_retries=1, system_promp
             _RATE_LIMITED_KEYS[current_key] = time.time() + 120
 
     if OPENCODE_API_KEY:
-        logger.info("  > [OpenCode] Calling %s...", OPENCODE_MODEL)
+        # Zen endpoint requires a browser UA (CF 1010 without one) and accepts
+        # reasoning_effort medium|high (verified 2026-09-09: no 400s on either).
+        _oc_eff = reasoning_effort or OPENCODE_REASONING_EFFORT or "medium"
+        if _oc_eff not in ("medium", "high"):
+            _oc_eff = "medium"
+        logger.info("  > [OpenCode] Calling %s (reasoning_effort=%s)...", OPENCODE_MODEL, _oc_eff)
         result = call_openai_compatible(
             "OpenCode",
             OPENCODE_BASE_URL,
             OPENCODE_API_KEY,
             OPENCODE_MODEL,
-            90,
+            OPENCODE_TIMEOUT,
             0.15,
             response_format=True,
+            extra_headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+            extra_body={"reasoning_effort": _oc_eff},
         )
         if result is not None:
             return result
