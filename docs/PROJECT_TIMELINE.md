@@ -140,7 +140,11 @@
 ### 2026-09-09 — OpenCode Muse Spark 1.3 (Subagent)
 - **cff32e4** `opencode muse-spark-1.3 primary` — User supplied new Zen key (stored ONLY in gitignored `.env`, never in repo/logs; leak scan clean). Subagent probed live: `GET /zen/v1/models` = 70 ids; verified id **`muse-spark-1.3`** (recognized; stale ids `north-mini-code-free`, `muse-spark-1.3-free`, `opencode/...` all 401 ModelError). Thinking `reasoning_effort` medium|high accepted (no 400s); default **medium**, env-overridable to high. Wired: `OPENCODE_MODEL` default + `OPENCODE_REASONING_EFFORT`/`OPENCODE_TIMEOUT` in config, thinking + json_object + Mozilla UA (endpoint 403s urllib UA) in ai_engine OpenCode route; Groq stays fallback. Mock e2e proves payload + parsing; collect 43 unchanged. HONEST CAVEAT: live 200 not obtainable today — paid id needs workspace payment method (401 CreditsError), free-tier id backend-500s. Add billing and OpenCode answers for real; Groq serves live meanwhile.
 
+### 2026-09-09 — OpenCode Free Tier (Probed 12x, Default Switched)
+- **4901a6c** `opencode free tier default` — User demanded the free model. Probed `muse-spark-1.3-contributor-free` 12 ways (minimal/json/temp+tokens/full/referer/sys-prompt/alt-UAs/retries + 1.2-contributor-free): ALL 500 Internal Server Error - their backend is down for these ids, not our payload. Switched default to contributor-free anyway: chain tries free first, auto-falls-back to Groq on 500 (proven: full chain returns parsed JSON in 1.0s). The day OpenCode fixes their backend, free answers flow with zero code change. Groq gpt-oss-120b keeps serving live meanwhile.
+
 ### 2026-09-09 — Context Timeline (This File)
+
 
 
 
@@ -196,6 +200,7 @@
 | 2026-09-09 | 4 subagents + lead | Macro fundamentals + notion reader | a4a96b9, 4a3a8fb | macro_fetcher.py, ai_engine.py, server.py, macro.html/js, notion reader, conftest, test_macro.py |
 | 2026-09-09 | 5 subagents + lead | Macro perf x5 | c1c946b | ai_engine.py, macro_fetcher.py, server.py, macro.html/js/css/holdings, index.html, test_perf.py |
 | 2026-09-09 | subagent + lead | OpenCode Muse Spark 1.3 | cff32e4 | config.py, ai_engine.py (key in .env only) |
+| 2026-09-09 | lead | OpenCode free-tier default | 4901a6c | config.py |
 
 ---
 
