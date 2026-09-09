@@ -96,21 +96,84 @@
     async function runScenarios(ticker) {
         primary.textContent = "BUILDING VALUATION SCENARIO LAB...";
         side.textContent = "STRESSING DCF VARIABLES...";
-        const data = await safeFetch(`/api/intel/scenarios/${ticker}`);
-        if (data.error) { primary.innerHTML = `<div class="pro-negative">FETCH FAILED: ${data.error}</div>`; side.innerHTML = ""; return; }
+        let data, live = null;
+        try {
+            const [a, b] = await Promise.allSettled([
+                fetch(`/api/intel/scenarios/${ticker}`).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }),
+                fetch(`/api/stock/${ticker}/live-quote`).then(r => r.json()).catch(() => null)
+            ]);
+            if (a.status !== "fulfilled") throw new Error("scenarios fetch failed");
+            data = a.value;
+            live = (b.status === "fulfilled" && b.value && b.value.price) ? b.value : null;
+        } catch (e) {
+            primary.innerHTML = `<div class="pro-negative">FETCH FAILED: ${esc(e.message)}</div>`; side.innerHTML = ""; return;
+        }
+        if (data.error) { primary.innerHTML = `<div class="pro-negative">FETCH FAILED: ${esc(data.error)}</div>`; side.innerHTML = ""; return; }
+        renderLab(ticker, data, live);
+    }
+
+    function renderLab(ticker, data, live) {
+        const storedPx = Number(data.current_price || 0);
+        const px = (live && Number.isFinite(Number(live.price))) ? Number(live.price) : storedPx;
+        const pxSrc = (live && Number.isFinite(Number(live.price))) ? "live" : "stored";
+        const base = Number(data.base_fair_value || 0);
+        const inp = data.dcf_inputs || {};
+        const rows = (data.scenarios || []).map(s => {
+            const f = Number(s.fair_value || 0);
+            const u = px ? ((f - px) / px) : 0;
+            return { ...s, fair_value: f, upside: u };
+        });
+        const lo = Math.min(...rows.map(s => s.fair_value), px || Infinity);
+        const hi = Math.max(...rows.map(s => s.fair_value), px || 0);
+        const pos = v => (hi > lo ? Math.min(96, Math.max(4, ((v - lo) / (hi - lo)) * 100)) : 50);
         primary.innerHTML = `
-            <div class="ops-row"><span>Current Price</span><strong>$${Number(data.current_price || 0).toFixed(2)}</strong></div>
-            <div class="ops-row"><span>Base Fair Value</span><strong>$${Number(data.base_fair_value || 0).toFixed(2)}</strong></div>
+            <div class="ops-row"><span>Current Price (${pxSrc})</span><strong>$${px.toFixed(2)}</strong></div>
+            <div class="ops-row"><span>Base Fair Value</span><strong>$${base.toFixed(2)}</strong></div>
+            <div style="position:relative;height:8px;border-radius:99px;background:#1c1e26;margin:12px 0 4px">
+              ${rows.map(s => `<div title="${esc(s.case)} $${s.fair_value.toFixed(2)}" style="position:absolute;top:-3px;width:10px;height:14px;border-radius:3px;background:var(--orange);left:calc(${pos(s.fair_value).toFixed(1)}% - 5px)"></div>`).join("")}
+              <div title="price" style="position:absolute;top:-3px;width:3px;height:14px;background:var(--green);left:calc(${pos(px).toFixed(1)}% - 1px)"></div>
+              <div title="base fair" style="position:absolute;top:-3px;width:3px;height:14px;background:var(--blue);left:calc(${pos(base).toFixed(1)}% - 1px)"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);font-family:JetBrains Mono,monospace;margin-bottom:12px"><span>$${lo.toFixed(0)}</span><span style="color:var(--green)">| price</span><span style="color:var(--blue)">| base</span><span>$${hi.toFixed(0)}</span></div>
             <p class="intel-copy">${esc(data.ai_readout)}</p>
-            ${table(["Case", "Fair Value", "Upside", "Model Note"], (data.scenarios || []).map(s => `
+            ${table(["Case", "Fair Value", "Upside vs " + (pxSrc === "live" ? "live" : "stored"), "Model Note"], rows.map(s => `
                 <tr>
                     <td>${esc(s.case)}</td>
-                    <td>$${Number(s.fair_value || 0).toFixed(2)}</td>
-                    <td class="${Number(s.upside || 0) >= 0 ? "pro-positive" : "pro-negative"}">${pct(s.upside)}</td>
+                    <td>$${s.fair_value.toFixed(2)}</td>
+                    <td class="${s.upside >= 0 ? "pro-positive" : "pro-negative"}">${(s.upside >= 0 ? "+" : "") + (s.upside * 100).toFixed(1)}%</td>
                     <td>${esc(s.note)}</td>
                 </tr>`))}
+            <div class="pro-title" style="margin-top:12px">Stress your own DCF (posts to model, rescales cases)</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:8px">
+              <label style="font-size:11px;color:var(--muted)">WACC %<input id="lab-wacc" type="number" step="0.1" value="${inp.wacc_default || 9}" style="width:100%;margin-top:4px;padding:7px;background:#0a0a0b;border:1px solid var(--border);color:var(--text);border-radius:8px"/></label>
+              <label style="font-size:11px;color:var(--muted)">Growth 1-5 %<input id="lab-g15" type="number" step="0.5" value="15" style="width:100%;margin-top:4px;padding:7px;background:#0a0a0b;border:1px solid var(--border);color:var(--text);border-radius:8px"/></label>
+              <label style="font-size:11px;color:var(--muted)">Growth 6-10 %<input id="lab-g610" type="number" step="0.5" value="10" style="width:100%;margin-top:4px;padding:7px;background:#0a0a0b;border:1px solid var(--border);color:var(--text);border-radius:8px"/></label>
+              <label style="font-size:11px;color:var(--muted)">Terminal %<input id="lab-term" type="number" step="0.1" value="${inp.terminal_default || 2.5}" style="width:100%;margin-top:4px;padding:7px;background:#0a0a0b;border:1px solid var(--border);color:var(--text);border-radius:8px"/></label>
+            </div>
+            <button class="btn btn-primary" id="lab-recalc" style="margin-top:8px">RECALCULATE BASE</button>
+            <span id="lab-msg" style="font-size:11px;color:var(--muted);margin-left:8px"></span>
         `;
         side.innerHTML = `<div class="pro-title">Key Variables</div>${(data.key_variables || []).map(x => `<div class="ops-row"><span>WATCH</span><strong>${esc(x)}</strong></div>`).join("")}`;
+        document.getElementById("lab-recalc").onclick = async () => {
+            const msg = document.getElementById("lab-msg"); msg.textContent = "recalculating...";
+            const body = { wacc: Number(document.getElementById("lab-wacc").value), growth_1_5: Number(document.getElementById("lab-g15").value), growth_6_10: Number(document.getElementById("lab-g610").value), terminal_growth: Number(document.getElementById("lab-term").value) };
+            try {
+                const r = await fetch(`/api/stock/${ticker}/recalculate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+                const j = await r.json();
+                if (!r.ok || j.error) throw new Error(j.error || ("HTTP " + r.status));
+                const nb = Number((j.dcf_data || {}).implied_price || 0);
+                if (!nb) throw new Error("no implied price returned");
+                const ratio = base ? (nb / base) : 1;
+                msg.textContent = `base $${base.toFixed(2)} -> $${nb.toFixed(2)} (cases rescaled)`;
+                if (window.showToast) showToast("Lab base recalculated", "success");
+                const _oldBase = base;
+                data.base_fair_value = nb;
+                data.scenarios = (data.scenarios || []).map(s => ({ ...s, fair_value: s.fair_value * ratio }));
+                renderLab(ticker, data, live);
+                const _m2 = document.getElementById("lab-msg");
+                if (_m2) _m2.textContent = `base $${_oldBase.toFixed(2)} -> $${nb.toFixed(2)} (cases rescaled)`;
+            } catch (e) { msg.textContent = "failed: " + e.message; }
+        };
     }
 
     async function runCommittee(ticker) {

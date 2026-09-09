@@ -612,6 +612,21 @@ def api_scenarios(ticker):
     return get_valuation_scenarios(ticker)
 
 
+@app.route("/api/peers/ai/<ticker>")
+def api_peers_ai(ticker):
+    """AI peer insight: which peers matter + what to compare (Muse Spark first)."""
+    ticker = ticker.upper().strip()
+    if not is_valid_ticker(ticker):
+        return {"error": "Invalid ticker format"}, 400
+    if not local_db.load_stock_record(ticker):
+        return {"error": f"Ticker {ticker} not found in database"}, 404
+    try:
+        from intelligence_terminal import get_peer_insight
+    except ImportError:
+        from app.intelligence_terminal import get_peer_insight
+    return get_peer_insight(ticker)
+
+
 @app.route("/api/intel/committee/<ticker>")
 def api_committee(ticker):
     if not is_valid_ticker(ticker.upper()):

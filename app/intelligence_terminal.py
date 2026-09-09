@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import re
 import time
@@ -233,11 +234,26 @@ def get_valuation_scenarios(ticker, force=False):
         upside = ((fair - price) / price) if price else 0
         return {"case": name, "fair_value": round(fair, 2), "upside": round(upside, 4), "note": note}
 
+    _m = metrics or {}
+    def _f(v):
+        try:
+            f = float(v)
+            return f if math.isfinite(f) else 0
+        except Exception:
+            return 0
+    _fcf = _f(dcf.get("fcf_base") or _m.get("freeCashflow"))
+    _mc = _f(_m.get("marketCap"))
+    _shares = _f(_m.get("sharesOutstanding")) or ((_mc / price) if price else 0)
+    dcf_inputs = {"fcf_base": _fcf, "shares_out": _shares,
+                  "net_cash": _f(_m.get("totalCash")) - _f(_m.get("totalDebt")),
+                  "wacc_default": _f(dcf.get("wacc_used")) or 9.0,
+                  "growth_default": 12.0, "terminal_default": 2.5}
     fallback = {
         "ticker": ticker,
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "current_price": price,
         "base_fair_value": base_fair,
+        "dcf_inputs": dcf_inputs,
         "scenarios": [
             scenario("RECESSION", 0.72, "Lower revenue growth, weaker margins, higher discount rate."),
             scenario("BASE", 1.00, "Uses current local DCF anchor."),
@@ -293,6 +309,7 @@ def get_valuation_scenarios(ticker, force=False):
         "ticker": ticker,
         "current_price": price,
         "base_fair_value": base_fair,
+        "dcf_inputs": dcf_inputs,
         "generated_at": datetime.utcnow().isoformat() + "Z",
     })
     required = ["RECESSION", "BASE", "BULL", "MARGIN COMPRESSION", "HIGH RATE"]
@@ -741,3 +758,84 @@ def _calc_upside(stock):
         return ((float(fair) - float(price)) / float(price)) if price else 0
     except Exception:
         return 0
+
+
+PEER_FOCUS_CHOICES = ["forward P/E", "trailing P/E", "P/S", "P/B", "EV/EBITDA",
+                      "profit margin", "revenue growth", "ROE", "FCF margin", "dividend yield"]
+
+
+def _peer_num(v):
+    try:
+        f = float(v)
+        return f if math.isfinite(f) else None
+    except Exception:
+        return None
+
+
+def get_peer_insight(ticker, force=False):
+    """AI decides WHICH peers matter and WHAT to compare (Muse Spark first via _call_llm hard route)."""
+    ticker = ticker.upper().strip()
+    cache_path = CACHE_DIR / f"{ticker}_peer_insight.json"
+    if cache_path.exists() and not force and time.time() - cache_path.stat().st_mtime < 3600:
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    stock = _load_stock(ticker) or {}
+    metrics = stock.get("key_metrics", {}) or {}
+    peers = [p for p in (stock.get("peers_data") or []) if isinstance(p, dict)]
+    with_data = [p for p in peers if _peer_num(p.get("fwd_pe")) is not None or _peer_num(p.get("pe")) is not None]
+    fallback = {
+        "ticker": ticker,
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "focus_metrics": ["forward P/E", "P/S", "profit margin", "revenue growth"],
+        "ranked_peers": [{"ticker": p.get("ticker", "?"),
+                          "why": "has forward P/E data" if _peer_num(p.get("fwd_pe")) is not None else "peer in set"}
+                         for p in with_data[:6]],
+        "readout": "Compare forward earnings multiples first (trailing P/E is noisy for cyclicals), then sales multiples and margins.",
+        "peer_count": len(peers),
+        "usable_count": len(with_data),
+    }
+    prompt = {
+        "role": "sell-side peer analyst",
+        "task": "Decide which peers are truly comparable and what an investor must compare.",
+        "decision_rules": [
+            "Rank peers by business-model closeness first, data completeness second.",
+            "Cyclical hardware/memory names: prefer forward P/E over trailing P/E and say so.",
+            "Only use supplied numbers. Never invent a multiple.",
+            "focus_metrics must come from: forward P/E, trailing P/E, P/S, P/B, EV/EBITDA, profit margin, revenue growth, ROE, FCF margin, dividend yield.",
+            "At most 6 ranked peers.",
+        ],
+        "ticker": ticker,
+        "company": stock.get("company_name"),
+        "sector": metrics.get("sector"),
+        "industry": metrics.get("industry"),
+        "own": {"pe": metrics.get("trailingPE"), "fwd_pe": metrics.get("forwardPE"),
+                "ps": metrics.get("priceToSalesTrailing12Months"), "pb": metrics.get("priceToBook"),
+                "margin": metrics.get("profitMargins"), "growth": metrics.get("revenueGrowth")},
+        "peers": peers,
+        "schema": {"focus_metrics": ["metric"], "ranked_peers": [{"ticker": "T", "why": "one sentence"}],
+                   "readout": "3 sentences max: what to compare and the key takeaway"},
+    }
+    result = _call_ai_json(json.dumps(prompt), fallback)
+    try:
+        fm = [str(x) for x in (result.get("focus_metrics") or [])]
+        keep = [c for c in PEER_FOCUS_CHOICES if any(c.lower() in str(x).lower() for x in fm)]
+        result["focus_metrics"] = (keep or fallback["focus_metrics"])[:5]
+        rp = []
+        for r in (result.get("ranked_peers") or [])[:6]:
+            if isinstance(r, dict) and r.get("ticker"):
+                rp.append({"ticker": str(r["ticker"]).upper(), "why": str(r.get("why") or "comparable")[:160]})
+        result["ranked_peers"] = rp or fallback["ranked_peers"]
+        result["readout"] = str(result.get("readout") or fallback["readout"])[:600]
+        result["peer_count"] = len(peers)
+        result["usable_count"] = len(with_data)
+        result["source"] = "rules" if result == fallback else "llm"
+    except Exception:
+        result = dict(fallback)
+        result["source"] = "rules"
+    result["ticker"] = ticker
+    result["generated_at"] = datetime.utcnow().isoformat() + "Z"
+    _save_json(cache_path, result)
+    return result

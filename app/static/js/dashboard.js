@@ -305,6 +305,12 @@ function renderFinExtra(){
 
 function renderPeersFull(){
   const m=DATA.key_metrics||{},peers=(DATA.peers_data||[]).slice(0,6);
+  fetch(`/api/peers/ai/${TICK}`).then(r=>r.json()).then(j=>{
+    const el=document.getElementById('peer-ai');if(!el)return;
+    const fm=(j.focus_metrics||[]).map(x=>`<span class="pill" style="margin:2px 4px 2px 0">${esc(String(x))}</span>`).join("");
+    const rk=(j.ranked_peers||[]).map((r,i)=>`<div style="display:flex;gap:8px;font-size:12px;padding:3px 0;border-bottom:1px solid var(--border)"><b>${i+1}. ${esc(r.ticker||"?")}</b><span style="color:var(--muted)">${esc(r.why||"")}</span></div>`).join("");
+    el.innerHTML=`<div style="margin-bottom:6px">${fm||'<span style="color:var(--muted)">--</span>'}</div><div style="white-space:pre-wrap;margin-bottom:8px">${esc(j.readout||"--")}</div>${rk}<div style="font-size:10px;color:var(--muted);margin-top:6px">source: ${esc(j.source||"?")} - ${j.usable_count||0}/${j.peer_count||0} peers usable</div>`;
+  }).catch(()=>{const el=document.getElementById('peer-ai');if(el)el.innerHTML='<span style="color:var(--muted)">Peer insight unavailable</span>';});
   const tbody=document.querySelector('#peers-table tbody');
   const num=v=>(v==null||v==="N/A"||isNaN(Number(v)))?null:Number(v);
   const cell=(v,all,lowGood=true)=>{if(v==null)return '<td>--</td>';
