@@ -19,20 +19,26 @@ if app_dir not in sys.path:
 
 logger = logging.getLogger(__name__)
 
-# Fix Windows encoding issues for standard outputs
+# Fix Windows encoding issues for standard outputs (guarded: some
+# hosts/embedders expose stdout without .buffer, e.g. pythonw, pipes)
 if sys.platform == "win32":
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+    try:
+        if hasattr(sys.stdout, "buffer"):
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+        if hasattr(sys.stderr, "buffer"):
+            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+    except Exception:
+        pass
     os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 # Automatic check and installation of Flask
 try:
-    from flask import Flask, render_template, request, Response, send_file, redirect
+    from flask import Flask, render_template, request, Response, send_file, redirect, jsonify
 except ImportError:
     logger.info("[*] Flask dependency is missing. Attempting automatic installation...")
     try:
         subprocess.check_call([sys.executable, "-m", "pip", "install", "flask"])
-        from flask import Flask, render_template, request, Response, send_file, redirect
+        from flask import Flask, render_template, request, Response, send_file, redirect, jsonify
         logger.info("[+] Flask successfully installed!")
     except Exception as e:
         logger.info(f"[-] Failed to automatically install Flask: {e}")
@@ -45,6 +51,14 @@ try:
 except ImportError:
     from .config import OUTPUT_DIR
 import local_db
+
+# Licensing / accounts / billing (stdlib only, local-first).
+try:
+    import licensing
+    import accounts
+    import account_bp
+except ImportError:
+    from app import licensing, accounts, account_bp
 
 if os.environ.get("STOCKER_TEST_MODE") == "1":
     try:
@@ -76,8 +90,16 @@ else:
     except Exception:
         pass
     app.secret_key = _secret
+# Accounts / billing / licensing blueprint (login, activate, admin, webhook).
+try:
+    account_bp.init_app(app)
+except Exception as e:  # never let the optional account layer break the app
+    logger.info(f"[Server] account blueprint not registered: {e}")
 ALLOWED_PERIODS = {"1d","5d","1mo","3mo","6mo","1y","2y","5y","10y","ytd","max"}
 MODULES = {"screener"}
+# Pro surfaces: pages render the upgrade prompt, APIs answer 402 with the
+# same explanation. The free tier keeps every core surface working.
+PRO_INTEL_PAGES = {"scenario-lab": "scenario_lab", "committee": "committee", "red-flags": "red_flags"}
 VERDICT_BUCKETS = {
     "BUY": {"BUY", "STRONG BUY", "ACCUMULATE", "OUTPERFORM"},
     "HOLD": {"HOLD", "NEUTRAL", "UNDER_REVIEW", "WATCH"},
@@ -90,6 +112,32 @@ def is_valid_ticker(ticker):
     ticker = ticker.strip().upper()
     # Block path traversal / injection; allow A-Z,0-9,.,-,^ (BRK.B, BRK^A) length 1-12
     return bool(re.match(r"^[A-Z0-9.\-\^]{1,12}$", ticker)) and ".." not in ticker and not ticker.startswith((".", "-"))
+
+def _export_quota_block():
+    """Free tier model-export quota. Returns a response when exhausted."""
+    try:
+        quota = licensing.export_quota()
+        if quota is None:
+            return None
+        used = accounts.usage_count("export")
+        if used < quota:
+            return None
+        payload = licensing.upgrade_payload("unlimited_export")
+        payload["message"] = (f"Free tier model exports are capped at {quota} per day "
+                              f"(you used {used}). Pro removes the limit.")
+        payload["used"] = used
+        payload["quota"] = quota
+        return jsonify(payload), 402
+    except Exception as e:
+        logger.info(f"Export quota check failed: {e}")
+        return None
+
+def _export_quota_count():
+    """Count a served export against the daily quota."""
+    try:
+        accounts.usage_increment("export")
+    except Exception:
+        pass
 
 def _safe_float(value, default=None):
     try:
@@ -117,9 +165,9 @@ def _load_stock_record(ticker):
     return local_db.load_stock_record(ticker)
 
 def _calc_upside_from_record(data):
-    metrics = data.get("key_metrics", {})
-    analysis = data.get("analysis", {})
-    dcf_data = data.get("dcf_data", {})
+    metrics = data.get("key_metrics") or {}
+    analysis = data.get("analysis") or {}
+    dcf_data = data.get("dcf_data") or {}
     price = _safe_float(metrics.get("current_price") or metrics.get("currentPrice"), 0)
     fair = _safe_float((analysis.get("valuation_assessment") or {}).get("fair_value_mid") or dcf_data.get("implied_price"), 0)
     return ((fair - price) / price) if price else 0
@@ -160,7 +208,8 @@ def _normalize_criteria(criteria):
         value = str(criteria.get(key) or "").strip()
         if value:
             clean[key] = value
-    for key in ["min_pe", "max_pe", "min_market_cap", "max_market_cap", "min_upside", "max_upside", "min_roe", "max_roa", "min_revenue_growth", "min_operating_margin", "min_current_ratio", "max_debt_to_equity", "min_piotroski"]:
+    for key in ["min_pe", "max_pe", "min_market_cap", "max_market_cap", "min_upside", "max_upside", "min_roe", "max_roa", "min_revenue_growth", "min_operating_margin", "min_current_ratio", "max_debt_to_equity", "min_piotroski",
+                "min_fwd_pe", "max_fwd_pe", "max_peg", "max_ps", "max_pb", "max_ev_ebitda", "min_div_yield", "max_beta", "max_payout", "max_short_float", "min_eps", "min_day_change"]:
         value = _safe_float(criteria.get(key), None)
         if value is not None:
             clean[key] = value
@@ -196,13 +245,20 @@ def _parse_screener_query(query):
         "min_roe": [r"(?:roe|return on equity)\s*(?:over|above|>|greater than|at least)\s*[\d.]+%?"],
         "max_debt_to_equity": [r"(?:debt.?to.?equity|d/e)\s*(?:under|below|<|less than)\s*[\d.]+%?"],
         "min_market_cap": [r"(?:market cap|mcap)\s*(?:over|above|>|greater than|at least)\s*[\d.]+\s*[kmbt]?"],
+        "min_div_yield": [r"(?:dividend|div yield|yield)\s*(?:over|above|>|greater than|at least)\s*[\d.]+%?", r"dividend payers?"],
+        "max_beta": [r"(?:beta)\s*(?:under|below|<|less than)\s*[\d.]+", r"low.?beta"],
+        "max_peg": [r"peg\s*(?:under|below|<|less than)\s*[\d.]+"],
+        "min_eps": [r"eps\s*(?:over|above|>|greater than|at least)\s*[\d.]+"],
     }.items():
         for pattern in patterns:
             m = re.search(pattern, q)
             if m:
                 value = _num_token(m.group(0))
+                if value is None:
+                    # flag-style matches without numbers get sane defaults
+                    value = {"min_div_yield": 0.0, "max_beta": 1.0}.get(key)
                 if value is not None:
-                    if key in {"min_upside", "min_roe"} and value > 1:
+                    if key in {"min_upside", "min_roe", "min_div_yield"} and value > 1:
                         value /= 100
                     criteria[key] = value
                 break
@@ -230,6 +286,17 @@ def _stock_matches_criteria(stock, criteria):
         ("currentRatio", "min_current_ratio", None),
         ("debtToEquity", None, "max_debt_to_equity"),
         ("piotroski_f", "min_piotroski", None),
+        ("forward_pe", "min_fwd_pe", "max_fwd_pe"),
+        ("peg_ratio", None, "max_peg"),
+        ("ps_ratio", None, "max_ps"),
+        ("pb_ratio", None, "max_pb"),
+        ("ev_ebitda", None, "max_ev_ebitda"),
+        ("div_yield", "min_div_yield", None),
+        ("beta", None, "max_beta"),
+        ("payout_ratio", None, "max_payout"),
+        ("short_float", None, "max_short_float"),
+        ("eps_ttm", "min_eps", None),
+        ("day_change", "min_day_change", None),
     ]
     for field, min_key, max_key in checks:
         value = _safe_float(stock.get(field), None)
@@ -453,10 +520,9 @@ def screener_ai():
     q = req_data.get("query", "").strip()
     if not q:
         return {"error": "Empty query"}, 400
-
     filter_criteria = {}
     messages = [
-        {"role": "system", "content": 'Convert a stock screener request into JSON only. Allowed fields: sector, industry, verdict, min_pe, max_pe, min_upside, max_upside, min_market_cap, max_market_cap, min_roe, max_debt_to_equity, min_piotroski. Percent values must be decimals, so 20% is 0.20. Verdict is BUY, HOLD, or SELL. Do not invent unsupported fields.'},
+        {"role": "system", "content": 'Convert a stock screener request into JSON only. Allowed fields: sector, industry, verdict, min_pe, max_pe, min_fwd_pe, max_fwd_pe, max_peg, max_ps, max_pb, max_ev_ebitda, min_div_yield, max_beta, max_payout, max_short_float, min_eps, min_day_change, min_upside, max_upside, min_market_cap, max_market_cap, min_roe, max_debt_to_equity, min_piotroski. Percent values must be decimals, so 20% is 0.20. Verdict is BUY, HOLD, or SELL. Do not invent unsupported fields.'},
         {"role": "user", "content": q}
     ]
     try:
@@ -469,10 +535,58 @@ def screener_ai():
     return {"stocks": _filter_catalog(criteria), "criteria": criteria}
 
 
+@app.route("/api/batch/screen", methods=["POST"])
+def api_batch_screen():
+    """Batch screening - screen a basket of tickers in one call (Pro).
+
+    The single-ticker screener stays free; the batch sweep is the Pro surface
+    because it is the surface automation teams actually buy.
+    """
+    blocked = licensing.plan_guard("batch_screen")
+    if blocked is not None:
+        return blocked
+    payload = request.get_json(silent=True) or {}
+    tickers = payload.get("tickers") or []
+    if isinstance(tickers, str):
+        tickers = [t for t in re.split(r"[,\s]+", tickers.upper()) if t]
+    if not isinstance(tickers, list):
+        return {"error": "tickers must be a list"}, 400
+    clean = []
+    for raw in tickers[:100]:
+        ticker = str(raw or "").strip().upper()
+        if is_valid_ticker(ticker) and ticker not in clean:
+            clean.append(ticker)
+    if not clean:
+        return {"error": "No valid tickers supplied."}, 400
+    criteria = _normalize_criteria(payload.get("criteria") or {})
+    catalog = {row.get("ticker"): row for row in _catalog_rows()}
+    rows = []
+    for ticker in clean:
+        record = local_db.load_stock_record(ticker)
+        if not record:
+            rows.append({"ticker": ticker, "found": False})
+            continue
+        row = catalog.get(ticker) or {}
+        entry = {
+            "ticker": ticker,
+            "found": True,
+            "company_name": row.get("company_name") or record.get("company_name", "N/A"),
+            "verdict": row.get("verdict", "HOLD"),
+            "current_price": row.get("current_price", 0),
+            "upside": row.get("upside", 0),
+            "pe_ratio": row.get("pe_ratio"),
+            "sector": row.get("sector", "N/A"),
+        }
+        if criteria:
+            entry["matches"] = _stock_matches_criteria(row, criteria)
+        rows.append(entry)
+    matched = [r for r in rows if r.get("found") and (not criteria or r.get("matches"))]
+    return {"rows": rows, "matched": matched, "criteria": criteria, "count": len(rows)}
+
+
 @app.route("/api/query/search")
 def query_search():
     """Search across SEC filings, executive summaries, theses, and descriptions in database JSONs."""
-    import glob
     import json
     q = request.args.get("q", "").strip().lower()
     types = request.args.get("types", "") # e.g. "10-K,10-Q"
@@ -631,6 +745,11 @@ def serve_intel_page():
     title, eyebrow = titles.get(page, ("INTEL", "AI terminal"))
     if page == "portfolio":
         return render_template("portfolio.html")
+    # Pro surfaces stay visible on the free tier - the buyer always sees what
+    # they would get instead of a dead 403.
+    feature = PRO_INTEL_PAGES.get(page)
+    if feature and not licensing.has_feature(feature):
+        return licensing.upgrade_response(feature)
     return render_template("intel_page.html", page=page, title=title, eyebrow=eyebrow)
 
 
@@ -654,6 +773,9 @@ def api_filings(ticker):
 def api_scenarios(ticker):
     if not is_valid_ticker(ticker.upper()):
         return {"error": "Invalid ticker"}, 400
+    blocked = licensing.plan_guard("scenario_lab")
+    if blocked is not None:
+        return blocked
     from intelligence_terminal import get_valuation_scenarios
     return get_valuation_scenarios(ticker)
 
@@ -677,6 +799,9 @@ def api_peers_ai(ticker):
 def api_committee(ticker):
     if not is_valid_ticker(ticker.upper()):
         return {"error": "Invalid ticker"}, 400
+    blocked = licensing.plan_guard("committee")
+    if blocked is not None:
+        return blocked
     from intelligence_terminal import get_investment_committee
     return get_investment_committee(ticker)
 
@@ -685,6 +810,9 @@ def api_committee(ticker):
 def api_red_flags(ticker):
     if not is_valid_ticker(ticker.upper()):
         return {"error": "Invalid ticker"}, 400
+    blocked = licensing.plan_guard("red_flags")
+    if blocked is not None:
+        return blocked
     from intelligence_terminal import get_red_flags
     return get_red_flags(ticker)
 
@@ -734,6 +862,12 @@ def api_terminal_execute():
         return {"html": "<span class=\"bbg-text-red\">Command too long (max 64).</span>"}, 400
     if not command:
         return {"text": ""}
+    # Headless terminal API is a Pro surface. The response stays HTTP 200 with
+    # a machine readable envelope (the terminal contract) that explains the
+    # upgrade instead of a bare 403.
+    blocked = licensing.plan_guard("terminal_api", status=200)
+    if blocked is not None:
+        return blocked
     try:
         from terminal_commands import process_command
         return process_command(command)
@@ -812,7 +946,6 @@ def get_stock_financials(ticker):
 def get_stock_history(ticker):
     """Retrieve price history for a ticker with cache fallback."""
     import yfinance as yf
-    import json
     ticker = ticker.upper().strip()
     if not is_valid_ticker(ticker):
         return {"error": "Invalid ticker format"}, 400
@@ -907,7 +1040,7 @@ def recalculate_stock(ticker):
         # Data is already loaded above
             
         metrics = data.get("key_metrics", {})
-        dcf_data = data.get("dcf_data", {})
+        dcf_data = data.get("dcf_data") or {}
         
         fcf_base = _safe_float(dcf_data.get("fcf_base") or metrics.get("freeCashflow"), 0)
         total_cash = _safe_float(metrics.get("totalCash"), 0)
@@ -925,7 +1058,6 @@ def recalculate_stock(ticker):
             else:
                 shares_out = 1.0
             
-        curr_price = _safe_float(metrics.get("current_price") or metrics.get("currentPrice"), 0)
         
         # Projections
         npv = 0
@@ -962,7 +1094,7 @@ def recalculate_stock(ticker):
             from ai_engine import _enforce_valuation_coherence
         except ImportError:
             from .ai_engine import _enforce_valuation_coherence
-        data["analysis"] = _enforce_valuation_coherence(data["analysis"], data)
+        data["analysis"] = _enforce_valuation_coherence(data.get("analysis") or {}, data)
         
         # Save back to database
         local_db.save_stock_record(ticker, data)
@@ -973,6 +1105,7 @@ def recalculate_stock(ticker):
         except ImportError:
             from .excel_generator import generate_excel_model
         ticker_dir = OUTPUT_ROOT / ticker
+        ticker_dir.mkdir(parents=True, exist_ok=True)
         generate_excel_model(ticker, data, ticker_dir, data["analysis"])
         
         logger.info(f"  [+] Recalculated DCF and refreshed Excel Model for {ticker}.")
@@ -1005,6 +1138,10 @@ def download_excel(ticker):
     ticker = ticker.upper().strip()
     if not is_valid_ticker(ticker):
         return {"error": "Invalid ticker format"}, 400
+    # Free tier export quota (Pro = unlimited).
+    blocked = _export_quota_block()
+    if blocked is not None:
+        return blocked
     # Prevent path traversal via resolve check
     path = (OUTPUT_ROOT / ticker / f"{ticker}_Financial_Model.xlsx").resolve()
     try:
@@ -1012,6 +1149,7 @@ def download_excel(ticker):
     except ValueError:
         return {"error": "Invalid path"}, 400
     if path.exists() and path.is_file():
+        _export_quota_count()
         return send_file(path, as_attachment=True, download_name=f"{ticker}_Financial_Model.xlsx")
     return f"Excel model for {ticker} not found.", 404
 
@@ -1021,12 +1159,16 @@ def download_json(ticker):
     ticker = ticker.upper().strip()
     if not is_valid_ticker(ticker):
         return {"error": "Invalid ticker format"}, 400
+    blocked = _export_quota_block()
+    if blocked is not None:
+        return blocked
     path = _db_path(ticker).resolve()
     try:
         path.relative_to(OUTPUT_ROOT.resolve())
     except ValueError:
         return {"error": "Invalid path"}, 400
     if path.exists() and path.is_file():
+        _export_quota_count()
         return send_file(path, as_attachment=True, download_name=f"{ticker}_Raw_Data.json")
     return f"JSON record for {ticker} not found.", 404
 
@@ -1034,6 +1176,15 @@ def download_json(ticker):
 def sync_notion(ticker):
     """Trigger a Notion workspace sync for a ticker."""
     ticker = ticker.upper().strip()
+    try:
+        try:
+            from notion_integrator import NOTION_TOKEN as _NT, NOTION_PAGE_ID as _NP
+        except ImportError:
+            from app.notion_integrator import NOTION_TOKEN as _NT, NOTION_PAGE_ID as _NP
+    except Exception:
+        _NT, _NP = "", ""
+    if not _NT or not _NP:
+        return {"error": "Notion not configured (NOTION_TOKEN/NOTION_PAGE_ID missing).", "configured": False}, 503
     try:
         try:
             from notion_integrator import auto_generate_notion_page
@@ -1319,11 +1470,37 @@ def _read_estimates_cache():
         return {}
 
 
+
+def _atomic_write_json(path, data, indent=1):
+    # Tmp+rename so concurrent readers never observe a torn file.
+    # Skipped in TEST_MODE so mock-shaped payloads never poison prod caches.
+    if os.environ.get("STOCKER_TEST_MODE") == "1":
+        return
+    import tempfile
+    import time as _time
+    fd, tmp = tempfile.mkstemp(dir=str(Path(path).parent), prefix=Path(path).stem + '.', suffix='.tmp')
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=indent, ensure_ascii=False)
+        for _attempt in range(6):  # Windows: reader may hold target open
+            try:
+                os.replace(tmp, str(path))
+                break
+            except PermissionError:
+                if _attempt >= 5:
+                    raise
+                _time.sleep(0.02 * (2 ** _attempt))
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except Exception:
+            pass
+        raise
+
 def _write_estimates_cache(cache):
     try:
         ESTIMATES_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(ESTIMATES_CACHE_FILE, "w", encoding="utf-8") as f:
-            json.dump(cache, f, indent=1)
+        _atomic_write_json(ESTIMATES_CACHE_FILE, cache)
     except Exception as e:
         logger.info(f"[Estimates] failed to persist cache: {e}")
 
@@ -1857,6 +2034,17 @@ def api_compare():
     rows = [row for row in _catalog_rows() if row["ticker"] in set(tickers)]
     return {"stocks": rows}
 
+
+@app.route("/api/compare/judge")
+def api_compare_judge():
+    """AI judge: single best risk-adjusted name from 2-6 tickers."""
+    from intelligence_terminal import get_compare_judge
+    tickers = [t.strip().upper() for t in request.args.get("tickers", "").split(",") if t.strip()]
+    result = get_compare_judge(tickers)
+    if result.get("error"):
+        return result, 422
+    return result
+
 @app.route("/")
 def stocks_terminal():
     """Stock Analysis Terminal — Execution Hub."""
@@ -1901,6 +2089,12 @@ def internal_error(e):
         return {"error": "Internal server error", "detail": str(e)}, 500
     return render_template('404.html'), 500
 
+@app.errorhandler(405)
+def method_not_allowed(e):
+    if request.path.startswith("/api/"):
+        return {"error": "Method not allowed", "path": request.path}, 405
+    return "Method not allowed", 405
+
 @app.errorhandler(429)
 def rate_limited(e):
     if request.path.startswith("/api/"):
@@ -1930,8 +2124,7 @@ def _write_earnings_schedule(sched):
     _EARNINGS_SCHED = sched
     try:
         EARNINGS_SCHEDULE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(EARNINGS_SCHEDULE_FILE, "w", encoding="utf-8") as f:
-            json.dump(sched, f, indent=1)
+        _atomic_write_json(EARNINGS_SCHEDULE_FILE, sched)
     except Exception as e:
         logger.info(f"[Earnings] failed to persist schedule: {e}")
 
@@ -2050,8 +2243,7 @@ def _should_auto_update_record(data):
 
 
 def _auto_update_worker():
-    import time, threading
-    from pathlib import Path
+    import time
     from datetime import datetime as _dt, timezone as _tz, timedelta as _td
     global auto_update_state
     _first_check_done = False
@@ -2081,6 +2273,10 @@ def _auto_update_worker():
             if not due:
                 auto_update_state["log"].append(f"{time.strftime('%Y-%m-%d %H:%M')} — no tickers due for quarterly refresh")
                 auto_update_state["log"] = auto_update_state["log"][-50:]
+                try:
+                    _auto_update_lock.release()
+                except Exception:
+                    pass
                 continue
             auto_update_state["running"] = True
             auto_update_state["queue"] = [t for t,_ in due]

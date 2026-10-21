@@ -3,20 +3,23 @@
 ## Architecture
 - Backend: Flask Server (app/server.py), AI Engine (app/ai_engine.py), Data Fetcher (app/data_fetcher.py) with yfinance+SEC+AlphaVantage, DCF/WACC registry
 - Frontend: Bloomberg terminal 3-col layout HTML/CSS/JS in app/templates and app/static (dashboard_new.css, theme.css, hub.js, dashboard.js)
-- Database: Local JSON only (app/local_db.py) + output/database/*.json, local portfolio.json
+- Database: Local JSON only (app/local_db.py) + output/database/*.json, local portfolio.json + sqlite3 accounts DB (app/accounts.py, output/accounts.db) for users/subscriptions/licenses/entitlements/audit
+- Licensing: app/licensing.py (keys, machine binding, HMAC-signed offline entitlement, grace period, plan gates) + app/billing.py (manual | webhook | none providers) + app/account_bp.py (auth/activate/admin/webhook blueprint)
 - External: Yahoo Finance, Groq/OpenRouter/Gemini (config.py), Notion optional, SEC EDGAR
 
 ## Code Layout
-- `app/server.py`: Flask entrypoint, 45 routes, SSE stream, catalog/screener/query, intel/portfolio/terminal - all local, no auth
+- `app/server.py`: Flask entrypoint, 69 routes, SSE stream, catalog/screener/query, intel/portfolio/terminal, compare judge - all local. Registers the account blueprint and the Pro plan gates
 - `app/data_fetcher.py`: Concurrent yfinance fetch with 15m cache, 14d statement cache, _yf_with_retry, SEC retry, DCF/MonteCarlo/CCA/DDM, scores (Altman/Piotroski/Beneish/DuPont)
-- `app/ai_engine.py`: Unified _call_llm (OpenCode->OpenRouter->Anthropic->Groq) with key rotation/cool-down, 3 prompts (fund/val, macro/risk, red-team)
+- `app/ai_engine.py`: Unified _call_llm (Groq-first easy; hard OpenCode->OpenRouter->Gemini->Anthropic->Groq) with key rotation/cool-down, 3 prompts (fund/val, macro/risk, red-team)
 - `app/dashboard_generator.py`: Generates per-ticker HTML dashboard, Valuation & DCF panel
-- `app/templates`: index.html hub, dashboard.html, intel_page.html/pro_page.html, modules/*, 404.html; `app/static/css|js`
-- `tests/e2e`: Playwright + requests (conftest.py) with STOCKER_TEST_MODE=1
+- `app/templates`: index.html hub, dashboard.html, intel_page.html/pro_page.html, modules/*, 404.html + auth/account/billing/activate/pricing/upgrade/admin; `app/static/css|js`
+- `tests/e2e`: Playwright + requests (conftest.py) with STOCKER_TEST_MODE=1, plus test_subscription.py + test_subscription_flow.py
 
-## Personal Terminal Principles (no premium)
-- Single local user, no login/register/pricing/stripe/credits - all features unlocked
-- All routes local: /watchlist /reports /market-feed /system /news-impact /filings /scenario-lab /committee /red-flags /portfolio
+## Personal Terminal Principles (local-first, tiered)
+- Local-first single user, no cloud data - everything runs on the buyer's machine
+- Free tier: the whole quant core (pipeline, dashboard, watchlist, portfolio, compare, news, filings, macro, screener, 10 exports/day)
+- Pro tier (license key, machine-bound, offline-capable): scenario lab, investment committee, red flags, headless terminal API, batch screening, unlimited exports
+- Gated surfaces never dead-end: pages render the upgrade prompt (200), APIs answer 402 with the explanation
 - Bloomberg terminal UX: data-dense, zero undefined leaks (safeDisplay), fetch retry on 429, SSE stream with keepalive
 
 ## Milestones
@@ -28,12 +31,16 @@
 | 4 | E2E Suite | Pass Tiers 1-4 (conftest STOCKER_TEST_MODE, Playwright) — 3 core tests pass; TEST_MODE fast paths for history/live-quote | DONE 2026-09-01 |
 | 5 | Adversarial Hardening | Tier 5 malformed tickers, empty DB, rate-limit soak — is_valid_ticker hardened (12 char, no traversal), financials/history/live-quote validate 400, SEC/yf retry hardened, 13 adversarial tests | DONE 2026-09-01 |
 | 6 | Polish A-Z (2026-09-01) | Security: removed hardcoded Groq keys, .env.example, .flask_secret gitignored, CORS no credentials; Infra: duckduckgo-search pinned, start.cmd quiet, NUL removed, dashboard_new.css price-flash+toast+shimmer; Docs: local-DB note, Bloomberg UX contracts | DONE |
+| 7 | Subscription Layer (2026-10-21) | Licensing: keys + machine binding + signed offline entitlement (14d grace), sqlite3 accounts DB, manual/webhook billing providers, account blueprint (signup/login/activate/billing/pricing/admin/webhook), Pro gates on scenario lab / committee / red flags / terminal API / batch screening, export quota, operator CLI, 37 new tests | DONE feature/subscription-licensing |
 
 ## Interface Contracts
 ### Frontend <-> Backend
 - JSON or HTML fragments; backend returns 400/404/500 JSON for /api/*, HTML for pages; frontend shows error boundaries via toast.js
+- Plan gates: pages render the upgrade prompt (HTTP 200), gated APIs answer HTTP 402 with `{error: "upgrade_required", upgrade_url, unlocks}`; the headless terminal API keeps its HTTP 200 JSON envelope
 ### Backend <-> External APIs
 - All yfinance/SEC calls via _yf_with_retry/_sec_request_with_retry with Retry-After; on failure returns empty DataFrame + fallback metrics, never crashes analyzer
+### Backend <-> Checkout platform
+- Signed webhook (`X-Stocker-Signature` HMAC + timestamp window), idempotent per `event_id`; see docs/SUBSCRIPTION.md
 
 ## Quick Start
 ```

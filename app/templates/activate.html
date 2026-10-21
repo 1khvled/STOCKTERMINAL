@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Activate license - Stocker Finance</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0f;--panel:#121318;--panel2:#17181f;--border:#22242e;--border2:#2c2e3a;--text:#f4f5f7;--muted:#9aa0ae;--dim:#6b7080;--green:#34c759;--red:#ff453a;--orange:#ff9f0a;--blue:#0a84ff;--purple:#bf5af2;--mono:'JetBrains Mono',monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,sans-serif;font-size:14px;line-height:1.55}
+a{color:inherit;text-decoration:none}
+.hdr{position:sticky;top:0;z-index:50;background:rgba(10,10,15,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.hdr-in{max-width:1080px;margin:0 auto;padding:0 20px;height:60px;display:flex;align-items:center;gap:18px}
+.logo{font-weight:800;font-size:17px;letter-spacing:.4px;white-space:nowrap}
+.logo b{color:var(--purple)}
+.prem{font-family:var(--mono);font-size:13px;color:#0a0a0f;background:linear-gradient(90deg,#ffd60a,#ff9f0a);padding:3px 10px;border-radius:999px;font-weight:700;letter-spacing:.6px;white-space:nowrap}
+.nav{display:flex;gap:2px;margin-left:4px}
+.nav a{font-size:14px;font-weight:600;color:var(--muted);padding:8px 11px;border-radius:8px;white-space:nowrap}
+.nav a:hover{color:var(--text);background:var(--panel2)}
+.wrap{max-width:760px;margin:0 auto;padding:28px 20px 60px}
+h1{font-size:24px;font-weight:800;margin:0 0 6px}
+.sub{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.panel{border:1px solid var(--border);background:var(--panel);border-radius:14px;overflow:hidden;margin-top:18px}
+.phead{padding:14px 16px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700}
+.body{padding:18px 20px}
+label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:14px 0 5px}
+input[type=text],input[type=email]{width:100%;background:var(--panel2);border:1px solid var(--border2);color:var(--text);padding:12px 13px;border-radius:10px;font-size:15px;outline:none;font-family:var(--mono);letter-spacing:.6px}
+input:focus{border-color:var(--purple)}
+button{width:100%;margin-top:18px;background:var(--purple);color:#fff;border:none;padding:12px 16px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;font-family:Inter}
+button:hover{filter:brightness(1.12)}
+.msg{border-radius:10px;padding:12px 14px;font-size:14px;margin-bottom:16px}
+.msg.ok{background:rgba(52,199,89,.12);border:1px solid rgba(52,199,89,.4);color:#9ff0b5}
+.msg.err{background:rgba(255,69,58,.12);border:1px solid rgba(255,69,58,.4);color:#ffb3ad}
+.msg.info{background:rgba(10,132,255,.12);border:1px solid rgba(10,132,255,.4);color:#a9d3ff}
+.steps{font-size:14px;color:var(--muted)}
+.steps li{padding:6px 0}
+code{font-family:var(--mono);font-size:13px;background:var(--panel2);border:1px solid var(--border2);border-radius:6px;padding:2px 6px}
+.foot{max-width:760px;margin:0 auto;padding:0 20px 40px;color:var(--dim);font-size:13px}
+</style>
+</head>
+<body>
+<header class="hdr"><div class="hdr-in">
+<a class="logo" href="/">STOCKER<b>FINANCE</b></a><span class="prem">{{ plan_badge }} TIER</span>
+<nav class="nav"><a href="/">Home</a><a href="/pricing">Pricing</a><a href="/billing">Billing</a><a href="/account">Account</a></nav>
+</div></header>
+<div class="wrap">
+<h1>Activate your license</h1>
+<div class="sub">Paste the key you received at checkout. It is bound to this machine once.</div>
+
+<div class="panel">
+<div class="phead">License key</div>
+<div class="body">
+{% if error %}<div class="msg err">{{ error }}</div>{% endif %}
+{% if ok %}<div class="msg ok">Activated. Pro is live on this machine.</div>{% endif %}
+<form method="post" action="/activate">
+<label for="key">License key</label>
+<input id="key" type="text" name="key" placeholder="STK-XXXX-XXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" required/>
+<label for="email">Email (optional - used for your receipt)</label>
+<input id="email" type="email" name="email" value="{{ (state.user.email if state.user else '') }}" autocomplete="email"/>
+<button type="submit">Activate Pro</button>
+</form>
+</div>
+</div>
+
+<div class="panel">
+<div class="phead">How it works</div>
+<div class="body">
+<ol class="steps">
+<li>The key is validated against the operator's entitlement service (or a signed offline key).</li>
+<li>It is bound to this machine's fingerprint - see <a href="/account" style="color:var(--purple);font-weight:600">Account</a>.</li>
+<li>A signed entitlement file is cached locally, so the terminal keeps working offline for 14 days.</li>
+</ol>
+<div class="msg info" style="margin-top:14px">No key? The terminal still runs - you are on the free tier. <a href="/pricing" style="font-weight:700">See what Pro adds</a>.</div>
+</div>
+</div>
+</div>
+<div class="foot">Stocker Finance &mdash; local-first terminal software.</div>
+</body>
+</html>

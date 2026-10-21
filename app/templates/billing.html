@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Billing - Stocker Finance</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0f;--panel:#121318;--panel2:#17181f;--border:#22242e;--border2:#2c2e3a;--text:#f4f5f7;--muted:#9aa0ae;--dim:#6b7080;--green:#34c759;--red:#ff453a;--orange:#ff9f0a;--blue:#0a84ff;--purple:#bf5af2;--mono:'JetBrains Mono',monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,sans-serif;font-size:14px;line-height:1.55}
+a{color:inherit;text-decoration:none}
+.hdr{position:sticky;top:0;z-index:50;background:rgba(10,10,15,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.hdr-in{max-width:1080px;margin:0 auto;padding:0 20px;height:60px;display:flex;align-items:center;gap:18px}
+.logo{font-weight:800;font-size:17px;letter-spacing:.4px;white-space:nowrap}
+.logo b{color:var(--purple)}
+.prem{font-family:var(--mono);font-size:13px;color:#0a0a0f;background:linear-gradient(90deg,#ffd60a,#ff9f0a);padding:3px 10px;border-radius:999px;font-weight:700;letter-spacing:.6px;white-space:nowrap}
+.nav{display:flex;gap:2px;margin-left:4px}
+.nav a{font-size:14px;font-weight:600;color:var(--muted);padding:8px 11px;border-radius:8px;white-space:nowrap}
+.nav a:hover{color:var(--text);background:var(--panel2)}
+.wrap{max-width:900px;margin:0 auto;padding:28px 20px 60px}
+h1{font-size:24px;font-weight:800;margin:0 0 6px}
+.sub{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.panel{border:1px solid var(--border);background:var(--panel);border-radius:14px;overflow:hidden;margin-top:18px}
+.phead{padding:14px 16px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700}
+.body{padding:18px 20px}
+.row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #181a21;font-size:14px}
+.row:last-child{border-bottom:none}
+.row span{color:var(--muted)}
+.row strong{font-family:var(--mono);font-size:13.5px;text-align:right}
+.pill{display:inline-block;font-family:var(--mono);font-size:13px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--panel2);border:1px solid var(--border2);color:var(--muted)}
+.pill.pro{background:linear-gradient(90deg,#ffd60a,#ff9f0a);color:#0a0a0f;border-color:transparent}
+a.btn{display:inline-block;background:var(--purple);color:#fff;padding:11px 16px;border-radius:10px;font-weight:700;font-size:14px;margin-top:16px;margin-right:8px}
+a.btn.ghost{background:var(--panel2);border:1px solid var(--border2);color:var(--text)}
+.msg{border-radius:10px;padding:12px 14px;font-size:14px;margin-top:14px}
+.msg.info{background:rgba(10,132,255,.12);border:1px solid rgba(10,132,255,.4);color:#a9d3ff}
+.msg.ok{background:rgba(52,199,89,.12);border:1px solid rgba(52,199,89,.4);color:#9ff0b5}
+.msg.err{background:rgba(255,69,58,.12);border:1px solid rgba(255,69,58,.4);color:#ffb3ad}
+ul.feat{list-style:none;padding:0;margin:8px 0 0}
+ul.feat li{font-size:14px;color:var(--muted);padding:8px 0 8px 24px;position:relative;border-bottom:1px solid #181a21}
+ul.feat li:last-child{border-bottom:none}
+ul.feat li:before{content:"\2713";position:absolute;left:0;color:var(--green);font-weight:700}
+ul.feat li.lock:before{content:"\26BF";color:var(--dim)}
+.foot{max-width:900px;margin:0 auto;padding:0 20px 40px;color:var(--dim);font-size:13px}
+</style>
+</head>
+<body>
+<header class="hdr"><div class="hdr-in">
+<a class="logo" href="/">STOCKER<b>FINANCE</b></a><span class="prem">{{ plan_badge }} TIER</span>
+<nav class="nav"><a href="/">Home</a><a href="/pricing">Pricing</a><a href="/activate">Activate</a><a href="/account">Account</a></nav>
+</div></header>
+<div class="wrap">
+<h1>Billing</h1>
+<div class="sub">Subscription state, checkout and license keys.</div>
+
+<div class="panel">
+<div class="phead">Current plan</div>
+<div class="body">
+<div class="row"><span>Plan</span><strong><span class="pill {{ 'pro' if state.plan == 'pro' else 'free' }}">{{ state.plan_name }}</span></strong></div>
+<div class="row"><span>Status</span><strong>{{ state.status.upper() }}</strong></div>
+<div class="row"><span>License</span><strong>{{ state.license_key or 'none activated' }}</strong></div>
+<div class="row"><span>Renews / expired</span><strong>{{ state.expires_at or 'never' }}</strong></div>
+<div class="row"><span>Billing provider</span><strong>{{ state.billing.provider }}</strong></div>
+<div class="row"><span>Offline grace</span><strong>14 days</strong></div>
+{% if state.reason %}<div class="msg info">{{ state.reason }}</div>{% endif %}
+<a class="btn" href="/activate">Activate a key</a>
+<a class="btn ghost" href="/pricing">Compare tiers</a>
+</div>
+</div>
+
+<div class="panel">
+<div class="phead">Checkout</div>
+<div class="body">
+<div style="font-size:14px;color:var(--muted)">{{ checkout.message }}</div>
+{% if not checkout.manual %}<a class="btn" href="{{ checkout.url }}">Continue to checkout</a>{% endif %}
+<ul class="feat">
+{% for f in plans['pro'].features %}<li>{{ f }}</li>{% endfor %}
+</ul>
+</div>
+</div>
+</div>
+<div class="foot">Stocker Finance &mdash; local-first terminal software.</div>
+</body>
+</html>

@@ -9,7 +9,25 @@ import pytest
 def test_server():
     os.environ["STOCKER_TEST_MODE"] = "1"
     os.environ["STOCKER_PORT"] = "5005"
-    
+
+    # Licensing isolation: the suite gets its own accounts DB, its own
+    # entitlement file and deterministic secrets, so the real output/ tree and
+    # the developer's own licenses are never touched.
+    import tempfile
+    _tmp = tempfile.gettempdir()
+    os.environ["STOCKER_ACCOUNTS_DB"] = os.path.join(_tmp, "stocker_e2e_accounts.db")
+    os.environ["STOCKER_ENTITLEMENT_FILE"] = os.path.join(_tmp, "stocker_e2e_entitlement.json")
+    os.environ["STOCKER_LICENSE_SECRET"] = "stocker-e2e-license-secret"
+    os.environ["BILLING_WEBHOOK_SECRET"] = "stocker-e2e-webhook-secret"
+    os.environ["ADMIN_TOKEN"] = "stocker-e2e-admin-token"
+    os.environ["BILLING_PROVIDER"] = "webhook"
+    for _stale in (os.environ["STOCKER_ACCOUNTS_DB"], os.environ["STOCKER_ENTITLEMENT_FILE"]):
+        try:
+            if os.path.exists(_stale):
+                os.remove(_stale)
+        except OSError:
+            pass
+
     python_exec = sys.executable
     if "venv" not in python_exec.lower():
         # Fallback if pytest runs outside venv, but we should use the venv's python
@@ -19,7 +37,6 @@ def test_server():
     
     # Start the server - log to FILE, never PIPE (an undrained PIPE deadlock
     # hangs the server mid-suite once the OS buffer fills).
-    import tempfile
     _logf = open(os.path.join(tempfile.gettempdir(), "stocker_e2e_server.log"), "w", encoding="utf-8", errors="replace")
     proc = subprocess.Popen(
         [python_exec, "-m", "app.server"],

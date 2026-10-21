@@ -110,9 +110,9 @@ table.q tbody tr:hover{background:#181a23}
 </head>
 <body>
 <header class="hdr"><div class="hdr-in">
-  <a class="logo" href="/">STOCKER<b>FINANCE</b></a><span class="prem">PREMIUM &bull; FREE</span>
+  <a class="logo" href="/">STOCKER<b>FINANCE</b></a><span class="prem">{{ plan_badge }} TIER</span>
   <nav class="nav">
-    <a href="/" class="on">Home</a><a href="/watchlist">Watchlist</a><a href="/portfolio">Portfolio</a><a href="/module/screener">Screener</a><a href="/compare">Compare</a><a href="/earnings">Earnings</a><a href="/scenario-lab">Lab</a><a href="/guide">Guide</a>
+    <a href="/" class="on">Home</a><a href="/watchlist">Watchlist</a><a href="/portfolio">Portfolio</a><a href="/module/screener">Screener</a><a href="/compare">Compare</a><a href="/earnings">Earnings</a><a href="/scenario-lab">Lab</a><a href="/guide">Guide</a><a href="/pricing">Pricing</a><a href="/account">Account</a>
   </nav>
   <div class="search"><span class="ic">&#9906;</span><input id="q" placeholder="Quote lookup: AAPL, NVDA, TSLA..." autocomplete="off" spellcheck="false"/><div class="sdrop" id="sdrop"></div></div>
   <div class="clock"><div class="t" id="clock">--:--:-- ET</div><div class="s" id="sess"><span class="dot" style="background:var(--dim)"></span>CONNECTING</div></div>
@@ -121,8 +121,8 @@ table.q tbody tr:hover{background:#181a23}
 <div class="wrap">
   <div class="hero">
     <div style="flex:1;min-width:280px">
-      <h1>Every premium terminal feature. <em>$0 forever.</em></h1>
-      <p>DCF valuation, Monte Carlo, analyst-grade AI research, red-team risk, screeners, portfolio lab. Type a ticker and hit Analyze.</p>
+      <h1>Bloomberg-grade terminal, <em>free on your own machine.</em></h1>
+      <p>DCF valuation, Monte Carlo, analyst-grade AI research, red-team risk, screeners, portfolio lab. Type a ticker and hit Analyze. Pro adds the scenario lab, the investment committee, red flags and the headless API.</p>
       <div class="arow">
         <input id="ticker" class="inp" placeholder="Ticker: AAPL, NVDA, MSFT (comma = compare)" autocomplete="off" spellcheck="false"/>
         <button id="analyze" class="btn">ANALYZE</button><button id="cancel" class="btn" style="display:none">CANCEL</button>
@@ -146,9 +146,9 @@ table.q tbody tr:hover{background:#181a23}
           <button class="refresh" id="refresh">&#8635; REFRESH</button>
         </div>
         <div style="overflow-x:auto"><table class="q" id="qt"><thead><tr>
-          <th></th><th data-k="ticker">Symbol</th><th data-k="current_price">Price</th><th data-k="livechg">Day</th><th data-k="fair_value_mid">Fair Val</th><th data-k="upside">Upside</th><th data-k="pe_ratio">P/E</th><th data-k="marketCap">Mkt Cap</th><th data-k="verdict">Rating</th>
+          <th></th><th data-k="ticker">Symbol</th><th data-k="current_price">Price</th><th data-k="livechg">Day</th><th data-k="fair_value_mid">Fair Val</th><th data-k="upside">Upside</th><th data-k="pe_ratio">P/E</th><th data-k="marketCap">Mkt Cap</th><th data-k="verdict">Rating</th><th data-k="generated_at">Updated</th>
         </tr></thead><tbody id="qb">
-          <tr><td colspan="9"><div class="skel" style="width:70%"></div><div class="skel" style="width:55%;margin-top:8px"></div><div class="skel" style="width:80%;margin-top:8px"></div></td></tr>
+          <tr><td colspan="10"><div class="skel" style="width:70%"></div><div class="skel" style="width:55%;margin-top:8px"></div><div class="skel" style="width:80%;margin-top:8px"></div></td></tr>
         </tbody></table></div>
         <div class="empty" id="qempty" style="display:none">No stocks yet. Analyze AAPL to start coverage.</div>
       </div>
@@ -160,12 +160,13 @@ table.q tbody tr:hover{background:#181a23}
       <div class="card"><h3>Top AI pick</h3><div class="d">Highest-conviction BUY by upside</div><div id="pick"><div class="skel"></div></div></div>
       <div class="card"><h3>Portfolio</h3><div class="d" id="pf-sub">Track positions, free forever</div><div id="pf"><div class="skel"></div></div>
         <a class="tool" href="/portfolio"><span class="e">&#128202;</span><span>Open portfolio<small>P&amp;L, exposure, AI risk</small></span></a></div>
-      <div class="card"><h3>Premium toolkit &mdash; free</h3><div class="d">What Yahoo charges for, unlocked</div>
+      <div class="card"><h3>Terminal toolkit</h3><div class="d">Core on the free tier, Pro adds the desk</div>
         <a class="tool" href="/module/screener"><span class="e">&#9881;</span><span>Screener<small>Filter + AI natural language</small></span></a>
         <a class="tool" href="/scenario-lab"><span class="e">&#129518;</span><span>Scenario lab<small>Bear / base / bull models</small></span></a>
         <a class="tool" href="/red-flags"><span class="e">&#127970;</span><span>Red flags<small>Beneish, Altman, DuPont</small></span></a>
         <a class="tool" href="/committee"><span class="e">&#129489;</span><span>Investment committee<small>Multi-agent debate</small></span></a>
         <a class="tool" href="/earnings"><span class="e">&#128197;</span><span>Earnings<small>Calendar across coverage</small></span></a><a class="tool" href="/compare"><span class="e">&#8646;</span><span>Compare<small>Head-to-head tickers</small></span></a><a class="tool" href="/macro"><span class="e">&#8776;</span><span>Macro<small>Rates, Fed &amp; regime</small></span></a>
+        <a class="tool" href="/pricing"><span class="e">&#128176;</span><span>Go Pro<small>Unlock lab, committee, flags, API</small></span></a>
       </div>
       <div class="card"><h3>System</h3><div class="d">Local engine status</div><div id="sys"><div class="skel"></div></div>
         <button class="refresh" id="auto-update" style="margin:10px 0 0">RUN QUARTERLY UPDATE</button>
@@ -199,6 +200,7 @@ function render(){
   var tb=$("qb");
   if(!rows.length){tb.innerHTML="";$("qempty").style.display="block";return}
   $("qempty").style.display="none";
+function ageCell(s){var g=s.generated_at;if(!g)return "--";var ms=Date.now()-Date.parse(g);if(isNaN(ms))return "--";var d=Math.floor(ms/864e5);var t=d<1?(Math.max(1,Math.floor(ms/36e5))+"h"):(d<30?d+"d":(d<365?Math.floor(d/30)+"mo":Math.floor(d/365)+"y"));var stale=d>=85;return "<span class='"+(stale?"dn":"flat")+"' title='"+esc(g)+(stale?" - stale, refresh due":"")+"'>"+t+(stale?" !":"")+"</span>";}
   tb.innerHTML=rows.slice(0,40).map(function(s){
     var l=rowLive(s.ticker),liv=isLive(l),px=liv?l.price:s.current_price,ch=effChg(s);
     var cls=ch==null?"flat":(ch>0.05?"up":(ch<-0.05?"dn":"flat")),arrow=ch==null?"•":(ch>0.05?"▲":(ch<-0.05?"▼":"•"));
@@ -206,7 +208,7 @@ function render(){
     return '<tr data-t="'+esc(s.ticker)+'"><td>'+starBtn(s.ticker)+'</td><td><div class="sym">'+esc(s.ticker)+'</div><div class="co">'+esc(s.company_name||"")+'</div></td>'+
     "<td>$"+fmtP(px)+'</td><td class="'+cls+'">'+(ch==null?'--':(arrow+" "+Math.abs(ch).toFixed(2)+"%"))+'</td>'+
     "<td>$"+fmtP(s.fair_value_mid)+'</td><td class="'+ucls+'">'+(upRaw>=0?"+":"")+up.toFixed(1)+'%</td>'+
-    "<td>"+fmtP(s.pe_ratio)+"</td><td>$"+fmtM(s.marketCap)+"</td><td>"+pill(s.verdict)+"</td></tr>";
+    "<td>"+fmtP(s.pe_ratio)+"</td><td>$"+fmtM(s.marketCap)+"</td><td>"+pill(s.verdict)+"</td><td>"+ageCell(s)+"</td></tr>";
   }).join("");
   var trs=tb.querySelectorAll("tr");for(var i=0;i<trs.length;i++){trs[i].onclick=function(e){if(e.target.closest("button"))return;location.href="/dashboard/"+this.getAttribute("data-t")}}var sts=tb.querySelectorAll("[data-star]");for(var g=0;g<sts.length;g++){sts[g].onclick=function(e){e.stopPropagation();var x=this.getAttribute("data-star");var w=getWL();var ix=w.indexOf(x);if(ix>=0){w.splice(ix,1);if(window.showToast)showToast("Removed "+x+" from watchlist")}else{w.push(x);if(window.showToast)showToast("Starred "+x)}setWL(w);render()}}
   var liveUp=function(s){var l=rowLive(s.ticker);if(isLive(l)&&l.price&&s.fair_value_mid)return (s.fair_value_mid-l.price)/l.price;return (s.upside||0);};

@@ -62,8 +62,8 @@ button.ops-link{background:var(--purple);color:#fff;border:none;padding:6px 10px
 </head>
 <body data-pro-page="{{ page }}">
 <header class="hdr"><div class="hdr-in">
-<a class="logo" href="/">STOCKER<b>FINANCE</b></a><span class="prem">PREMIUM &bull; FREE</span>
-<nav class="nav"><a href="/">Home</a><a href="/watchlist">Watchlist</a><a href="/portfolio">Portfolio</a><a href="/module/screener">Screener</a><a href="/compare">Compare</a><a href="/earnings">Earnings</a><a href="/scenario-lab">Lab</a><a href="/guide">Guide</a></nav>
+<a class="logo" href="/">STOCKER<b>FINANCE</b></a><span class="prem">{{ plan_badge }} TIER</span>
+<nav class="nav"><a href="/">Home</a><a href="/watchlist">Watchlist</a><a href="/portfolio">Portfolio</a><a href="/module/screener">Screener</a><a href="/compare">Compare</a><a href="/earnings">Earnings</a><a href="/scenario-lab">Lab</a><a href="/guide">Guide</a><a href="/account">Account</a></nav>
 <div class="search"><span class="ic">&#9906;</span><input id="q" placeholder="Quote lookup..." autocomplete="off" spellcheck="false"/><div class="sdrop" id="sdrop"></div></div>
 <div class="clock"><div class="t" id="clock">--:--:-- ET</div></div>
 </div></header>
@@ -78,8 +78,8 @@ button.ops-link{background:var(--purple);color:#fff;border:none;padding:6px 10px
 {% if page == "reports" %}
 <div class="grid solo"><section class="panel">
 <div class="pro-title">Generated Model Vault</div>
-<table class="pro-table"><thead><tr><th>Ticker</th><th>Name</th><th>Generated</th><th>Excel</th><th>JSON</th><th>Terminal</th></tr></thead>
-<tbody id="pro-primary-table"><tr><td colspan="6">LOADING...</td></tr></tbody></table>
+<table class="pro-table"><thead><tr><th>Ticker</th><th>Name</th><th>Rating</th><th>Generated</th><th>Excel</th><th>JSON</th><th>Terminal</th></tr></thead>
+<tbody id="pro-primary-table"><tr><td colspan="7">LOADING...</td></tr></tbody></table>
 </section></div>
 {% elif page == "market-feed" %}
 <div class="grid"><section class="panel">

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Pricing - Stocker Finance</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0f;--panel:#121318;--panel2:#17181f;--border:#22242e;--border2:#2c2e3a;--text:#f4f5f7;--muted:#9aa0ae;--dim:#6b7080;--green:#34c759;--red:#ff453a;--orange:#ff9f0a;--blue:#0a84ff;--purple:#bf5af2;--mono:'JetBrains Mono',monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,sans-serif;font-size:14px;line-height:1.55}
+a{color:inherit;text-decoration:none}
+.hdr{position:sticky;top:0;z-index:50;background:rgba(10,10,15,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.hdr-in{max-width:1080px;margin:0 auto;padding:0 20px;height:60px;display:flex;align-items:center;gap:18px}
+.logo{font-weight:800;font-size:17px;letter-spacing:.4px;white-space:nowrap}
+.logo b{color:var(--purple)}
+.prem{font-family:var(--mono);font-size:13px;color:#0a0a0f;background:linear-gradient(90deg,#ffd60a,#ff9f0a);padding:3px 10px;border-radius:999px;font-weight:700;letter-spacing:.6px;white-space:nowrap}
+.nav{display:flex;gap:2px;margin-left:4px}
+.nav a{font-size:14px;font-weight:600;color:var(--muted);padding:8px 11px;border-radius:8px;white-space:nowrap}
+.nav a:hover{color:var(--text);background:var(--panel2)}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 60px}
+h1{font-size:26px;font-weight:800;margin:0 0 8px}
+.sub{font-family:var(--mono);font-size:14px;color:var(--muted);max-width:760px}
+.tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-top:24px}
+.panel{border:1px solid var(--border);background:var(--panel);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+.panel.pro{border-color:var(--purple);box-shadow:0 0 0 1px rgba(191,90,242,.25)}
+.phead{padding:16px 18px;border-bottom:1px solid var(--border);font-size:15px;font-weight:800;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.tag{font-family:var(--mono);font-size:13px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--panel2);border:1px solid var(--border2);color:var(--muted)}
+.tag.pro{background:linear-gradient(90deg,#ffd60a,#ff9f0a);color:#0a0a0f;border-color:transparent}
+.price{padding:18px;font-family:var(--mono)}
+.price .amt{font-size:34px;font-weight:800;letter-spacing:-1px}
+.price .per{font-size:13px;color:var(--muted)}
+.body{padding:0 18px 18px;flex:1}
+ul.feat{list-style:none;padding:0;margin:0}
+ul.feat li{font-size:14px;color:var(--muted);padding:9px 0 9px 24px;position:relative;border-bottom:1px solid #181a21}
+ul.feat li:last-child{border-bottom:none}
+ul.feat li:before{content:"\2713";position:absolute;left:0;color:var(--green);font-weight:700}
+ul.feat li.lock:before{content:"\26BF";color:var(--dim)}
+a.btn,button.btn{display:block;text-align:center;background:var(--purple);color:#fff;padding:12px 16px;border-radius:10px;font-weight:700;font-size:14px;border:none;cursor:pointer;font-family:Inter}
+a.btn.ghost{background:var(--panel2);border:1px solid var(--border2);color:var(--text)}
+a.btn.current{background:transparent;border:1px solid var(--border2);color:var(--muted);cursor:default}
+.faq{margin-top:22px;border:1px solid var(--border);background:var(--panel);border-radius:14px;padding:16px 18px}
+.faq h3{margin:0 0 8px;font-size:15px;font-weight:700}
+.faq p{font-size:14px;color:var(--muted);margin:0 0 10px}
+.faq p:last-child{margin-bottom:0}
+.foot{max-width:1080px;margin:0 auto;padding:0 20px 40px;color:var(--dim);font-size:13px}
+</style>
+</head>
+<body>
+<header class="hdr"><div class="hdr-in">
+<a class="logo" href="/">STOCKER<b>FINANCE</b></a><span class="prem">{{ plan_badge }} TIER</span>
+<nav class="nav"><a href="/">Home</a><a href="/pricing">Pricing</a><a href="/activate">Activate</a><a href="/account">Account</a></nav>
+</div></header>
+<div class="wrap">
+<h1>Pick the tier your desk needs</h1>
+<div class="sub">StockerAI is desktop software: it runs on your machine, your data never leaves it, and the Pro surfaces are unlocked with a one-time license key.</div>
+
+<div class="tiers">
+<section class="panel">
+<div class="phead">StockerAI Free <span class="tag">$0</span></div>
+<div class="price"><span class="amt">$0</span> <span class="per">forever, no card</span></div>
+<div class="body">
+<ul class="feat">
+<li>Full analysis pipeline: DCF, WACC, Monte Carlo, Altman Z, Piotroski, Beneish, DuPont</li>
+<li>Live dashboard, watchlist, portfolio, compare + AI judge</li>
+<li>News impact, SEC filings, macro regime</li>
+<li>Screener: 21 filters + natural-language queries</li>
+<li>10 model exports per day (Excel + JSON)</li>
+<li class="lock">Scenario Lab, Committee, Red Flags, headless API and batch screening (Pro)</li>
+</ul>
+</div>
+<div style="padding:0 18px 18px">
+{% if state.plan == 'free' %}<a class="btn current" href="/account">Your current plan</a>{% else %}<a class="btn ghost" href="/account">Switch any time</a>{% endif %}
+</div>
+</section>
+
+<section class="panel pro">
+<div class="phead">StockerAI Pro <span class="tag pro">MOST POPULAR</span></div>
+<div class="price"><span class="amt">${{ plans['pro'].price_month }}</span> <span class="per">/ month &nbsp;|&nbsp; ${{ plans['pro'].price_year }} / year &nbsp;|&nbsp; ${{ plans['pro'].price_lifetime }} lifetime</span></div>
+<div class="body">
+<ul class="feat">
+{% for f in plans['pro'].features %}<li>{{ f }}</li>{% endfor %}
+</ul>
+</div>
+<div style="padding:0 18px 18px">
+{% if state.plan == 'pro' %}<a class="btn current" href="/account">Your current plan</a>{% else %}<a class="btn" href="/activate">Activate a Pro key</a>{% endif %}
+</div>
+</section>
+</div>
+
+<div class="faq">
+<h3>How the license works</h3>
+<p>You get one license key at checkout and paste it once on the <a href="/activate" style="color:var(--purple);font-weight:600">Activate</a> page. The key is bound to this machine (fingerprint shown on the <a href="/account" style="color:var(--purple);font-weight:600">Account</a> page).</p>
+<p>When this machine is offline the terminal keeps working from a signed local entitlement file for 14 days after the last successful check - you are never locked out on a plane or during an outage.</p>
+<p>Need a seat for a colleague, an invoice, or a refund? Everything runs locally, so the operator can re-issue, extend or revoke a key from the CLI or the admin console.</p>
+</div>
+</div>
+<div class="foot">Stocker Finance &mdash; local-first terminal software. Prices in USD, excl. local tax.</div>
+</body>
+</html>

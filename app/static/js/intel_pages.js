@@ -21,18 +21,40 @@
     async function safeFetch(url) {
         try {
             const res = await fetch(url);
-            if (!res.ok) return { error: `Server returned status ${res.status}` };
-            return await res.json();
+            let body = {};
+            try { body = await res.json(); } catch (e) { body = {}; }
+            if (!res.ok) {
+                // Pro surfaces answer 402 with an explanation - show the upgrade
+                // prompt instead of a dead error line.
+                if (body && body.error === "upgrade_required") {
+                    return { error: body.message || "Pro feature", upgrade: body };
+                }
+                return { error: `Server returned status ${res.status}` };
+            }
+            return body;
         } catch (e) {
             return { error: e.message };
         }
+    }
+
+    function upgradeHtml(data) {
+        const u = data.upgrade || {};
+        const unlocks = (u.unlocks || []).map(x => `<li>${esc(x)}</li>`).join("");
+        return `<div class="pro-title">PRO FEATURE - ${esc(u.feature_label || "")}</div>
+            <p class="intel-copy">${esc(data.error || "")}</p>
+            ${unlocks ? `<ul>${unlocks}</ul>` : ""}
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+                <a class="ops-link" href="/pricing">SEE PRICING</a>
+                <a class="ops-link" style="background:var(--panel2);border:1px solid var(--border2)" href="/activate">ACTIVATE A KEY</a>
+            </div>`;
     }
 
     async function runNewsImpact(ticker) {
         primary.textContent = "RUNNING AI NEWS MATERIALITY ENGINE...";
         side.textContent = "FETCHING HEADLINES / ROUTING MODEL...";
         const data = await safeFetch(`/api/intel/news-impact/${ticker}`);
-        if (data.error) { primary.innerHTML = `<div class="pro-negative">FETCH FAILED: ${data.error}</div>`; side.innerHTML = ""; return; }
+        if (data.upgrade) { primary.innerHTML = upgradeHtml(data); side.innerHTML = ""; return; }
+        if (data.error) { primary.innerHTML = `<div class="pro-negative">FETCH FAILED: ${esc(data.error)}</div>`; side.innerHTML = ""; return; }
         primary.innerHTML = `
             <div class="ops-row"><span>Overall Impact</span><strong class="${clsImpact(data.overall_impact)}">${esc(data.overall_impact)}</strong></div>
             <div class="ops-row"><span>Impact Score</span><strong>${esc(data.impact_score)}</strong></div>
@@ -99,7 +121,12 @@
         let data, live = null;
         try {
             const [a, b] = await Promise.allSettled([
-                fetch(`/api/intel/scenarios/${ticker}`).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }),
+                fetch(`/api/intel/scenarios/${ticker}`).then(async r => {
+                    const j = await r.json().catch(() => ({}));
+                    if (j && j.error === "upgrade_required") return { upgrade: true, ...j };
+                    if (!r.ok) throw new Error("HTTP " + r.status);
+                    return j;
+                }),
                 fetch(`/api/stock/${ticker}/live-quote`).then(r => r.json()).catch(() => null)
             ]);
             if (a.status !== "fulfilled") throw new Error("scenarios fetch failed");
@@ -107,6 +134,9 @@
             live = (b.status === "fulfilled" && b.value && b.value.price) ? b.value : null;
         } catch (e) {
             primary.innerHTML = `<div class="pro-negative">FETCH FAILED: ${esc(e.message)}</div>`; side.innerHTML = ""; return;
+        }
+        if (data && data.upgrade) {
+            primary.innerHTML = upgradeHtml({ error: data.message, upgrade: data }); side.innerHTML = ""; return;
         }
         if (data.error) { primary.innerHTML = `<div class="pro-negative">FETCH FAILED: ${esc(data.error)}</div>`; side.innerHTML = ""; return; }
         renderLab(ticker, data, live);
@@ -146,8 +176,8 @@
             <div class="pro-title" style="margin-top:12px">Stress your own DCF (posts to model, rescales cases)</div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:8px">
               <label style="font-size:11px;color:var(--muted)">WACC %<input id="lab-wacc" type="number" step="0.1" value="${inp.wacc_default || 9}" style="width:100%;margin-top:4px;padding:7px;background:#0a0a0b;border:1px solid var(--border);color:var(--text);border-radius:8px"/></label>
-              <label style="font-size:11px;color:var(--muted)">Growth 1-5 %<input id="lab-g15" type="number" step="0.5" value="15" style="width:100%;margin-top:4px;padding:7px;background:#0a0a0b;border:1px solid var(--border);color:var(--text);border-radius:8px"/></label>
-              <label style="font-size:11px;color:var(--muted)">Growth 6-10 %<input id="lab-g610" type="number" step="0.5" value="10" style="width:100%;margin-top:4px;padding:7px;background:#0a0a0b;border:1px solid var(--border);color:var(--text);border-radius:8px"/></label>
+              <label style="font-size:11px;color:var(--muted)">Growth 1-5 %<input id="lab-g15" type="number" step="0.5" value="${inp.growth_1_5_default || inp.growth_default || 15}" style="width:100%;margin-top:4px;padding:7px;background:#0a0a0b;border:1px solid var(--border);color:var(--text);border-radius:8px"/></label>
+              <label style="font-size:11px;color:var(--muted)">Growth 6-10 %<input id="lab-g610" type="number" step="0.5" value="${inp.growth_6_10_default || 10}" style="width:100%;margin-top:4px;padding:7px;background:#0a0a0b;border:1px solid var(--border);color:var(--text);border-radius:8px"/></label>
               <label style="font-size:11px;color:var(--muted)">Terminal %<input id="lab-term" type="number" step="0.1" value="${inp.terminal_default || 2.5}" style="width:100%;margin-top:4px;padding:7px;background:#0a0a0b;border:1px solid var(--border);color:var(--text);border-radius:8px"/></label>
             </div>
             <button class="btn btn-primary" id="lab-recalc" style="margin-top:8px">RECALCULATE BASE</button>
@@ -180,6 +210,7 @@
         primary.textContent = "CONVENING AI INVESTMENT COMMITTEE...";
         side.textContent = "BUILDING BULL / BEAR / BASE CASES...";
         const data = await safeFetch(`/api/intel/committee/${ticker}`);
+        if (data.upgrade) { primary.innerHTML = upgradeHtml(data); side.innerHTML = ""; return; }
         if (data.error) { primary.innerHTML = `<div class="pro-negative">FETCH FAILED: ${data.error}</div>`; side.innerHTML = ""; return; }
         const vote = data.vote || {};
         primary.innerHTML = `
@@ -197,6 +228,7 @@
         primary.textContent = "SCANNING FINANCIAL RED FLAGS...";
         side.textContent = "CHECKING LEVERAGE / LIQUIDITY / FCF / ACCOUNTING RISK...";
         const data = await safeFetch(`/api/intel/red-flags/${ticker}`);
+        if (data.upgrade) { primary.innerHTML = upgradeHtml(data); side.innerHTML = ""; return; }
         if (data.error) { primary.innerHTML = `<div class="pro-negative">FETCH FAILED: ${data.error}</div>`; side.innerHTML = ""; return; }
         primary.innerHTML = `
             <div class="ops-row"><span>Risk Level</span><strong class="${clsImpact(data.risk_level)}">${esc(data.risk_level)}</strong></div>
